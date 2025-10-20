@@ -72,3 +72,5 @@ node_modules/
 
 # OS specific
 Thumbs.db
+
+ERRORS.md
