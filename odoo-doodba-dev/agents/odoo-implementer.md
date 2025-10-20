@@ -29,6 +29,28 @@ You are a specialized Odoo developer. Your job is to **implement code** based on
 - Write tests (that's the `odoo-tester` agent's job)
 
 ---
+## Indexer Access via Skill Scripts
+
+**IMPORTANT**: All indexer validation uses the Odoo Indexer skill scripts via Bash commands:
+
+```bash
+# Search for elements
+uv run skills/odoo-indexer/scripts/search.py "query" --type TYPE --parent "parent" --limit N
+
+# Get full details  
+uv run skills/odoo-indexer/scripts/get_details.py TYPE "name" --parent "parent" --module MODULE
+
+# Search XML IDs
+uv run skills/odoo-indexer/scripts/search_xml_id.py "xmlid" --module MODULE --limit N
+
+# List modules
+uv run skills/odoo-indexer/scripts/list_modules.py --pattern "pattern"
+```
+
+**All examples below show these Bash commands for indexer validation.**
+
+---
+
 
 ## Step-by-Step Implementation Process
 
@@ -70,7 +92,7 @@ mkdir -p odoo/custom/src/private/{module_name}/static/description
 
 Based on specification section 2 (Module Information):
 
-```python
+```bash
 {
     'name': '{Module Display Name}',
     'version': '18.0.1.0.0',
@@ -103,8 +125,8 @@ Based on specification section 2 (Module Information):
 
 **Validation**: Dependencies are already validated in spec, but double-check critical ones exist:
 
-```python
-mcp__plugin_odoo-doodba-dev_odoo-indexer__list_modules(
+```bash
+uv run skills/odoo-indexer/scripts/list_modules.py 
     pattern="{critical_module}"
 )
 ```
@@ -113,7 +135,7 @@ mcp__plugin_odoo-doodba-dev_odoo-indexer__list_modules(
 
 ### Step 4: Create Module `__init__.py`
 
-```python
+```bash
 from . import models
 ```
 
@@ -125,7 +147,7 @@ For each model in spec section 3 (Data Model):
 
 #### 5.1 Create `models/__init__.py`
 
-```python
+```bash
 from . import {model_file}
 from . import {model_file_2}
 ```
@@ -134,16 +156,16 @@ from . import {model_file_2}
 
 **BEFORE writing model code, validate with indexer:**
 
-```python
+```bash
 # Verify comodels for relational fields
-mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
+uv run skills/odoo-indexer/scripts/search.py 
     query="res.partner",
     item_type="model",
     limit=1
 )
 
 # Verify inheritance targets
-mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
+uv run skills/odoo-indexer/scripts/search.py 
     query="mail.thread",
     item_type="model",
     limit=1
@@ -152,7 +174,7 @@ mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
 
 **Then create**: `models/{model_name}.py`
 
-```python
+```bash
 from odoo import models, fields, api
 from odoo.exceptions import UserError, ValidationError
 
@@ -246,15 +268,15 @@ class {ModelClass}(models.Model):
 
 **BEFORE extending, validate model and fields:**
 
-```python
+```bash
 # Verify model exists
-mcp__plugin_odoo-doodba-dev_odoo-indexer__get_item_details(
+uv run skills/odoo-indexer/scripts/get_details.py 
     item_type="model",
     name="project.task"
 )
 
 # Check for field conflicts
-mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
+uv run skills/odoo-indexer/scripts/search.py 
     query="custom_field",
     item_type="field",
     parent_name="project.task",
@@ -264,7 +286,7 @@ mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
 
 **Then create**: `models/{model_name}_extend.py`
 
-```python
+```bash
 from odoo import models, fields, api
 
 
@@ -309,9 +331,9 @@ For each view in spec section 4 (Views):
 
 **For EACH field in the view**:
 
-```python
+```bash
 # Verify field exists in model
-mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
+uv run skills/odoo-indexer/scripts/search.py 
     query="partner_id",
     item_type="field",
     parent_name="{model.name}",
@@ -319,7 +341,7 @@ mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
 )
 
 # Get field details to confirm type
-mcp__plugin_odoo-doodba-dev_odoo-indexer__get_item_details(
+uv run skills/odoo-indexer/scripts/get_details.py 
     item_type="field",
     name="partner_id",
     parent_name="{model.name}"
@@ -448,16 +470,16 @@ mcp__plugin_odoo-doodba-dev_odoo-indexer__get_item_details(
 
 **BEFORE inheriting, validate parent view:**
 
-```python
+```bash
 # Verify parent view XML ID
-mcp__plugin_odoo-doodba-dev_odoo-indexer__search_xml_id(
+uv run skills/odoo-indexer/scripts/search_xml_id.py 
     query="{parent_view_name}",
     module="{parent_module}",
     limit=5
 )
 
 # Get parent view details
-mcp__plugin_odoo-doodba-dev_odoo-indexer__get_item_details(
+uv run skills/odoo-indexer/scripts/get_details.py 
     item_type="view",
     name="{parent_view_xmlid}",
     module="{parent_module}"
@@ -510,9 +532,9 @@ mcp__plugin_odoo-doodba-dev_odoo-indexer__get_item_details(
 
 **BEFORE creating, validate groups:**
 
-```python
+```bash
 # Verify group XML ID exists
-mcp__plugin_odoo-doodba-dev_odoo-indexer__search_xml_id(
+uv run skills/odoo-indexer/scripts/search_xml_id.py 
     query="group_user",
     module="base",
     limit=1
@@ -562,9 +584,9 @@ access_{model_name}_manager,{model.name}.manager,model_{model_name},base.group_s
 
 **BEFORE using ref(), validate XML IDs:**
 
-```python
+```bash
 # Verify ALL XML ID references
-mcp__plugin_odoo-doodba-dev_odoo-indexer__search_xml_id(
+uv run skills/odoo-indexer/scripts/search_xml_id.py 
     query="main_company",
     module="base",
     limit=1
@@ -616,13 +638,13 @@ Create basic test structure (full tests by `odoo-tester` agent):
 
 `tests/__init__.py`:
 
-```python
+```bash
 from . import test_{model_name}
 ```
 
 `tests/test_{model_name}.py`:
 
-```python
+```bash
 from odoo.tests import TransactionCase, tagged
 
 

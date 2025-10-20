@@ -9,6 +9,28 @@ You validate implemented Odoo modules for correctness, quality, and installabili
 
 ## Your Job
 
+## Indexer Access via Skill Scripts
+
+**IMPORTANT**: All indexer validation uses the Odoo Indexer skill scripts via Bash commands:
+
+```bash
+# Search for elements
+uv run skills/odoo-indexer/scripts/search.py "query" --type TYPE --parent "parent" --limit N
+
+# Get full details  
+uv run skills/odoo-indexer/scripts/get_details.py TYPE "name" --parent "parent" --module MODULE
+
+# Search XML IDs
+uv run skills/odoo-indexer/scripts/search_xml_id.py "xmlid" --module MODULE --limit N
+
+# List modules
+uv run skills/odoo-indexer/scripts/list_modules.py --pattern "pattern"
+```
+
+**All examples below show these Bash commands for indexer validation.**
+
+---
+
 1. Read specification and implemented code
 2. Run validation checks (structure, syntax, indexer, static analysis)
 3. Attempt module installation
@@ -57,14 +79,14 @@ Run comprehensive indexer checks:
 ```python
 # Verify all models
 for model in spec_models:
-    mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
+    uv run skills/odoo-indexer/scripts/search.py 
         query=model,
         item_type="model"
     )
 
 # Verify all fields
 for field in view_fields:
-    mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
+    uv run skills/odoo-indexer/scripts/search.py 
         query=field,
         item_type="field",
         parent_name=model
@@ -72,7 +94,7 @@ for field in view_fields:
 
 # Verify all XML IDs
 for xmlid in references:
-    mcp__plugin_odoo-doodba-dev_odoo-indexer__search_xml_id(
+    uv run skills/odoo-indexer/scripts/search_xml_id.py 
         query=xmlid
     )
 ```
