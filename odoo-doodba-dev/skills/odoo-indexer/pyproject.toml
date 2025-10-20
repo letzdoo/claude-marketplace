@@ -1,0 +1,34 @@
+[project]
+name = "odoo-indexer-skill"
+version = "1.0.0"
+description = "Odoo codebase indexer for Claude Code"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Letzdoo (Jerome Sonnet)"}
+]
+
+dependencies = [
+    "lxml>=4.9.0",
+    "aiosqlite>=0.19.0",
+    "uvloop>=0.21.0; sys_platform != 'win32'",
+]
+
+[project.scripts]
+odoo-search = "scripts.search:main"
+odoo-get-details = "scripts.get_details:main"
+odoo-list-modules = "scripts.list_modules:main"
+odoo-module-stats = "scripts.module_stats:main"
+odoo-find-refs = "scripts.find_refs:main"
+odoo-search-by-attr = "scripts.search_by_attr:main"
+odoo-search-xml-id = "scripts.search_xml_id:main"
+odoo-update-index = "scripts.update_index:main"
+odoo-index-status = "scripts.index_status:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["lib", "scripts"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
