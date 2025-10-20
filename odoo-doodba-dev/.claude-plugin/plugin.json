@@ -1,0 +1,22 @@
+{
+  "name": "odoo-doodba-dev",
+  "description": "Professional Odoo development toolkit for Doodba containers with deep knowledge of Odoo structure, testing, and best practices",
+  "version": "1.0.0",
+  "author": {
+    "name": "Letzdoo (Jerome Sonnet)"
+  },
+  "mcpServers": {
+    "odoo-indexer": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/letzdoo/odoo-indexer-mcp.git",
+        "odoo-index-mcp"
+      ],
+      "env": {
+        "ODOO_PATH": "/home/coder/letzdoo-sh/odoo/custom/src",
+        "SQLITE_DB_PATH": "/home/coder/.odoo-indexer-mcp/odoo_indexer.sqlite3"
+      }
+    }
+  }
+}

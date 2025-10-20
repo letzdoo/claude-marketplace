@@ -1,0 +1,13 @@
+{
+  "name": "letzdoo-dev-local",
+  "owner": {
+    "name": "Letzdoo (Jerome Sonnet)"
+  },
+  "plugins": [
+    {
+      "name": "odoo-doodba-dev",
+      "source": "./odoo-doodba-dev",
+      "description": "Professional Odoo development toolkit for Doodba containers"
+    }
+  ]
+}
