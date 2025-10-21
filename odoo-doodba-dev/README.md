@@ -11,7 +11,7 @@ Professional Odoo development toolkit for Claude Code with deep knowledge of Doo
 - **Logging**: View and analyze Odoo logs
 - **System Info**: Get detailed information about modules and structure
 - **Expert Agent**: Specialized Odoo developer with deep knowledge
-- **Code Indexing**: Fast code navigation with odoo-indexer MCP server
+- **Code Indexing**: Fast code navigation with odoo-indexer skill
 
 ## Installation
 
@@ -61,7 +61,7 @@ This agent has deep knowledge of:
 - Docker and Docker Compose
 - Python 3.8.1+ with pyinvoke installed
 - Claude Code installed
-- Python 3.10+ with uv (for MCP server)
+- Python 3.10+ with uv (for indexer scripts)
 
 ## Key Features
 
@@ -69,7 +69,7 @@ This agent has deep knowledge of:
 This plugin uses Doodba's built-in `invoke` tasks for all operations, ensuring compatibility and best practices. The commands guide you to use the proper invoke tasks instead of raw docker commands.
 
 **Odoo Code Indexing:**
-This plugin includes the [odoo-indexer-mcp](https://github.com/letzdoo/odoo-indexer-mcp) server that provides fast code navigation through:
+This plugin includes the odoo-indexer skill that provides fast code navigation through:
 - Search for models, fields, methods, views, and other Odoo elements
 - Get detailed information about any indexed item
 - Find references across the codebase
@@ -93,26 +93,17 @@ Then develop iteratively using the odoo-developer agent:
 
 "Create a custom field on sale.order to track customer project code, add it to the form view, and write tests for it"
 
-### Use Code Indexing (MCP Tools)
+### Use Code Indexing
 
-The odoo-indexer MCP server provides tools accessible to Claude:
+The odoo-indexer skill provides fast code navigation. Simply ask Claude to:
 
-```python
-# Search for a model
-mcp__odoo_indexer__search_odoo_index(query="sale.order", item_type="model")
+- "Search for the sale.order model"
+- "Show me all fields in res.partner"
+- "Find all references to the partner_id field"
+- "List all modules in the codebase"
+- "Find all models that inherit from mail.thread"
 
-# Get detailed information about a model
-mcp__odoo_indexer__get_item_details(item_type="model", name="sale.order")
-
-# Find all references to a field
-mcp__odoo_indexer__find_references(item_type="field", name="partner_id")
-
-# List all modules
-mcp__odoo_indexer__list_modules()
-
-# Search by specific attributes
-mcp__odoo_indexer__search_by_attribute(item_type="model", attribute="inherit", value="mail.thread")
-```
+The indexer automatically maintains an up-to-date SQLite database of your Odoo codebase, providing sub-50ms search responses.
 
 ### Test your changes
 
