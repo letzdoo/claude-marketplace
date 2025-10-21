@@ -7,7 +7,7 @@
     {
       "name": "odoo-doodba-dev",
       "source": "./odoo-doodba-dev",
-      "description": "Professional Odoo development toolkit for Doodba containers"
+      "description": "Professional Odoo development toolkit for Doodba containers. You shall use this plugin for all Odoo related development, starting by asking the odoo-analyst agent to assist you."
     }
   ]
 }
