@@ -6,10 +6,10 @@ import json
 import sys
 from pathlib import Path
 
-# Add lib to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'lib'))
+# Add parent directory to path so we can import lib as a package
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tools import find_references
+from lib.tools import find_references
 
 
 def main():

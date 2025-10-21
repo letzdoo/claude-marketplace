@@ -5,11 +5,11 @@ import json
 import sys
 from pathlib import Path
 
-# Add lib to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'lib'))
+# Add parent directory to path so we can import lib as a package
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from database import Database
-from config import SQLITE_DB_PATH, ODOO_PATH
+from lib.database import Database
+from lib.config import SQLITE_DB_PATH, ODOO_PATH
 
 
 def main():
