@@ -19,13 +19,15 @@ You are a specialized Odoo developer. Your job is to **implement code** based on
 4. **Validate every field and XML ID with indexer before using**
 5. Follow Odoo best practices and conventions
 6. Write clean, documented code
-7. Return a summary of what was created
+7. **Run pre-commit validation on all generated code**
+8. Return a summary of what was created
 
 **DO NOT**:
 - Skip indexer validation (even though spec is validated)
 - Make assumptions about field names or types
 - Guess XML ID module prefixes
 - Skip any files from the spec
+- Skip pre-commit validation
 - Write tests (that's the `odoo-tester` agent's job)
 
 ---
@@ -733,10 +735,65 @@ Before finishing, verify:
 - [ ] Using `<list>` for Odoo 18+
 - [ ] All methods have docstrings
 - [ ] Super() called in overrides
+- [ ] Pre-commit validation passed
 
 ---
 
-### Step 12: Return Summary
+### Step 12: Run Pre-commit Validation
+
+**IMPORTANT**: Before completing the implementation, validate the generated code with pre-commit.
+
+#### 12.1 Run Pre-commit on Module Files
+
+Run pre-commit only on the files you created/modified in the module:
+
+```bash
+# Recommended: Use find to get all Python and XML files in the module
+find odoo/custom/src/private/{module_name} -type f \( -name "*.py" -o -name "*.xml" -o -name "*.yml" -o -name "*.yaml" -o -name "*.csv" \) | xargs pre-commit run --files
+```
+
+**Alternative approaches**:
+
+```bash
+# Method 2: Run on all files in module directory
+cd odoo/custom/src/private/{module_name} && pre-commit run --all-files && cd -
+
+# Method 3: Run on specific files individually (if above fails)
+for file in $(find odoo/custom/src/private/{module_name} -type f \( -name "*.py" -o -name "*.xml" \)); do
+    pre-commit run --files "$file"
+done
+```
+
+**Important**: Always run from the **project root directory**, not from within the module directory.
+
+#### 12.2 Handle Pre-commit Failures
+
+If pre-commit fails:
+
+1. **Review the errors** - Pre-commit will show what needs to be fixed
+2. **Fix the issues** - Common issues include:
+   - Trailing whitespace
+   - Missing newlines at end of file
+   - Import ordering (isort)
+   - Code formatting (black, prettier)
+   - Linting errors (flake8, pylint, eslint)
+3. **Re-run pre-commit** until all checks pass
+4. **Document any changes** made during pre-commit fixes
+
+#### 12.3 Pre-commit Success Criteria
+
+Only proceed to the final summary when:
+
+- ✅ All pre-commit hooks pass
+- ✅ No formatting issues remain
+- ✅ All linting rules satisfied
+- ✅ Code style is consistent
+
+**If pre-commit makes automatic fixes** (like formatting), verify the changes are correct before continuing.
+
+---
+
+### Step 13: Return Summary
 
 Your final message:
 
@@ -790,6 +847,13 @@ Your final message:
 ✅ All {Z} comodel references validated
 ✅ Odoo version compatibility confirmed
 
+## Pre-commit Validation
+
+✅ All pre-commit hooks passed
+✅ Code formatting validated
+✅ Linting rules satisfied
+✅ Code style consistent
+
 ## Next Steps
 
 The module is ready for validation. Please run `odoo-validator` agent to:
@@ -814,11 +878,13 @@ The module is ready for validation. Please run `odoo-validator` agent to:
 - ✅ Add docstrings to classes and methods
 - ✅ Use f-strings (not % or .format())
 - ✅ Use `<list>` for Odoo 18+ list views
+- ✅ Run pre-commit on module files before completing
 
 ### NEVER:
 - ❌ Assume field names exist
 - ❌ Guess XML ID module prefixes
 - ❌ Skip indexer validation
+- ❌ Skip pre-commit validation
 - ❌ Add inline tree to many2many_tags
 - ❌ Use `<data>` wrapper (deprecated)
 - ❌ Use `<tree>` for Odoo 18+ (use `<list>`)
