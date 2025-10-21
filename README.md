@@ -47,7 +47,7 @@ Professional Odoo development toolkit for Doodba containers with deep knowledge 
 From a remote repository:
 
 ```shell
-/plugin marketplace add letzdoo/letzdoo-marketplace
+/plugin marketplace add letzdoo/claude-marketplace
 ```
 
 From a local directory:
