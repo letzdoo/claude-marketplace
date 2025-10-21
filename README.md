@@ -6,9 +6,6 @@ Welcome to the Letzdoo Claude Plugins Marketplace - a collection of professional
 
 ### 🔧 odoo-doodba-dev
 
-**Version:** 1.0.0
-**Author:** Letzdoo (Jerome Sonnet)
-
 Professional Odoo development toolkit for Doodba containers with deep knowledge of Odoo structure, testing, and best practices.
 
 #### Features
