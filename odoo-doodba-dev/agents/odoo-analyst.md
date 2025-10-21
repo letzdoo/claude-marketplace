@@ -189,9 +189,196 @@ uv run skills/odoo-indexer/scripts/module_stats.py project
 
 ---
 
+### Step 3.7: Module Granularity Decision (CRITICAL - REQUIRES HUMAN VALIDATION)
+
+**This is a critical architectural decision that MUST be validated with the user before proceeding.**
+
+After researching the codebase, you must decide: **Should this be a new module or an extension of existing module(s)?**
+
+This decision affects:
+- Maintainability and separation of concerns
+- Dependency management
+- Installation/uninstallation granularity
+- Reusability across projects
+- Testing isolation
+
+#### Module Granularity Guidelines
+
+**Create a NEW module when:**
+- ✅ Feature is a **distinct business capability** (e.g., "Asset Management", "Fleet Maintenance")
+- ✅ Feature could be **enabled/disabled independently**
+- ✅ Feature might be **reused in other projects**
+- ✅ Feature has **its own data lifecycle** (records that live independently)
+- ✅ Feature requires **3+ new models** that form a cohesive domain
+- ✅ Feature has **complex workflows** independent from existing modules
+- ✅ Feature might have **different release cycles** from base modules
+
+**Extend existing module(s) when:**
+- ✅ Adding **1-2 fields** to existing models
+- ✅ Minor **UI customization** (add field to view, change widget)
+- ✅ Small **workflow enhancement** (override single method)
+- ✅ **Tightly coupled** to existing module's functionality
+- ✅ **Cannot function independently** without the base module
+- ✅ Changes are **project-specific** customizations
+
+#### Module Architecture Patterns
+
+**Pattern 1: Single Cohesive Module**
+```
+✓ Good: quality_project_task
+  - Adds quality checks to project tasks
+  - 2 models: extends project.task, project.task.type
+  - 1 new model: quality.check (if needed)
+  - Single business purpose: Quality control for tasks
+```
+
+**Pattern 2: Feature Module Extending Multiple Modules**
+```
+✓ Good: project_sale_integration
+  - Integrates project and sale modules
+  - Extends: project.task, sale.order
+  - Adds: Linking, synchronization, workflows
+  - Clear scope: Integration layer
+```
+
+**Pattern 3: Avoid Over-Fragmentation**
+```
+✗ Bad: Three separate modules for related features
+  - task_custom_field_1
+  - task_custom_field_2
+  - task_custom_field_3
+  ↓
+✓ Good: Single module
+  - project_custom_fields
+    - All custom fields in one place
+    - Easier to maintain and test
+    - Single dependency
+```
+
+**Pattern 4: Avoid God Modules**
+```
+✗ Bad: project_customizations (10+ unrelated features)
+  - Quality checks
+  - Expense tracking
+  - Time tracking improvements
+  - Approval workflows
+  - Resource planning
+  ↓
+✓ Good: Separate modules by domain
+  - project_quality (quality-related)
+  - project_expense (expense-related)
+  - project_approval (approval workflows)
+```
+
+#### Decision Framework
+
+**Ask these questions:**
+
+1. **Independence Test**: Can this feature be uninstalled without breaking the system?
+   - YES → Likely new module
+   - NO → Likely extension
+
+2. **Reusability Test**: Would other projects benefit from this feature?
+   - YES → Likely new module
+   - NO → Likely extension
+
+3. **Complexity Test**: Does it introduce 3+ new models or complex workflows?
+   - YES → Likely new module
+   - NO → Likely extension
+
+4. **Cohesion Test**: Do all changes relate to a single business capability?
+   - YES → Single module (new or extension)
+   - NO → Consider splitting
+
+5. **Testing Test**: Does it need isolated testing environment?
+   - YES → New module (easier to test)
+   - NO → Extension is fine
+
+#### Module Naming Conventions
+
+**New modules:**
+- Format: `{domain}_{feature}` or `{base_module}_{extension}`
+- Examples:
+  - `asset_maintenance` (new domain)
+  - `project_quality` (extends project with quality)
+  - `sale_project_link` (integrates two modules)
+  - `stock_barcode_mobile` (extends stock with mobile barcode)
+
+**Avoid:**
+- Generic names: `custom`, `modifications`, `extras`
+- Vague names: `improvements`, `extensions`, `additions`
+- Owner names: `acme_custom`, `client_modifications`
+
+#### Human Validation Required
+
+**After analyzing the requirements, you MUST present a module architecture proposal to the user:**
+
+```markdown
+## Module Architecture Proposal
+
+### Option 1: {Recommendation} (RECOMMENDED)
+
+**Approach**: {New Module / Extend Existing / Mixed}
+
+**Module Name**: `{module_name}`
+
+**Rationale**:
+- {Reason 1: e.g., "Feature is independent and reusable"}
+- {Reason 2: e.g., "Introduces 4 new models forming cohesive domain"}
+- {Reason 3: e.g., "Can be enabled/disabled independently"}
+
+**Structure**:
+- New Models: {list}
+- Extended Models: {list}
+- Dependencies: {list}
+
+**Pros**:
+- ✅ {Benefit 1}
+- ✅ {Benefit 2}
+
+**Cons**:
+- ⚠️ {Drawback 1 - if any}
+
+### Option 2: {Alternative} (Alternative)
+
+**Approach**: {Different approach}
+
+**Module Name**: `{alt_module_name}` OR multiple modules
+
+**Rationale**:
+- {Why this might be considered}
+
+**Structure**:
+- ...
+
+**Pros**:
+- ✅ {Benefit}
+
+**Cons**:
+- ⚠️ {Drawback}
+
+### Recommendation
+
+I recommend **Option 1** because {clear justification}.
+
+**Please confirm this architecture or suggest adjustments before I proceed with the detailed specification.**
+```
+
+**STOP HERE and wait for user approval before proceeding to Step 4.**
+
+If user requests changes:
+- Adjust module structure
+- Re-evaluate dependencies
+- Update architecture proposal
+- Get confirmation again
+
+**DO NOT proceed to data model design until module architecture is approved.**
+
+---
+
 ### Step 4: Design the Data Model
 
-Based on indexer research, design:
+Based on indexer research AND approved module architecture, design:
 
 #### 4.1 New Models
 

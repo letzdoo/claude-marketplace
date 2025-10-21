@@ -64,20 +64,38 @@ As the main Claude CLI agent, you are responsible for:
      Requirements:
      - Use the Odoo indexer extensively to validate all models, fields, and XML IDs
      - Research existing codebase for similar patterns
+     - CRITICAL: Present module architecture proposal with options before completing spec
+     - Wait for user approval on module granularity decision
      - Create complete specification in specs/SPEC-{feature-name}.md
      - Use the template from workflows/templates/SPEC-template.md
      - Validate all dependencies and references
      - Check Odoo version compatibility
 
-     Be thorough and validate everything with the indexer before creating the spec."
+     IMPORTANT: The analyst will pause to get approval on module architecture before finalizing the spec."
    )
    ```
 
-3. When agent completes, review the generated `specs/SPEC-{feature-name}.md`
+3. **CRITICAL**: The analyst will present a **Module Architecture Proposal** with options:
+   - Should it be a new module or extend existing?
+   - Module naming and granularity
+   - Pros/cons of different approaches
 
-4. **STOP and ask user**: "I've created a detailed specification in `specs/SPEC-{feature-name}.md`. Please review it and let me know if you approve or want changes."
+   **You MUST wait for the analyst to present this proposal, then get USER APPROVAL before the analyst continues.**
 
-5. **DO NOT proceed** to stage 2 until user explicitly approves
+4. Once module architecture is approved, the analyst completes the specification
+
+5. When spec is complete, review `specs/SPEC-{feature-name}.md`
+
+6. **STOP and ask user**: "The specification is complete in `specs/SPEC-{feature-name}.md`. Please review:
+   - Module architecture (approved earlier)
+   - Data model design
+   - Views and UI
+   - Business logic
+   - Security rules
+
+   Would you like me to proceed with implementation or make changes?"
+
+7. **DO NOT proceed** to stage 2 until user explicitly approves the full specification
 
 ---
 
