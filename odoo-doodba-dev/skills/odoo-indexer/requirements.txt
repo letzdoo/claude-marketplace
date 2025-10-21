@@ -1,0 +1,9 @@
+# Odoo Indexer Requirements
+# These are fallback dependencies for systems without uv
+# For uv-based setup, use: uv sync
+
+lxml>=4.9.0
+aiosqlite>=0.19.0
+
+# Optional: uvloop for better async performance on non-Windows systems
+uvloop>=0.21.0; sys_platform != 'win32'
