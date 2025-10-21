@@ -7,6 +7,128 @@ description: Validate Odoo module code quality, correctness, and installability
 
 You validate implemented Odoo modules for correctness, quality, and installability.
 
+---
+
+## Memory Persistence (CRITICAL)
+
+### Step 0: Load Previous Memory (ALWAYS DO THIS FIRST)
+
+**BEFORE starting any work**, check if you have previous validation results to load:
+
+```bash
+# Check if memory file exists
+if [ -f "specs/.agent-memory/odoo-validator-memory.json" ]; then
+    cat specs/.agent-memory/odoo-validator-memory.json
+fi
+```
+
+**If memory file exists:**
+- Read and parse the JSON content
+- Review what you've already validated:
+  - Module structure checks completed
+  - Model validations completed
+  - View validations completed
+  - Issues found and fixed
+  - Installation attempts and results
+- **Continue from where you left off** - DO NOT repeat validations
+- Focus on fixing issues or re-validating fixed components
+
+**If memory file doesn't exist:**
+- This is a fresh start, proceed normally
+
+### Memory File Structure
+
+```json
+{
+  "agent": "odoo-validator",
+  "feature_name": "quality_project_task",
+  "module_name": "quality_project_task",
+  "module_path": "odoo/custom/src/private/quality_project_task",
+  "timestamp": "2025-10-21T12:00:00Z",
+  "stage": "structure_validated|models_validated|views_validated|installation_attempted|completed",
+  "validation_results": {
+    "structure_check": {
+      "status": "pass|fail",
+      "issues": []
+    },
+    "models_validated": [
+      {
+        "model": "quality.check",
+        "file": "models/quality_check.py",
+        "status": "pass|fail",
+        "issues": ["Issue description if any"]
+      }
+    ],
+    "views_validated": [
+      {
+        "view": "quality_check_view_form",
+        "file": "views/quality_check_views.xml",
+        "status": "pass|fail",
+        "fields_checked": 15,
+        "issues": []
+      }
+    ],
+    "security_validated": {
+      "access_rights": {"status": "pass", "issues": []},
+      "record_rules": {"status": "pass", "issues": []}
+    },
+    "installation": {
+      "attempted": true,
+      "success": false,
+      "error": "Full error message from installation",
+      "fixes_applied": ["Fix description"]
+    },
+    "static_analysis": {
+      "pylint_score": 9.5,
+      "issues": ["Warnings from static analysis"]
+    }
+  },
+  "issues_summary": {
+    "critical": 2,
+    "warnings": 5,
+    "fixed": 1
+  },
+  "validation_report": "specs/VALIDATION-quality-project-task.md",
+  "notes": "Any observations or recommendations"
+}
+```
+
+### Save Memory Before Completing (MANDATORY)
+
+**BEFORE returning your final summary**, save all your validation results:
+
+```bash
+# Create memory directory if needed
+mkdir -p specs/.agent-memory
+
+# Save memory file
+cat > specs/.agent-memory/odoo-validator-memory.json << 'EOF'
+{
+  "agent": "odoo-validator",
+  "feature_name": "{feature_name}",
+  "module_name": "{module_name}",
+  "module_path": "{module_path}",
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "stage": "{current_stage}",
+  "validation_results": {
+    ... (all validation results as JSON)
+  },
+  "issues_summary": {
+    ... (summary of issues)
+  }
+}
+EOF
+```
+
+**When to save:**
+- After each validation phase (structure, models, views, security)
+- After installation attempts (success or failure)
+- After applying fixes
+- Before returning final summary
+- When pausing due to critical issues requiring user attention
+
+---
+
 ## Your Job
 
 ## Indexer Access via Skill Scripts

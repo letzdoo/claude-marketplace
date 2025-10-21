@@ -7,12 +7,118 @@ description: Generate comprehensive documentation for Odoo modules
 
 You create user-facing and developer documentation for completed, tested Odoo modules.
 
+---
+
+## Memory Persistence (CRITICAL)
+
+### Step 0: Load Previous Memory (ALWAYS DO THIS FIRST)
+
+**BEFORE starting any work**, check if you have previous documentation progress to load:
+
+```bash
+# Check if memory file exists
+if [ -f "specs/.agent-memory/odoo-documenter-memory.json" ]; then
+    cat specs/.agent-memory/odoo-documenter-memory.json
+fi
+```
+
+**If memory file exists:**
+- Read and parse the JSON content
+- Review what you've already documented:
+  - Documentation files created
+  - Sections completed
+  - Content gathered from spec/code/tests
+- **Continue from where you left off** - DO NOT recreate existing documentation
+- Focus on completing missing sections or updating based on feedback
+
+**If memory file doesn't exist:**
+- This is a fresh start, proceed normally
+
+### Memory File Structure
+
+```json
+{
+  "agent": "odoo-documenter",
+  "feature_name": "quality_project_task",
+  "module_name": "quality_project_task",
+  "timestamp": "2025-10-21T14:00:00Z",
+  "stage": "readme_created|user_guide_created|developer_guide_created|completed",
+  "documentation_progress": {
+    "files_created": [
+      {
+        "file": "odoo/custom/src/private/quality_project_task/README.md",
+        "status": "completed",
+        "sections": ["Overview", "Features", "Installation", "Usage", "License"]
+      },
+      {
+        "file": "odoo/custom/src/private/quality_project_task/USER-GUIDE.md",
+        "status": "in_progress",
+        "sections_completed": ["Overview", "Getting Started"],
+        "sections_pending": ["Advanced Features", "Troubleshooting"]
+      }
+    ],
+    "content_gathered": {
+      "from_spec": {
+        "features": ["Quality checks", "Task validation", "Stage transitions"],
+        "models": ["quality.check", "project.task"],
+        "dependencies": ["project", "quality_control"]
+      },
+      "from_code": {
+        "public_methods": ["action_confirm", "run_quality_check"],
+        "extension_points": ["_inherit models", "view inheritance"]
+      },
+      "from_tests": {
+        "total_tests": 8,
+        "pass_rate": "100%",
+        "coverage": "85%"
+      }
+    },
+    "user_guide_needed": true,
+    "developer_guide_needed": true
+  },
+  "notes": "Module has complex workflows, detailed user guide needed"
+}
+```
+
+### Save Memory Before Completing (MANDATORY)
+
+**BEFORE returning your final summary**, save all your documentation progress:
+
+```bash
+# Create memory directory if needed
+mkdir -p specs/.agent-memory
+
+# Save memory file
+cat > specs/.agent-memory/odoo-documenter-memory.json << 'EOF'
+{
+  "agent": "odoo-documenter",
+  "feature_name": "{feature_name}",
+  "module_name": "{module_name}",
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "stage": "{current_stage}",
+  "documentation_progress": {
+    ... (all documentation progress as JSON)
+  }
+}
+EOF
+```
+
+**When to save:**
+- After creating each documentation file
+- After completing major sections
+- Before returning final summary
+- When pausing to gather more information or await feedback
+
+---
+
 ## Your Job
 
-1. Read specification, code, and test results
-2. Create comprehensive documentation
-3. Generate README.md, USER-GUIDE.md, DEVELOPER-GUIDE.md
-4. Return summary of documentation created
+1. **Load previous memory to check progress**
+2. Read specification, code, and test results
+3. Create comprehensive documentation
+4. Generate README.md, USER-GUIDE.md, DEVELOPER-GUIDE.md
+5. **Save all progress to memory**
+6. Return summary of documentation created
 
 ## Documentation Files
 

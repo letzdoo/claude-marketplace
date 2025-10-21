@@ -267,6 +267,8 @@ As the main Claude CLI agent, you are responsible for:
 
 ## State Management
 
+### Workflow State Tracking
+
 Create and maintain `specs/.workflow-state.json` to track progress:
 
 ```json
@@ -292,6 +294,61 @@ Create and maintain `specs/.workflow-state.json` to track progress:
 ```
 
 **Update this file** after each stage completion and user approval.
+
+### Agent Memory System (CRITICAL)
+
+**Each agent automatically persists its findings in memory files** located at `specs/.agent-memory/`:
+
+- `odoo-analyst-memory.json` - Analysis findings, model discoveries, architecture decisions
+- `odoo-implementer-memory.json` - Implementation progress, files created, validation cache
+- `odoo-validator-memory.json` - Validation results, issues found, fixes applied
+- `odoo-tester-memory.json` - Test execution results, failures, coverage analysis
+- `odoo-documenter-memory.json` - Documentation progress, sections completed
+
+**Why Memory Matters:**
+
+When you invoke an agent after a human-in-the-loop checkpoint, the agent will:
+1. **Load its previous memory** to see what it already discovered/completed
+2. **Continue from where it left off** instead of starting from scratch
+3. **Avoid repeating work** (e.g., re-validating fields, re-analyzing models)
+4. **Remember user decisions** (e.g., approved module architecture)
+
+**As Orchestrator, you should:**
+- Trust that agents will load their memory automatically
+- Don't worry about repeating instructions the agent already completed
+- If resuming after a pause, simply invoke the agent normally - it will check its memory
+- Memory files are in JSON format and can be inspected if needed
+
+**Example Scenario:**
+
+```
+Stage 1: Analysis
+→ Analyst researches codebase, proposes module architecture
+→ Analyst saves findings to memory
+→ User reviews and approves architecture
+→ [PAUSE - human checkpoint]
+
+Stage 1 Continued: Analysis
+→ Analyst loads memory, sees architecture was approved
+→ Analyst continues with detailed spec creation (skips re-research)
+→ Analyst saves updated memory with completed spec
+```
+
+This prevents agents from starting over and losing context between human checkpoints!
+
+**Memory Cleanup (Optional):**
+
+If starting a completely new feature, you may want to clear old memory files:
+
+```bash
+# Clear all agent memories
+rm -f specs/.agent-memory/*.json
+
+# Or clear specific agent memory
+rm -f specs/.agent-memory/odoo-analyst-memory.json
+```
+
+Memory files are feature-specific, so they automatically get overwritten when working on a new feature with the same agent.
 
 ---
 
