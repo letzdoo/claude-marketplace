@@ -3,13 +3,12 @@
 
 import json
 import sys
-from pathlib import Path
 
-# Add parent directory to path so we can import lib as a package
-sys.path.insert(0, str(Path(__file__).parent.parent))
+from query_shared import Database, get_config
 
-from lib.database import Database
-from lib.config import SQLITE_DB_PATH, ODOO_PATH
+config = get_config()
+SQLITE_DB_PATH = config['SQLITE_DB_PATH']
+ODOO_PATH = config['ODOO_PATH']
 
 
 def main():

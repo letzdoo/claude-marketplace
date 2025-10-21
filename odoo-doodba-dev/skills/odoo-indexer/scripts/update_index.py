@@ -5,13 +5,9 @@ import argparse
 import asyncio
 import logging
 import sys
-from pathlib import Path
 
-# Add parent directory to path so we can import lib as a package
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from lib.indexer import index_odoo_codebase
-from lib.config import ODOO_PATH, SQLITE_DB_PATH
+from indexer import index_odoo_codebase
+from config import ODOO_PATH, SQLITE_DB_PATH
 
 # Configure logging
 logging.basicConfig(

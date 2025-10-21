@@ -4,12 +4,8 @@
 import argparse
 import json
 import sys
-from pathlib import Path
 
-# Add parent directory to path so we can import lib as a package
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from lib.tools import search_xml_id
+from query_shared import search_xml_id
 
 
 def main():
