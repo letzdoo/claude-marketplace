@@ -22,12 +22,12 @@ brew install uv
 
 ## Configuration
 
-Set environment variables before using:
+Optionnaly set environment variables before using if not in a letzdoo doodba env :
 
 ```bash
-export ODOO_PATH="/path/to/odoo/custom/src"
-export SQLITE_DB_PATH="$HOME/.odoo-indexer/odoo_indexer.sqlite3"  # Optional
-```
+export ODOO_PATH="$HOME/letzdoo-sh/odoo/custom/src" # Optional only if different
+export SQLITE_DB_PATH="$HOME/.odoo-indexer/odoo_indexer.sqlite3"  # Optional only if different
+``` 
 
 Or let the skill auto-detect common Odoo locations.
 
