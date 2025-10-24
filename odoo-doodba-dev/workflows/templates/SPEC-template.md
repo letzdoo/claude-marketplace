@@ -1,58 +1,43 @@
-# Feature Specification: {FEATURE_NAME}
+# Specification: {FEATURE_NAME}
 
-**Created**: {DATE}
-**Status**: Draft → Review → Approved
+**Date**: {DATE}
 **Module**: `{module_name}`
 **Odoo Version**: {VERSION}
+**Type**: New Module / Extension
 
 ---
 
 ## 1. Requirements
 
-### User Story
-```
-As a {user_role}
-I want to {action}
-So that {benefit}
-```
+**User Story**:
+As a {role}, I want to {action}, so that {benefit}.
 
-### Functional Requirements
-- [ ] Requirement 1
-- [ ] Requirement 2
-- [ ] Requirement 3
+**Functional Requirements**:
+- Requirement 1
+- Requirement 2
 
-### Non-Functional Requirements
+**Non-Functional**:
 - Performance: {expectations}
 - Security: {requirements}
-- Compatibility: {constraints}
 
 ---
 
-## 2. Module Information
+## 2. Module Architecture
 
-| Property | Value |
-|----------|-------|
-| **Name** | `{module_name}` |
-| **Location** | `odoo/custom/src/private/{module_name}` |
-| **Type** | [New Module / Extension] |
-| **Version** | 18.0.1.0.0 |
-| **License** | LGPL-3 |
-| **Category** | {category} |
-| **Author** | {author} |
+**Decision**: New Module / Extend Existing
 
-### Dependencies
+**Rationale**:
+- {Why this approach}
+
+**Location**: `odoo/custom/src/private/{module_name}/`
+
+**Dependencies**:
 ```python
-'depends': [
-    'base',
-    'module1',
-    'module2',
-]
+'depends': ['base', 'module1', 'module2']
 ```
 
-**Dependency Validation** (via indexer):
-- [x] `base` - Available
-- [x] `module1` - Available (version X.X)
-- [x] `module2` - Available (version X.X)
+**Indexer Validated**:
+- [x] All dependencies available
 
 ---
 
@@ -60,258 +45,92 @@ So that {benefit}
 
 ### 3.1 New Models
 
-#### Model: `{model.name}`
+#### `{model.name}`
 
-**Description**: {model_description}
+**Description**: {purpose}
 
 **Inherits**: `mail.thread`, `mail.activity.mixin`
 
 **Fields**:
-
-| Field Name | Type | Required | Tracking | Description | Indexer Status |
-|------------|------|----------|----------|-------------|----------------|
-| `name` | `Char` | ✓ | ✓ | The name/title | N/A (new field) |
-| `partner_id` | `Many2one('res.partner')` | ✓ | ✓ | Related partner | ✓ Model `res.partner` exists |
-| `date_start` | `Date` | ✓ | ✗ | Start date | N/A (new field) |
-| `state` | `Selection` | ✓ | ✓ | Current state | N/A (new field) |
-| `description` | `Html` | ✗ | ✗ | Detailed description | N/A (new field) |
-
-**Selection Field Values**:
-```python
-STATE_SELECTION = [
-    ('draft', 'Draft'),
-    ('confirmed', 'Confirmed'),
-    ('done', 'Done'),
-    ('cancelled', 'Cancelled'),
-]
-```
+| Field | Type | Required | Description | Indexer |
+|-------|------|----------|-------------|---------|
+| `name` | Char | ✓ | Name/title | New |
+| `partner_id` | Many2one(res.partner) | ✓ | Partner | ✓ Validated |
+| `state` | Selection | ✓ | Status | New |
+| `line_ids` | One2many | - | Lines | New |
 
 **Computed Fields**:
-| Field Name | Type | Compute Method | Store | Depends On |
-|------------|------|----------------|-------|------------|
-| `total_amount` | `Float` | `_compute_total` | Yes | `line_ids.amount` |
-
-**Relational Fields**:
-| Field Name | Type | Related Model | Inverse Field | Indexer Status |
-|------------|------|---------------|---------------|----------------|
-| `line_ids` | `One2many` | `{model}.line` | `parent_id` | ✓ Will create |
-| `tag_ids` | `Many2many` | `{model}.tag` | - | ✓ Will create |
-
-**Methods**:
-- `action_confirm()`: Transition to confirmed state
-- `action_cancel()`: Cancel the record
-- `_compute_total()`: Calculate total from lines
+| Field | Depends | Store |
+|-------|---------|-------|
+| `total` | `line_ids.amount` | Yes |
 
 **Constraints**:
-```python
-# SQL Constraints
-_sql_constraints = [
-    ('name_unique', 'UNIQUE(name)', 'Name must be unique'),
-]
+- SQL: `name_unique` - Name must be unique
+- Python: `_check_dates()` - End after start
 
-# Python Constraints
-@api.constrains('date_start', 'date_end')
-def _check_dates(self):
-    # Date validation logic
-```
+**Methods**:
+- `action_confirm()`: Transition to confirmed
+- `action_cancel()`: Cancel record
 
 ---
 
 ### 3.2 Extended Models
 
-#### Model: `{existing.model}`
+#### `{existing.model}`
 
-**Extension Purpose**: {reason_for_extension}
+**Indexer**: [x] Model exists
 
-**Indexer Validation**:
-- [x] Model `{existing.model}` exists in module `{module}`
-- [x] Model is extensible (not TransientModel)
-
-**Added Fields**:
-
-| Field Name | Type | Required | Description | Conflicts Check |
-|------------|------|----------|-------------|-----------------|
-| `custom_field` | `Char` | ✗ | Custom field | ✓ No conflict (indexer) |
-| `related_id` | `Many2one('{model}')` | ✗ | Link to new model | ✓ No conflict (indexer) |
+**New Fields**:
+| Field | Type | Description | Conflicts |
+|-------|------|-------------|-----------|
+| `custom_field` | Char | Custom field | ✓ None |
 
 **Modified Methods**:
-| Method | Modification Type | Purpose |
-|--------|-------------------|---------|
-| `action_confirm()` | Override (super call) | Add custom validation |
-| `write()` | Override (super call) | Track changes |
-
-**Method Implementation Notes**:
-```python
-def action_confirm(self):
-    # Custom logic before
-    self._custom_validation()
-    # Call parent
-    result = super().action_confirm()
-    # Custom logic after
-    self._post_confirm_actions()
-    return result
-```
+- `action_confirm()`: Add custom validation (calls super)
 
 ---
 
 ## 4. Views
 
-### 4.1 List View
+### List View
+**Fields**: name, partner_id, state
+**Indexer**: [x] All fields validated
 
-**Model**: `{model.name}`
-**XML ID**: `{module}.{model_name}_view_list`
+### Form View
+**Layout**:
+- Header: buttons, statusbar
+- Body: groups, notebook with pages
+- Chatter: messages, activities
 
-**Displayed Fields**:
-| Field | Widget | Indexer Validated |
-|-------|--------|-------------------|
-| `name` | - | ✓ |
-| `partner_id` | - | ✓ res.partner exists |
-| `date_start` | - | ✓ |
-| `state` | `badge` | ✓ |
+**Indexer**: [x] All fields validated
 
-**Filters**:
-- My Records
-- Active Records
-- By State
+### Search View
+**Fields**: name, partner_id
+**Filters**: My Records, By State
+**Group By**: Partner, State
 
-**Group By**:
-- Partner
-- State
-- Date
-
----
-
-### 4.2 Form View
-
-**Model**: `{model.name}`
-**XML ID**: `{module}.{model_name}_view_form`
-
-**Layout Structure**:
-```xml
-<form>
-    <header>
-        <button name="action_confirm" states="draft"/>
-        <field name="state" widget="statusbar"/>
-    </header>
-    <sheet>
-        <group>
-            <group>
-                <field name="name"/>
-                <field name="partner_id"/>
-            </group>
-            <group>
-                <field name="date_start"/>
-                <field name="state"/>
-            </group>
-        </group>
-        <notebook>
-            <page string="Lines">
-                <field name="line_ids">
-                    <tree editable="bottom">
-                        <field name="name"/>
-                        <field name="amount"/>
-                    </tree>
-                </field>
-            </page>
-            <page string="Details">
-                <field name="description" widget="html"/>
-            </page>
-        </notebook>
-    </sheet>
-    <div class="oe_chatter">
-        <field name="message_follower_ids"/>
-        <field name="activity_ids"/>
-        <field name="message_ids"/>
-    </div>
-</form>
-```
-
-**Widget Selection**:
-| Field | Widget | Reason | Indexer Check |
-|-------|--------|--------|---------------|
-| `partner_id` | Default | Many2one standard | ✓ Field type validated |
-| `state` | `statusbar` | Header display | ✓ Selection field |
-| `description` | `html` | Rich text editor | ✓ Html field type |
-| `line_ids` | Inline tree | Quick editing | ✓ One2many validated |
+### View Inheritance
+**Parent**: `{module}.{view}` (Indexer: [x] Validated)
+**Modifications**:
+- Add field after partner_id
+- Add page to notebook
 
 ---
 
-### 4.3 Search View
+## 5. Actions & Menus
 
-**Model**: `{model.name}`
-**XML ID**: `{module}.{model_name}_view_search`
+**Action**: `{module}.action_{model}`
+- Model: `{model.name}`
+- Views: list, form
 
-**Search Fields**: `name`, `partner_id`
-
-**Filters**:
-- Domain filters
-- Date filters
-- State filters
-
-**Group By**:
-- Partner
-- State
-
----
-
-### 4.4 View Inheritance
-
-#### Inherit: `{parent_view_xmlid}`
-
-**Indexer Validation**:
-- [x] Parent view `{parent_view_xmlid}` exists in module `{module}`
-- [x] Parent view model is `{model_name}`
-- [x] Parent view type is `form`
-
-**XPath Modifications**:
-
-| Position | XPath | Action | Element | Indexer Notes |
-|----------|-------|--------|---------|---------------|
-| after | `//field[@name='partner_id']` | Add field | `<field name="custom_field"/>` | ✓ partner_id exists in model |
-| inside | `//notebook` | Add page | `<page string="Custom">...</page>` | ✓ notebook exists (Odoo 18) |
-
-**Version Compatibility**:
-- Odoo 18: Uses `<list>` not `<tree>`
-- XPath: `//list` for list views
-
----
-
-## 5. Actions and Menus
-
-### 5.1 Window Action
-
-**XML ID**: `{module}.action_{model_name}`
-**Model**: `{model.name}`
-
-```xml
-<record id="action_{model_name}" model="ir.actions.act_window">
-    <field name="name">{Model Display Name}</field>
-    <field name="res_model">{model.name}</field>
-    <field name="view_mode">tree,form</field>
-    <field name="context">{}</field>
-    <field name="domain">[]</field>
-</record>
-```
-
-### 5.2 Menu Structure
-
-```
-Main Menu ({module}.menu_root)
-└── Submenu ({module}.menu_{model_name})
-    └── Action: {module}.action_{model_name}
-```
-
-**Parent Menu Validation**:
-- [x] Parent menu `{parent_menu_xmlid}` exists (indexer)
-- [ ] Creating new root menu
+**Menu**: `{module}.menu_{model}`
+- Parent: `{parent_menu}` (Indexer: [x] Validated)
 
 ---
 
 ## 6. Business Logic
 
-### 6.1 Workflows
-
-**State Machine**:
+**Workflows**:
 ```
 Draft → Confirmed → Done
   ↓         ↓
@@ -321,264 +140,88 @@ Cancelled  Cancelled
 **State Transitions**:
 | From | To | Method | Validation |
 |------|-----|--------|------------|
-| draft | confirmed | `action_confirm()` | Check required fields |
-| confirmed | done | `action_done()` | Check completion criteria |
-| * | cancelled | `action_cancel()` | Check permissions |
-
-### 6.2 Computed Fields
-
-**Field**: `total_amount`
-```python
-@api.depends('line_ids.amount')
-def _compute_total(self):
-    for record in self:
-        record.total_amount = sum(record.line_ids.mapped('amount'))
-```
-
-**Dependencies Validated**:
-- [x] Field `line_ids` exists (new field)
-- [x] Related model `{model}.line` has field `amount` (new field)
-
-### 6.3 CRUD Overrides
-
-**Create**:
-```python
-@api.model_create_multi
-def create(self, vals_list):
-    # Set default values
-    # Generate sequence numbers
-    return super().create(vals_list)
-```
-
-**Write**:
-```python
-def write(self, vals):
-    # Validation logic
-    # Track changes
-    return super().write(vals)
-```
-
-**Unlink**:
-```python
-def unlink(self):
-    # Prevent deletion if state != 'draft'
-    if any(rec.state != 'draft' for rec in self):
-        raise UserError("Cannot delete confirmed records")
-    return super().unlink()
-```
+| draft | confirmed | `action_confirm()` | Check required |
+| confirmed | done | `action_done()` | Check complete |
 
 ---
 
 ## 7. Security
 
-### 7.1 Access Rights (`ir.model.access.csv`)
+**Access Rights** (`ir.model.access.csv`):
+| Model | Group | R | W | C | D |
+|-------|-------|---|---|---|---|
+| `{model}` | User | ✓ | ✓ | ✓ | - |
+| `{model}` | Manager | ✓ | ✓ | ✓ | ✓ |
 
-| Model | Group | Read | Write | Create | Delete |
-|-------|-------|------|-------|--------|--------|
-| `{model.name}` | User | ✓ | ✓ | ✓ | ✗ |
-| `{model.name}` | Manager | ✓ | ✓ | ✓ | ✓ |
+**Indexer**: [x] All groups validated
 
-**Groups Validation**:
-- [x] Group `base.group_user` exists (indexer)
-- [x] Group `{module}.group_manager` - will create
-
-### 7.2 Record Rules
-
-**Rule**: `{model}_user_own_rule`
-```xml
-<record id="{model}_user_own_rule" model="ir.rule">
-    <field name="name">User: Own Records</field>
-    <field name="model_id" ref="model_{model_name}"/>
-    <field name="domain_force">[('create_uid', '=', user.id)]</field>
-    <field name="groups" eval="[(4, ref('base.group_user'))]"/>
-</record>
-```
+**Record Rules**:
+- User: Own records only
+- Manager: All records
 
 ---
 
 ## 8. Data Files
 
-### 8.1 Demo Data
+**Default Data** (`data/data.xml`):
+- Default configurations
+- System records
 
-**File**: `data/demo_data.xml`
+**Demo Data** (`data/demo_data.xml`):
+- Demo records for testing
 
-**Records**:
-- Demo records for `{model.name}`
-- Related demo data
-
-### 8.2 Default Data
-
-**File**: `data/data.xml`
-
-**Records**:
-- Default states/types
-- System configurations
-
-**XML ID References**:
-| Reference | Indexer Status |
-|-----------|----------------|
-| `base.main_company` | ✓ Exists |
-| `base.group_user` | ✓ Exists |
+**Indexer**: [x] All XML ID references validated
 
 ---
 
 ## 9. Tests
 
-### 9.1 Test Cases
-
-**File**: `tests/test_{model_name}.py`
-
-**Test Methods**:
-1. `test_create_{model}` - Basic creation
-2. `test_state_transitions` - Workflow testing
-3. `test_computed_fields` - Computation logic
-4. `test_constraints` - Validation rules
+**Test Cases**:
+1. `test_create` - Basic creation
+2. `test_workflow` - State transitions
+3. `test_computed` - Computed fields
+4. `test_constraints` - Validation
 5. `test_security` - Access rights
-
-**Test Data Setup**:
-```python
-@classmethod
-def setUpClass(cls):
-    super().setUpClass()
-    cls.{model} = cls.env['{model.name}'].create({
-        'name': 'Test Record',
-        'partner_id': cls.env.ref('base.res_partner_1').id,
-    })
-```
-
-**External ID Validation**:
-- [x] `base.res_partner_1` exists (indexer)
 
 ---
 
 ## 10. Indexer Validation Summary
 
-### Models Validated
-- [x] `res.partner` - Exists in `base`
-- [x] `mail.thread` - Exists in `mail`
-- [x] `{existing.model}` - Exists in `{module}`
+**Models**: {X} validated
+**Fields**: {Y} validated
+**XML IDs**: {Z} validated
+**Version**: Odoo {VERSION} - syntax validated
 
-### Fields Validated
-- [x] `{existing.model}.partner_id` - Many2one, correct suffix
-- [x] `{existing.model}.state` - Selection field
-
-### XML IDs Validated
-- [x] `base.group_user` - Exists
-- [x] `base.main_company` - Exists
-- [x] `{module}.{parent_view}` - Exists
-
-### Version Compatibility
-- [x] Odoo version detected: 18.0
-- [x] Using `<list>` for list views
-- [x] XPath expressions adapted for version
-
-### Naming Conventions
-- [x] Many2one fields use `_id` suffix
-- [x] Many2many/One2many fields use `_ids` suffix
-- [x] Model names follow snake_case
-- [x] XML IDs follow module.name pattern
+**Critical Checks**:
+- [x] Field naming conventions (_id, _ids)
+- [x] All comodel references exist
+- [x] All XML IDs have correct module prefix
+- [x] View syntax appropriate for version
 
 ---
 
-## 11. Dependencies & Risks
+## 11. Risks & Considerations
 
-### Module Dependencies
-| Module | Version | Purpose | Available |
-|--------|---------|---------|-----------|
-| `base` | 18.0 | Core functionality | ✓ |
-| `mail` | 18.0 | Chatter/activities | ✓ |
-| `{module}` | 18.0 | Base model extension | ✓ |
+**Performance**:
+- Computed fields are stored
+- Indexes on search fields
 
-### External Dependencies
-- Python packages: (none)
-- System libraries: (none)
+**Compatibility**:
+- Odoo {VERSION} only
+- Dependencies available
 
-### Performance Considerations
-- [ ] Computed fields are stored to avoid recalculation
-- [ ] Database indexes on frequently searched fields
-- [ ] Batch operations for bulk updates
-- [ ] Avoid N+1 queries in loops
-
-### Known Risks
-1. **Risk**: Large datasets may slow computed field recalculation
-   - **Mitigation**: Use stored=True and proper dependencies
-
-2. **Risk**: Complex XPath may break with UI changes
-   - **Mitigation**: Use simple, stable XPath expressions
-
-### Compatibility Notes
-- Tested for Odoo 18.0 only
-- Uses current XML syntax (`<list>` not `<tree>`)
-- Widget usage follows Odoo 18 standards
+**Risks**:
+1. {Risk}: {Mitigation}
 
 ---
 
-## 12. Open Questions
+## 12. Approval
 
-- [ ] Question 1: Should we add kanban view?
-- [ ] Question 2: Do we need multi-company support?
-- [ ] Question 3: Should records be archived instead of deleted?
+**Status**: [ ] Draft / [ ] Review / [ ] Approved
 
----
-
-## 13. Implementation Checklist
-
-### For odoo-implementer Agent:
-
-#### Module Structure
-- [ ] Create `__init__.py`
-- [ ] Create `__manifest__.py`
-- [ ] Create directory structure (models/, views/, security/, etc.)
-
-#### Models
-- [ ] Implement `{model.name}` model
-- [ ] Implement related models (lines, tags, etc.)
-- [ ] Extend existing models
-- [ ] Add computed fields
-- [ ] Add constraints
-
-#### Views
-- [ ] Create list view
-- [ ] Create form view
-- [ ] Create search view
-- [ ] Inherit existing views
-- [ ] Create actions
-- [ ] Create menus
-
-#### Security
-- [ ] Create `ir.model.access.csv`
-- [ ] Create record rules in `security.xml`
-- [ ] Define user groups if needed
-
-#### Data
-- [ ] Create default data file
-- [ ] Create demo data file
-
-#### Tests
-- [ ] Create test file
-- [ ] Implement all test methods
-- [ ] Add test data setup
-
-#### Documentation
-- [ ] Create README.md
-- [ ] Add inline code comments
-- [ ] Document public methods
-
----
-
-## 14. Approval
-
-**Status**: [ ] Draft / [ ] Ready for Review / [ ] Approved
-
-**Reviewed By**: _________________
-
+**Reviewer**: _________________
 **Date**: _________________
 
-**Comments**:
-```
-(User feedback and approval notes)
-```
-
 ---
 
-**Next Step**: Once approved, proceed to implementation with `odoo-implementer` agent.
+**Next**: Implement with `odoo-implementer` agent
