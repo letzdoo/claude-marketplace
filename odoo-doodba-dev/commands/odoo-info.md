@@ -1,4 +1,5 @@
 ---
+name: odoo-info
 description: Get information about Odoo modules, models, and structure
 ---
 

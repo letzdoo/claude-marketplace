@@ -1,4 +1,5 @@
 ---
+name: odoo-test
 description: Run Odoo tests for specific modules with proper configuration
 ---
 
