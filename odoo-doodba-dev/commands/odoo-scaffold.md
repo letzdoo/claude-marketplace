@@ -13,20 +13,13 @@ Create a new Odoo module using Doodba's invoke scaffold task.
    - Models to extend (if any)
    - Target path (default: `odoo/custom/src/private/`)
 
-2. **Validate with indexer**:
-   ```python
+2. **Validate with indexer** (use odoo-indexer skill):
+   ```bash
    # Check for naming conflicts
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
-       query=f"{module_name}.%",
-       item_type="model",
-       limit=5
-   )
+   ./scripts/run.sh scripts/search.py "${module_name}.%" --type model --limit 5
 
    # If extending models, validate they exist
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__get_item_details(
-       item_type="model",
-       name="sale.order"
-   )
+   ./scripts/run.sh scripts/get_details.py model "sale.order"
    # Returns fields to use in views, methods, module for dependencies
 
    # Get Odoo version for correct template
@@ -40,25 +33,19 @@ Create a new Odoo module using Doodba's invoke scaffold task.
    invoke scaffold --module-name=module_name --path=odoo/custom/src/private/
    ```
 
-4. **Customize module** with indexer-assisted development:
+4. **Customize module** with indexer-assisted development (use odoo-indexer skill):
 
    **Show available fields**:
-   ```python
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_by_attribute(
-       item_type="field",
-       attribute_filters={"parent_name": "sale.order"},
-       limit=50
-   )
+   ```bash
+   ./scripts/run.sh scripts/search_by_attr.py field \
+       --filters '{"parent_name": "sale.order"}' --limit 50
    # Use exact field names in views - prevents errors
    ```
 
    **Suggest dependencies**:
-   ```python
+   ```bash
    # Find which module defines a model
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
-       query="quality.check",
-       item_type="model"
-   )
+   ./scripts/run.sh scripts/search.py "quality.check" --type model
    # Add returned module to __manifest__.py dependencies
    ```
 

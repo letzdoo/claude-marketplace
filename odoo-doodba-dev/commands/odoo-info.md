@@ -12,65 +12,41 @@ Get detailed information about Odoo installation, modules, and structure using t
 
 1. Ask what information is needed
 
-2. **For modules** - Use indexer (no file reading):
-   ```python
+2. **For modules** - Use odoo-indexer skill (no file reading):
+   ```bash
    # List all modules
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__list_modules()
+   ./scripts/run.sh scripts/list_modules.py
 
    # Get module statistics
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__get_module_stats(module="sale")
+   ./scripts/run.sh scripts/module_stats.py sale
    # Returns: models, fields, views, actions, menus counts
    ```
 
-3. **For models** - Use indexer (90% of cases):
-   ```python
+3. **For models** - Use odoo-indexer skill (90% of cases):
+   ```bash
    # Get complete model details (all fields, methods, views)
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__get_item_details(
-       item_type="model",
-       name="sale.order"
-   )
+   ./scripts/run.sh scripts/get_details.py model "sale.order"
    # Returns: All fields with types, methods, views, inheritance
 
    # List all models in module
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
-       query="%",
-       item_type="model",
-       module="sale",
-       limit=50
-   )
+   ./scripts/run.sh scripts/search.py "%" --type model --module sale --limit 50
 
    # Find Many2one fields
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_by_attribute(
-       item_type="field",
-       attribute_filters={
-           "parent_name": "sale.order",
-           "field_type": "Many2one"
-       }
-   )
+   ./scripts/run.sh scripts/search_by_attr.py field \
+       --filters '{"parent_name": "sale.order", "field_type": "Many2one"}'
    ```
 
-4. **For views/actions/menus** - Use indexer:
-   ```python
+4. **For views/actions/menus** - Use odoo-indexer skill:
+   ```bash
    # Find view
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_xml_id(
-       query="sale_order_form",
-       module="sale"
-   )
+   ./scripts/run.sh scripts/search_xml_id.py "sale_order_form" --module sale
 
    # Get view details
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__get_item_details(
-       item_type="view",
-       name="sale.sale_order_form"
-   )
+   ./scripts/run.sh scripts/get_details.py view "sale.sale_order_form"
 
    # Find all form views for model
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_by_attribute(
-       item_type="view",
-       attribute_filters={
-           "model": "sale.order",
-           "view_type": "form"
-       }
-   )
+   ./scripts/run.sh scripts/search_by_attr.py view \
+       --filters '{"model": "sale.order", "view_type": "form"}'
    ```
 
 5. **For system info** (use relative paths):

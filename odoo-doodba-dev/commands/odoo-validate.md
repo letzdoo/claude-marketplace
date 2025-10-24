@@ -19,51 +19,37 @@ Validate all references (models, fields, XML IDs, views) BEFORE installation to 
    find odoo/custom/src -type d -name "module_name" | head -1
    ```
 
-3. **Validate manifest** - Check dependencies exist:
-   ```python
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__list_modules()
+3. **Validate manifest** - Check dependencies exist (use odoo-indexer skill):
+   ```bash
+   ./scripts/run.sh scripts/list_modules.py
    ```
 
-4. **Validate models** - Check inheritance:
-   ```python
+4. **Validate models** - Check inheritance (use odoo-indexer skill):
+   ```bash
    # For each _inherit = 'model.name'
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
-       query="model.name",
-       item_type="model",
-       limit=1
-   )
+   ./scripts/run.sh scripts/search.py "model.name" --type model --limit 1
    # Validate comodels for relational fields
    ```
 
-5. **Validate views** (CRITICAL):
+5. **Validate views** (CRITICAL) - Use odoo-indexer skill:
 
    **A. Check fields exist**:
-   ```python
+   ```bash
    # For EVERY <field name="X"/> in views
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
-       query="field_name",
-       item_type="field",
-       parent_name="model.name",
-       limit=1
-   )
+   ./scripts/run.sh scripts/search.py "field_name" \
+       --type field --parent "model.name" --limit 1
    ```
 
    **B. Check XML ID references**:
-   ```python
+   ```bash
    # For EVERY ref="module.xml_id"
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_xml_id(
-       query="xml_id",
-       limit=5
-   )
+   ./scripts/run.sh scripts/search_xml_id.py "xml_id" --limit 5
    # If not found, search without module prefix to find correct one
    ```
 
    **C. Check view inheritance**:
-   ```python
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__get_item_details(
-       item_type="view",
-       name="parent_view_xml_id"
-   )
+   ```bash
+   ./scripts/run.sh scripts/get_details.py view "parent_view_xml_id"
    ```
 
    **D. Check version compatibility**:
