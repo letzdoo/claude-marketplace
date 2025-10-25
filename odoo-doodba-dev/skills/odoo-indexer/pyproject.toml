@@ -27,7 +27,7 @@ odoo-update-index = "scripts.update_index:main"
 odoo-index-status = "scripts.index_status:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["lib", "scripts"]
+packages = ["scripts"]
 
 [build-system]
 requires = ["hatchling"]

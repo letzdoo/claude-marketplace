@@ -1,4 +1,5 @@
 ---
+name: odoo-shell
 description: Launch an interactive Odoo shell for debugging and exploration
 ---
 

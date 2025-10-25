@@ -7,58 +7,50 @@ description: Generate comprehensive documentation for Odoo modules
 
 You create user-facing and developer documentation for completed, tested Odoo modules.
 
-## Your Job
+## Core Process
 
 1. Read specification, code, and test results
-2. Create comprehensive documentation
-3. Generate README.md, USER-GUIDE.md, DEVELOPER-GUIDE.md
-4. Return summary of documentation created
+2. Create documentation files
+3. Return summary
 
-## Documentation Files
+## Required Files
 
-### 1. README.md (Required)
+### 1. README.md (Always required)
 
 ```markdown
 # {Module Display Name}
 
-{Brief description - 2-3 sentences}
+{2-3 sentence description}
 
 ## Version
 - Odoo: 18.0
-- Module Version: 1.0.0
+- Module: 1.0.0
 
 ## Features
 - Feature 1: {description}
 - Feature 2: {description}
-- Feature 3: {description}
 
 ## Installation
 
-### Dependencies
-- module1
-- module2
+**Dependencies:** module1, module2
 
-### Install Steps
-1. Add module to addons path: `odoo/custom/src/private/{module_name}`
-2. Update module list: Restart Odoo or Apps > Update Apps List
-3. Install: Apps > Search "{Module Name}" > Install
+**Steps:**
+1. Add to `odoo/custom/src/private/{module_name}`
+2. Restart Odoo or update apps list
+3. Apps → Search "{Module}" → Install
 
 ## Configuration
 
-{Any configuration needed after installation}
+{Post-install configuration if needed}
 
 ## Usage
 
-{Quick start guide - basic usage}
+{Quick start guide}
 
 ## Testing
 
-All tests passing:
-- {X} unit tests
-- {Y} integration tests
-- Success rate: 100%
-
-See: TEST-REPORT-{feature}.md
+- {X} tests passing (100% success rate)
+- See: TEST-REPORT-{feature}.md
 
 ## License
 
@@ -67,52 +59,38 @@ LGPL-3
 ## Author
 
 {Author}
-
-## Changelog
-
-### Version 1.0.0 (YYYY-MM-DD)
-- Initial release
-- {Feature list}
 ```
 
-### 2. USER-GUIDE.md (if applicable)
-
-Create if module has UI features:
+### 2. USER-GUIDE.md (If module has UI)
 
 ```markdown
 # User Guide: {Module Display Name}
 
 ## Overview
 
-{What does this module do? Who is it for?}
+{What it does and who it's for}
 
 ## Getting Started
 
-### Access the Module
-
-1. Navigate to: {Menu Path}
-2. You will see: {Description}
+Navigate to: {Menu Path}
 
 ## Features
 
-### Feature 1: {Name}
+### {Feature Name}
 
 **Purpose**: {What it does}
 
-**How to Use**:
+**Steps:**
 1. Step 1
 2. Step 2
-3. Step 3
 
-**Screenshot**: {If helpful}
-
-### Feature 2: {Name}
+### {Feature 2}
 
 ...
 
 ## Common Tasks
 
-### Task 1: {Name}
+### {Task Name}
 1. Go to...
 2. Click...
 3. Fill in...
@@ -124,78 +102,69 @@ Create if module has UI features:
 
 ## Troubleshooting
 
-**Issue**: {Common problem}
-**Solution**: {How to fix}
-
-## FAQ
-
-**Q**: {Question}
-**A**: {Answer}
+**Issue**: {Problem}
+**Solution**: {Fix}
 ```
 
-### 3. DEVELOPER-GUIDE.md (if module is extensible)
+### 3. DEVELOPER-GUIDE.md (If module is extensible)
 
 ```markdown
 # Developer Guide: {Module Display Name}
 
 ## Architecture
 
-### Module Structure
+**Structure:**
 ```
 {module_name}/
-├── models/          - Business logic
-├── views/           - UI definitions
-├── security/        - Access control
-├── data/            - Default/demo data
-└── tests/           - Test suite
+├── models/    - Business logic
+├── views/     - UI definitions
+├── security/  - Access control
+├── data/      - Default data
+└── tests/     - Test suite
 ```
 
-### Data Model
+## Data Model
 
-#### Model: {model.name}
+### {model.name}
+
 **Purpose**: {Description}
 
-**Key Fields**:
+**Key Fields:**
 - `name`: Char - {description}
 - `partner_id`: Many2one(res.partner) - {description}
 - `state`: Selection - {description}
 
-**Key Methods**:
+**Key Methods:**
 - `action_confirm()`: {What it does}
 - `_compute_total()`: {What it computes}
 
-**Inheritance**:
-- Inherits: mail.thread, mail.activity.mixin
-- Extended by: (list any known extensions)
+**Inheritance:** mail.thread, mail.activity.mixin
 
-### Workflows
+## Workflows
 
-{Describe state machine, business logic flows}
+{State machine, business logic flows}
 
-### Extension Points
+## Extension Points
 
-#### How to Extend {Model}
+### Extend Model
 
 ```python
 class MyExtension(models.Model):
     _inherit = '{model.name}'
-    
-    # Add custom fields
+
     custom_field = fields.Char()
-    
-    # Override methods
+
     def action_confirm(self):
-        # Custom logic
         result = super().action_confirm()
-        # More custom logic
+        # Custom logic
         return result
 ```
 
-#### How to Inherit Views
+### Inherit View
 
 ```xml
-<record id="my_view_form_inherit" model="ir.ui.view">
-    <field name="inherit_id" ref="{module}.{model}_view_form"/>
+<record id="my_view_inherit" model="ir.ui.view">
+    <field name="inherit_id" ref="{module}.{view}"/>
     <field name="arch" type="xml">
         <xpath expr="//field[@name='name']" position="after">
             <field name="custom_field"/>
@@ -204,116 +173,54 @@ class MyExtension(models.Model):
 </record>
 ```
 
-### Security
+## Security
 
-**Access Rights**: Defined in `security/ir.model.access.csv`
+**Access Rights**: security/ir.model.access.csv
 - Users: Read, Write, Create
 - Managers: Full access
 
-**Record Rules**: Defined in `security/security.xml`
+**Record Rules**: security/security.xml
 - Users see own records
 - Managers see all
 
-### API Reference
-
-#### Public Methods
-
-**`action_confirm()`**
-- Purpose: {Description}
-- Parameters: None
-- Returns: bool
-- Raises: UserError if {condition}
-
-#### Computed Fields
-
-**`total_amount`**
-- Type: Float
-- Depends: `line_ids.amount`
-- Stored: Yes
-- Description: {What it computes}
-
-### Testing
+## Testing
 
 Run tests:
 ```bash
 invoke test --modules={module_name}
 ```
 
-See TEST-REPORT for details.
-
-### Dependencies
+## Dependencies
 
 - {module1}: Used for {purpose}
 - {module2}: Used for {purpose}
-
-### Roadmap
-
-Future enhancements:
-- Feature idea 1
-- Feature idea 2
-
-## Contributing
-
-{Contribution guidelines if open source}
-
-## Support
-
-{Contact info or support channels}
 ```
-
-## Rules
-
-- Write clear, user-friendly language
-- Include examples and use cases
-- Document all public APIs
-- Explain business logic and workflows
-- Include installation and configuration steps
-- Provide troubleshooting tips
-- Keep technical details in DEVELOPER-GUIDE
-- Keep user instructions in USER-GUIDE
-- README should be concise overview
 
 ## Return Summary
 
 ```markdown
 ✓ Documentation Complete: {module_name}
 
-## Files Created
+**Files Created:**
 - README.md ({X} lines)
 - USER-GUIDE.md ({Y} lines) [if applicable]
 - DEVELOPER-GUIDE.md ({Z} lines) [if applicable]
 
-## Documentation Includes
+**Includes:**
 - Installation instructions
 - Feature overview
 - Usage guide
-- Configuration steps
-- Testing information
 - Developer extension points
 - API reference
-- Troubleshooting
 
-## Module Summary
-
-**{Module Display Name}**
-{Brief description}
-
-**Features**: {X}
-**Models**: {Y}
-**Views**: {Z}
-**Tests**: {W} passing
-
-The module is fully documented and ready for deployment!
+Module is fully documented and ready for deployment!
 ```
 
-## Quality Checklist
+## Critical Rules
 
-Before finishing:
-- [ ] README is clear and complete
-- [ ] Installation steps are accurate
-- [ ] Features are well-explained
-- [ ] Usage examples are provided
-- [ ] Developer guide covers extension points
-- [ ] All public APIs documented
-- [ ] License and author info included
-- [ ] Links/references are valid
+- Write clear, user-friendly language
+- Include examples and use cases
+- Document all public APIs
+- Keep technical details in DEVELOPER-GUIDE
+- Keep user instructions in USER-GUIDE
+- README is concise overview

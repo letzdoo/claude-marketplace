@@ -3,519 +3,247 @@ name: odoo-workflow
 description: Orchestrate multi-stage Odoo development with human-in-the-loop checkpoints
 ---
 
-# Odoo Development Workflow Orchestration
+# Odoo Development Workflow
 
-This command helps you orchestrate the full Odoo development lifecycle with clear human approval checkpoints between stages.
+Orchestrate the full Odoo development lifecycle with approval checkpoints.
 
-## Overview
-
-The Odoo development workflow consists of 5 distinct stages, each handled by a specialized agent:
+## Workflow
 
 ```
 User Request
     ↓
-[1] ANALYSIS → SPEC.md → ✓ User Approval
+[1] ANALYSIS → SPEC.md → ✓ Approval
     ↓
-[2] IMPLEMENTATION → Code Files → ✓ User Approval
+[2] IMPLEMENTATION → Code → ✓ Approval
     ↓
-[3] VALIDATION → VALIDATION.md → ✓ User Approval
+[3] VALIDATION → VALIDATION.md → ✓ Approval
     ↓
-[4] TESTING → Tests + REPORT.md → ✓ User Approval
+[4] TESTING → TEST-REPORT.md → ✓ Approval
     ↓
-[5] DOCUMENTATION → Docs → ✓ Final Approval
-    ↓
-COMPLETE
+[5] DOCUMENTATION → Docs → ✓ Approval
 ```
 
-## Your Role as Orchestrator
+## Your Role
 
-As the main Claude CLI agent, you are responsible for:
-
-1. **Understanding** the user's Odoo development request
-2. **Creating** the `specs/` directory if it doesn't exist
-3. **Invoking** the appropriate specialized agent for each stage
-4. **Waiting** for explicit user approval before proceeding to next stage
-5. **Managing** state between stages using `.workflow-state.json`
-6. **Handling** iterations when user requests changes
-
-## Workflow Stages
-
-### Stage 1: Analysis & Planning
-
-**Agent**: `odoo-analyst`
-**Input**: User's feature request
-**Output**: `specs/SPEC-{feature-name}.md`
-
-**What to do**:
-1. Create `specs/` directory if needed:
-   ```bash
-   mkdir -p specs
-   ```
-
-2. Invoke the analyst agent:
-   ```
-   Task(
-     subagent_type="odoo-analyst",
-     description="Analyze Odoo feature requirements",
-     prompt="Analyze the following Odoo development request and create a detailed specification:
-
-     User Request: {user_request}
-
-     Requirements:
-     - Use the Odoo indexer extensively to validate all models, fields, and XML IDs
-     - Research existing codebase for similar patterns
-     - CRITICAL: Present module architecture proposal with options before completing spec
-     - Wait for user approval on module granularity decision
-     - Create complete specification in specs/SPEC-{feature-name}.md
-     - Use the template from workflows/templates/SPEC-template.md
-     - Validate all dependencies and references
-     - Check Odoo version compatibility
-
-     IMPORTANT: The analyst will pause to get approval on module architecture before finalizing the spec."
-   )
-   ```
-
-3. **CRITICAL**: The analyst will present a **Module Architecture Proposal** with options:
-   - Should it be a new module or extend existing?
-   - Module naming and granularity
-   - Pros/cons of different approaches
-
-   **You MUST wait for the analyst to present this proposal, then get USER APPROVAL before the analyst continues.**
-
-4. Once module architecture is approved, the analyst completes the specification
-
-5. When spec is complete, review `specs/SPEC-{feature-name}.md`
-
-6. **STOP and ask user**: "The specification is complete in `specs/SPEC-{feature-name}.md`. Please review:
-   - Module architecture (approved earlier)
-   - Data model design
-   - Views and UI
-   - Business logic
-   - Security rules
-
-   Would you like me to proceed with implementation or make changes?"
-
-7. **DO NOT proceed** to stage 2 until user explicitly approves the full specification
+1. Understand user's request
+2. Create `specs/` directory: `mkdir -p specs`
+3. Invoke appropriate agent for each stage
+4. **Wait for explicit user approval** before proceeding
+5. Handle iterations when user requests changes
 
 ---
 
-### Stage 2: Implementation
+## Stage 1: Analysis
 
-**Agent**: `odoo-implementer`
-**Input**: `specs/SPEC-{feature-name}.md` (approved)
-**Output**: Complete module code
+**Agent**: odoo-analyst
+**Output**: `specs/SPEC-{feature}.md`
 
-**What to do**:
-1. Verify spec file exists and is approved
+```
+Task(
+  subagent_type="odoo-analyst",
+  description="Analyze requirements",
+  prompt="Analyze this Odoo feature request:
 
-2. Invoke the implementer agent:
-   ```
-   Task(
-     subagent_type="odoo-implementer",
-     description="Implement Odoo module",
-     prompt="Implement the Odoo module based on the approved specification:
+  {user_request}
 
-     Specification File: specs/SPEC-{feature-name}.md
+  - Use indexer to validate all references
+  - Research existing codebase
+  - Present module architecture options
+  - Get user approval on architecture
+  - Create specification: specs/SPEC-{feature}.md"
+)
+```
 
-     Requirements:
-     - Read and follow the specification exactly
-     - Use the Odoo indexer to validate EVERY field and XML ID before using them
-     - Create all module files (models, views, security, data, tests)
-     - Follow Odoo 18 conventions (use <list> not <tree>)
-     - Ensure all field naming follows conventions (_id for Many2one, _ids for Many2many/One2many)
-     - Validate widget compatibility (no inline tree for many2many_tags)
-     - Create clean, well-documented code
+**CRITICAL**: Analyst will present module architecture proposal. **Get user approval** before analyst finalizes spec.
 
-     CRITICAL: Validate with indexer before writing code to prevent errors."
-   )
-   ```
-
-3. When agent completes, show the user which files were created
-
-4. **STOP and ask user**: "I've implemented the module based on your specification. The following files were created: [list files]. Would you like to review the code before validation?"
-
-5. **DO NOT proceed** to stage 3 until user approves
+**After completion**: "Specification complete in `specs/SPEC-{feature}.md`. Ready to implement?"
 
 ---
 
-### Stage 3: Validation
+## Stage 2: Implementation
 
-**Agent**: `odoo-validator`
-**Input**: Generated module code
-**Output**: `specs/VALIDATION-{feature-name}.md`
+**Agent**: odoo-implementer
+**Output**: Module code
 
-**What to do**:
-1. Verify module files exist
+```
+Task(
+  subagent_type="odoo-implementer",
+  description="Implement module",
+  prompt="Implement module from: specs/SPEC-{feature}.md
 
-2. Invoke the validator agent:
-   ```
-   Task(
-     subagent_type="odoo-validator",
-     description="Validate Odoo module",
-     prompt="Validate the implemented Odoo module:
+  - Validate ALL references with indexer before coding
+  - Create all files (models, views, security, tests)
+  - Follow Odoo 18 conventions (<list> not <tree>)
+  - Ensure field naming conventions (_id, _ids)"
+)
+```
 
-     Module: {module_name}
-     Location: odoo/custom/src/private/{module_name}
-
-     Validation Steps:
-     - Check module structure and manifest
-     - Validate all model definitions
-     - Validate all views (syntax, fields existence via indexer)
-     - Validate security rules
-     - Run static analysis (pylint/flake8)
-     - Attempt module installation
-     - Create validation report: specs/VALIDATION-{feature-name}.md
-
-     Use the indexer to verify all references are correct."
-   )
-   ```
-
-3. When agent completes, review `specs/VALIDATION-{feature-name}.md`
-
-4. **STOP and ask user**:
-   - If PASSED: "Validation passed! The module is ready for testing. Proceed?"
-   - If FAILED: "Validation found {X} issues. Would you like me to fix them or would you prefer to review manually?"
-
-5. **DO NOT proceed** to stage 4 until validation passes and user approves
+**After completion**: "Module implemented. Files created: [list]. Ready for validation?"
 
 ---
 
-### Stage 4: Testing
+## Stage 3: Validation
 
-**Agent**: `odoo-tester`
-**Input**: Validated module
-**Output**: Test files + `specs/TEST-REPORT-{feature-name}.md`
+**Agent**: odoo-validator
+**Output**: `specs/VALIDATION-{feature}.md`
 
-**What to do**:
-1. Verify module is installed successfully
+```
+Task(
+  subagent_type="odoo-validator",
+  description="Validate module",
+  prompt="Validate module: {module_name}
+  Location: odoo/custom/src/private/{module_name}
 
-2. Invoke the tester agent:
-   ```
-   Task(
-     subagent_type="odoo-tester",
-     description="Test Odoo module",
-     prompt="Create and run comprehensive tests for the module:
+  - Check structure, models, views, security
+  - Validate with indexer
+  - Attempt installation
+  - Create report: specs/VALIDATION-{feature}.md"
+)
+```
 
-     Module: {module_name}
-     Specification: specs/SPEC-{feature-name}.md
-
-     Testing Steps:
-     - Create test file: tests/test_{model_name}.py
-     - Implement tests for all features in specification
-     - Test model creation, CRUD operations
-     - Test computed fields and constraints
-     - Test state transitions and workflows
-     - Test security rules
-     - Run test suite: invoke test --modules={module_name}
-     - Create test report: specs/TEST-REPORT-{feature-name}.md
-
-     Aim for high coverage of specification requirements."
-   )
-   ```
-
-3. When agent completes, review `specs/TEST-REPORT-{feature-name}.md`
-
-4. **STOP and ask user**:
-   - If ALL PASSED: "All {X} tests passed! Ready for documentation?"
-   - If SOME FAILED: "{X} tests failed. Would you like me to fix the issues or investigate manually?"
-
-5. **DO NOT proceed** to stage 5 until all tests pass and user approves
+**After completion**:
+- If PASSED: "Validation passed! Ready for testing?"
+- If FAILED: "Found {X} issues. Fix automatically or review manually?"
 
 ---
 
-### Stage 5: Documentation
+## Stage 4: Testing
 
-**Agent**: `odoo-documenter`
-**Input**: Working module with passing tests
+**Agent**: odoo-tester
+**Output**: Test files + `specs/TEST-REPORT-{feature}.md`
+
+```
+Task(
+  subagent_type="odoo-tester",
+  description="Test module",
+  prompt="Test module: {module_name}
+  Specification: specs/SPEC-{feature}.md
+
+  - Create comprehensive tests
+  - Test CRUD, computed fields, constraints, workflows, security
+  - Run: invoke test --modules={module_name}
+  - Create report: specs/TEST-REPORT-{feature}.md"
+)
+```
+
+**After completion**:
+- If ALL PASSED: "All {X} tests passed! Ready for documentation?"
+- If FAILED: "{X} tests failed. Fix issues or investigate manually?"
+
+---
+
+## Stage 5: Documentation
+
+**Agent**: odoo-documenter
 **Output**: README.md, USER-GUIDE.md, DEVELOPER-GUIDE.md
 
-**What to do**:
-1. Verify all previous stages are complete
+```
+Task(
+  subagent_type="odoo-documenter",
+  description="Document module",
+  prompt="Document module: {module_name}
+  Spec: specs/SPEC-{feature}.md
+  Tests: specs/TEST-REPORT-{feature}.md
 
-2. Invoke the documenter agent:
-   ```
-   Task(
-     subagent_type="odoo-documenter",
-     description="Document Odoo module",
-     prompt="Create comprehensive documentation for the module:
+  Create:
+  - README.md: Overview, installation, features
+  - USER-GUIDE.md: How to use (UI walkthrough)
+  - DEVELOPER-GUIDE.md: Architecture, extension points"
+)
+```
 
-     Module: {module_name}
-     Specification: specs/SPEC-{feature-name}.md
-     Test Report: specs/TEST-REPORT-{feature-name}.md
-
-     Documentation to Create:
-     - README.md: Overview, installation, features, license
-     - USER-GUIDE.md: How to use the module (UI walkthrough)
-     - DEVELOPER-GUIDE.md: Technical details, architecture, extension points
-
-     Make it clear, complete, and useful for both users and developers."
-   )
-   ```
-
-3. When agent completes, show user the generated documentation
-
-4. **STOP and ask user**: "Documentation is complete! Please review:
-   - README.md
-   - USER-GUIDE.md (if applicable)
-   - DEVELOPER-GUIDE.md (if applicable)
-
-   Is this ready for final delivery?"
-
-5. Wait for final approval
+**After completion**: "Documentation complete! Review and approve for final delivery?"
 
 ---
 
 ## State Management
 
-Create and maintain `specs/.workflow-state.json` to track progress:
+Track progress in `specs/.workflow-state.json`:
 
 ```json
 {
   "feature": "quality_project_task",
-  "started": "2025-10-20T10:00:00Z",
   "current_stage": "implementation",
-  "completed_stages": [
-    {
-      "stage": "analysis",
-      "agent": "odoo-analyst",
-      "completed": "2025-10-20T10:30:00Z",
-      "artifacts": ["specs/SPEC-quality-project-task.md"],
-      "approved": true,
-      "approved_at": "2025-10-20T10:35:00Z"
-    }
-  ],
-  "pending_stages": ["validation", "testing", "documentation"],
-  "spec_file": "specs/SPEC-quality-project-task.md",
+  "completed_stages": ["analysis"],
   "module_name": "quality_project_task",
   "module_path": "odoo/custom/src/private/quality_project_task"
 }
 ```
 
-**Update this file** after each stage completion and user approval.
+Update after each stage completion and approval.
 
 ---
 
-## Handling User Feedback
+## Handling Iterations
 
-### Scenario 1: User wants changes during spec review
+**User wants changes during spec review**:
+1. Update spec or re-run analyst with changes
+2. Get approval again
 
-```
-User: "The specification looks good but I want to add field X"
+**Validation fails**:
+1. Show errors from VALIDATION-{feature}.md
+2. Ask: "Fix automatically or review manually?"
+3. Re-run validator after fixes
 
-You:
-1. Update the spec file OR re-run analyst with the change request
-2. Ask user to review again
-3. Wait for approval before proceeding
-```
-
-### Scenario 2: Validation fails
-
-```
-Validation Result: 5 errors found
-
-You:
-1. Show user the errors from VALIDATION-{feature}.md
-2. Ask: "Would you like me to fix these automatically or review first?"
-3. If user approves auto-fix:
-   - Fix the issues
-   - Re-run validator
-4. If user wants to review:
-   - Wait for user to make changes
-   - Offer to re-run validator when ready
-```
-
-### Scenario 3: User wants to resume from a checkpoint
-
-```
-User: "Let's continue with testing"
-
-You:
-1. Check specs/.workflow-state.json
-2. Verify previous stages are complete
-3. Resume from the requested stage
-4. Continue with normal flow
-```
+**Resume from checkpoint**:
+1. Check `.workflow-state.json`
+2. Verify previous stages complete
+3. Resume from requested stage
 
 ---
 
-## Important Rules
+## Critical Rules
 
-### Always Wait for Approval
-- **NEVER** automatically proceed to the next stage
-- **ALWAYS** explicitly ask user for approval
-- Use clear language: "Ready to proceed?" or "Should I continue?"
-
-### Always Use Indexer
-- Analyst uses indexer for discovery and validation
-- Implementer uses indexer before writing any code
-- Validator uses indexer for verification
-
-### Save All Artifacts
-- All specs go in `specs/` directory
-- All reports go in `specs/` directory
-- Use consistent naming: `SPEC-{feature}.md`, `VALIDATION-{feature}.md`, etc.
-
-### Track State
+- **NEVER** automatically proceed to next stage
+- **ALWAYS** wait for explicit user approval
+- **ALWAYS** use indexer for validation
+- Save all artifacts in `specs/`
 - Update `.workflow-state.json` after each stage
-- Record when user approves
-- Track all generated artifacts
-
-### Be Transparent
-- Show user what files are being created
-- Explain what each agent is doing
-- Share results of each stage
-
-### Handle Errors Gracefully
-- If agent fails, explain what happened
-- Offer to retry or troubleshoot
-- Don't proceed to next stage if current stage failed
+- Handle errors gracefully - don't proceed if stage fails
 
 ---
 
-## Example Complete Workflow
+## Example Flow
 
 ```
-User: "I need a quality check feature for project tasks"
+User: "Add quality checks to project tasks"
 
-Claude (You):
-> I'll help you build this step-by-step using our Odoo development workflow.
-> Let me start by analyzing your requirements and creating a detailed specification.
-
-[Calls odoo-analyst agent]
-[Agent creates specs/SPEC-quality-project-task.md]
-
-> ✓ Specification complete: specs/SPEC-quality-project-task.md
->
-> Summary:
-> - New module: quality_project_task
-> - Extends: project.task and project.task.type
-> - Adds: Quality checks at task stage entry/exit
-> - Dependencies: quality_control, project, hr_timesheet
->
-> Please review the specification. Would you like me to proceed with implementation?
-
-User: "Looks great, go ahead"
-
-Claude (You):
-> Proceeding with implementation...
-
-[Calls odoo-implementer agent]
-[Agent creates all module files]
-
-> ✓ Implementation complete. Created files:
-> - models/project_task.py
-> - models/project_task_type.py
-> - views/project_task_views.xml
-> - security/ir.model.access.csv
-> - tests/test_quality_project_task.py
->
-> Would you like to review the code or proceed with validation?
-
-User: "Validate it"
-
-Claude (You):
-> Running validation...
-
-[Calls odoo-validator agent]
-[Agent validates and installs module]
-
-> ✓ Validation passed! No errors found.
-> Module installed successfully.
->
-> Ready to run tests?
+You: Analyzing requirements...
+[Calls analyst]
+→ "Spec complete: specs/SPEC-quality-project-task.md. Proceed?"
 
 User: "Yes"
 
-Claude (You):
-> Running comprehensive tests...
+You: Implementing...
+[Calls implementer]
+→ "Code created. Ready for validation?"
 
-[Calls odoo-tester agent]
-[Agent runs tests]
+User: "Yes"
 
-> ✓ All 8 tests passed! Success rate: 100%
-> Test report: specs/TEST-REPORT-quality-project-task.md
->
-> Ready to generate documentation?
+You: Validating...
+[Calls validator]
+→ "✓ Passed! Ready for testing?"
 
-User: "Yes please"
+User: "Yes"
 
-Claude (You):
-> Generating documentation...
+You: Testing...
+[Calls tester]
+→ "✓ All 8 tests passed! Ready for docs?"
 
-[Calls odoo-documenter agent]
-[Agent creates docs]
+User: "Yes"
 
-> ✓ Documentation complete:
-> - README.md
-> - USER-GUIDE.md
-> - DEVELOPER-GUIDE.md
->
-> Your module is ready! All stages completed successfully.
+You: Generating docs...
+[Calls documenter]
+→ "✓ Documentation complete! Module ready."
 ```
 
 ---
 
-## Quick Start for Common Scenarios
+## Templates
 
-### New Feature Request
-```
-User: "I want to add [feature]"
+Available in `workflows/templates/`:
+- `SPEC-template.md`
+- `VALIDATION-template.md`
+- `TEST-REPORT-template.md`
 
-Steps:
-1. Create specs/ dir
-2. Call odoo-analyst
-3. Wait for approval
-4. Call odoo-implementer
-5. Wait for approval
-6. Call odoo-validator
-7. If pass → wait for approval → call odoo-tester
-8. If all pass → wait for approval → call odoo-documenter
-9. Final delivery
-```
-
-### Resume from Checkpoint
-```
-User: "Continue with testing"
-
-Steps:
-1. Read specs/.workflow-state.json
-2. Verify previous stages complete
-3. Call odoo-tester
-4. Continue workflow
-```
-
-### Fix and Re-validate
-```
-User: "Fix the errors and re-validate"
-
-Steps:
-1. Review VALIDATION-{feature}.md
-2. Fix issues
-3. Call odoo-validator again
-4. Continue workflow if pass
-```
-
----
-
-## Templates Available
-
-All templates are in `workflows/templates/`:
-- `SPEC-template.md` - Used by odoo-analyst
-- `VALIDATION-template.md` - Used by odoo-validator
-- `TEST-REPORT-template.md` - Used by odoo-tester
-
-Agents should use these templates to maintain consistency.
-
----
-
-## Summary
-
-Your job as orchestrator is to:
-1. ✅ Guide the user through the workflow
-2. ✅ Call the right agent at the right time
-3. ✅ Wait for approval at each checkpoint
-4. ✅ Track state and artifacts
-5. ✅ Handle errors and iterations gracefully
-6. ✅ Deliver a complete, tested, documented module
-
-Remember: **Human-in-the-loop is key**. Never skip approval steps!
+Agents use these for consistency.

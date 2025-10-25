@@ -1,4 +1,5 @@
 ---
+name: odoo-logs
 description: View and analyze Odoo logs effectively
 ---
 

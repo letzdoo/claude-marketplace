@@ -12,6 +12,30 @@ from contextlib import contextmanager, asynccontextmanager
 logger = logging.getLogger(__name__)
 
 
+def sanitize_db_param(value):
+    """Convert list/dict parameters to JSON strings for SQLite compatibility.
+
+    SQLite doesn't support Python list/dict types directly. This function
+    serializes complex types to JSON strings while keeping strings/None as-is.
+
+    Args:
+        value: Parameter value to sanitize
+
+    Returns:
+        Sanitized value suitable for SQLite binding
+    """
+    if value is None:
+        return None
+    if isinstance(value, (list, dict)):
+        try:
+            return json.dumps(value)
+        except (TypeError, ValueError):
+            return str(value)
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
 class Database:
     """SQLite database manager for Odoo index."""
 
@@ -508,6 +532,13 @@ class Database:
                                attributes: dict, dependency_depth: int = 0) -> int:
         """Async version of upsert_item."""
         cursor = await conn.cursor()
+
+        # Sanitize string parameters - convert lists/dicts to JSON strings
+        item_type = sanitize_db_param(item_type)
+        name = sanitize_db_param(name)
+        parent_name = sanitize_db_param(parent_name)
+        module = sanitize_db_param(module)
+
         try:
             attributes_json = json.dumps(attributes) if attributes else None
         except (TypeError, ValueError) as e:
@@ -548,6 +579,12 @@ class Database:
                                  reference_type: str, context: Optional[str] = None):
         """Async version of add_reference."""
         cursor = await conn.cursor()
+
+        # Sanitize string parameters - convert lists/dicts to JSON strings
+        file_path = sanitize_db_param(file_path)
+        reference_type = sanitize_db_param(reference_type)
+        context = sanitize_db_param(context)
+
         await cursor.execute("""
             INSERT INTO item_references (item_id, file_path, line_number, reference_type, context)
             VALUES (?, ?, ?, ?, ?)
@@ -557,6 +594,12 @@ class Database:
                                         module: str, file_hash: str):
         """Async version of update_file_metadata."""
         cursor = await conn.cursor()
+
+        # Sanitize string parameters
+        file_path = sanitize_db_param(file_path)
+        module = sanitize_db_param(module)
+        file_hash = sanitize_db_param(file_hash)
+
         await cursor.execute("""
             INSERT OR REPLACE INTO file_metadata (file_path, module, file_hash, last_indexed)
             VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -566,6 +609,7 @@ class Database:
         """Async version of get_file_hash."""
         async with self.get_async_connection() as conn:
             cursor = await conn.cursor()
+            file_path = sanitize_db_param(file_path)
             await cursor.execute("SELECT file_hash FROM file_metadata WHERE file_path = ?", (file_path,))
             row = await cursor.fetchone()
             return row[0] if row else None
@@ -573,6 +617,7 @@ class Database:
     async def delete_file_references_async(self, conn: aiosqlite.Connection, file_path: str):
         """Async version of delete_file_references."""
         cursor = await conn.cursor()
+        file_path = sanitize_db_param(file_path)
         await cursor.execute("DELETE FROM item_references WHERE file_path = ?", (file_path,))
 
     async def store_items_async(self, items: list[dict], file_path: str, module_name: str,

@@ -1,133 +1,74 @@
 ---
+name: odoo-info
 description: Get information about Odoo modules, models, and structure
 ---
 
 # Odoo Info Command
 
-Retrieve detailed information about Odoo installation, modules, and structure in the Doodba environment.
+Get detailed information about Odoo installation, modules, and structure using the indexer.
 
-## Path Information:
-Use **relative paths** when reading files from the project root: `odoo/...`
+**IMPORTANT: Always use indexer FIRST - it's 90% faster and uses 95% fewer tokens!**
 
-## What to do:
+## What to do
 
-**IMPORTANT: Use the indexer FIRST for all queries - it's faster and uses fewer tokens!**
+1. Ask what information is needed
 
-1. Ask what information is needed:
-   - Module details (version, dependencies, description)
-   - Model fields and methods
-   - Installed modules
-   - Available modules
-   - Database structure
-   - Doodba configuration
-
-2. **For module info, use INDEXER FIRST:**
-
-   **Get module statistics (instant, no file reading):**
-   ```python
+2. **For modules** - Use odoo-indexer skill (no file reading):
+   ```bash
    # List all modules
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__list_modules()
+   ./scripts/run.sh scripts/list_modules.py
 
-   # Get detailed stats for specific module
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__get_module_stats(
-       module="sale"
-   )
-   # Returns: Total models, fields, views, actions, menus, etc.
-   # Shows module structure without reading any files!
+   # Get module statistics
+   ./scripts/run.sh scripts/module_stats.py sale
+   # Returns: models, fields, views, actions, menus counts
    ```
 
-   **Only read manifest if user needs specific metadata:**
-   - `odoo/custom/src/private/[module]/__manifest__.py`
-   - `odoo/custom/src/[repo]/[module]/__manifest__.py`
+3. **For models** - Use odoo-indexer skill (90% of cases):
+   ```bash
+   # Get complete model details (all fields, methods, views)
+   ./scripts/run.sh scripts/get_details.py model "sale.order"
+   # Returns: All fields with types, methods, views, inheritance
 
-3. **For model information, use INDEXER (90% of cases):**
+   # List all models in module
+   ./scripts/run.sh scripts/search.py "%" --type model --module sale --limit 50
 
-   **Get complete model details (all fields, methods, views):**
-   ```python
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__get_item_details(
-       item_type="model",
-       name="sale.order"
-   )
-   # Returns:
-   # - All fields with types, attributes (required, readonly, etc.)
-   # - All methods with signatures
-   # - All views (form, tree, search, etc.)
-   # - Module location
-   # - Inheritance information
-   # NO FILE READING - instant results!
+   # Find Many2one fields
+   ./scripts/run.sh scripts/search_by_attr.py field \
+       --filters '{"parent_name": "sale.order", "field_type": "Many2one"}'
    ```
 
-   **List all models in a module:**
-   ```python
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_odoo_index(
-       query="%",
-       item_type="model",
-       module="sale",
-       limit=50
-   )
-   ```
-
-   **Find all Many2one fields in a model:**
-   ```python
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_by_attribute(
-       item_type="field",
-       attribute_filters={
-           "parent_name": "sale.order",
-           "field_type": "Many2one"
-       },
-       limit=50
-   )
-   ```
-
-   **Only read Python files if user needs:**
-   - Actual implementation code
-   - Complex business logic
-   - Docstrings and detailed comments
-
-4. **For view/action/menu information, use INDEXER:**
-
-   **Search for views:**
-   ```python
-   # Find specific view
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_xml_id(
-       query="sale_order_form",
-       module="sale"
-   )
+4. **For views/actions/menus** - Use odoo-indexer skill:
+   ```bash
+   # Find view
+   ./scripts/run.sh scripts/search_xml_id.py "sale_order_form" --module sale
 
    # Get view details
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__get_item_details(
-       item_type="view",
-       name="sale.sale_order_form"
-   )
-   # Returns: view_type, model, module, file location
+   ./scripts/run.sh scripts/get_details.py view "sale.sale_order_form"
+
+   # Find all form views for model
+   ./scripts/run.sh scripts/search_by_attr.py view \
+       --filters '{"model": "sale.order", "view_type": "form"}'
    ```
 
-   **Find all form views for a model:**
-   ```python
-   mcp__plugin_odoo-doodba-dev_odoo-indexer__search_by_attribute(
-       item_type="view",
-       attribute_filters={
-           "model": "sale.order",
-           "view_type": "form"
-       }
-   )
-   ```
+5. **For system info** (use relative paths):
+   - Odoo version: `odoo/custom/src/odoo/odoo/release.py`
+   - Active addons: `odoo/custom/src/addons.yaml`
+   - Repositories: `odoo/custom/src/repos.yaml`
 
-5. **For system info (use RELATIVE PATHS when needed):**
-   - Odoo version: Check `odoo/custom/src/odoo/odoo/release.py`
-   - Active addons: Read `odoo/custom/src/addons.yaml`
-   - Repository config: Read `odoo/custom/src/repos.yaml`
+6. **Only read Python files when user needs**:
+   - Actual implementation code
+   - Business logic details
+   - Docstrings and comments
 
-6. **Performance Benefits:**
-   - Indexer query: < 1 second, ~50-100 tokens
-   - File reading: 10-30 seconds, ~500-2000 tokens
-   - **Result: 90-95% faster, 90-95% fewer tokens**
+## Performance
 
-7. Present information clearly and offer related actions
+- Indexer: <1s, ~50-100 tokens
+- File reading: 10-30s, ~500-2000 tokens
+- **Result: 90-95% faster, 90-95% fewer tokens**
 
-## Useful Locations (RELATIVE PATHS):
+## Useful Locations
+
 - Core Odoo: `odoo/custom/src/odoo/`
 - Custom modules: `odoo/custom/src/private/`
-- Enterprise: `odoo/custom/src/enterprise/` (if applicable)
+- Enterprise: `odoo/custom/src/enterprise/`
 - OCA modules: `odoo/custom/src/[repo-name]/`
-- Auto-linked: `odoo/auto/addons/`
