@@ -22,13 +22,13 @@ Validate all references (models, fields, XML IDs, views) BEFORE installation to 
 
 3. **Validate manifest** - Check dependencies exist (use odoo-indexer skill):
    ```bash
-   ./scripts/run.sh scripts/list_modules.py
+   uv run scripts/list_modules.py
    ```
 
 4. **Validate models** - Check inheritance (use odoo-indexer skill):
    ```bash
    # For each _inherit = 'model.name'
-   ./scripts/run.sh scripts/search.py "model.name" --type model --limit 1
+   uv run scripts/search.py "model.name" --type model --limit 1
    # Validate comodels for relational fields
    ```
 
@@ -37,20 +37,20 @@ Validate all references (models, fields, XML IDs, views) BEFORE installation to 
    **A. Check fields exist**:
    ```bash
    # For EVERY <field name="X"/> in views
-   ./scripts/run.sh scripts/search.py "field_name" \
+   uv run scripts/search.py "field_name" \
        --type field --parent "model.name" --limit 1
    ```
 
    **B. Check XML ID references**:
    ```bash
    # For EVERY ref="module.xml_id"
-   ./scripts/run.sh scripts/search_xml_id.py "xml_id" --limit 5
+   uv run scripts/search_xml_id.py "xml_id" --limit 5
    # If not found, search without module prefix to find correct one
    ```
 
    **C. Check view inheritance**:
    ```bash
-   ./scripts/run.sh scripts/get_details.py view "parent_view_xml_id"
+   uv run scripts/get_details.py view "parent_view_xml_id"
    ```
 
    **D. Check version compatibility**:

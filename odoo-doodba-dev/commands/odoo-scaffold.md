@@ -17,10 +17,10 @@ Create a new Odoo module using Doodba's invoke scaffold task.
 2. **Validate with indexer** (use odoo-indexer skill):
    ```bash
    # Check for naming conflicts
-   ./scripts/run.sh scripts/search.py "${module_name}.%" --type model --limit 5
+   uv run scripts/search.py "${module_name}.%" --type model --limit 5
 
    # If extending models, validate they exist
-   ./scripts/run.sh scripts/get_details.py model "sale.order"
+   uv run scripts/get_details.py model "sale.order"
    # Returns fields to use in views, methods, module for dependencies
 
    # Get Odoo version for correct template
@@ -38,7 +38,7 @@ Create a new Odoo module using Doodba's invoke scaffold task.
 
    **Show available fields**:
    ```bash
-   ./scripts/run.sh scripts/search_by_attr.py field \
+   uv run scripts/search_by_attr.py field \
        --filters '{"parent_name": "sale.order"}' --limit 50
    # Use exact field names in views - prevents errors
    ```
@@ -46,7 +46,7 @@ Create a new Odoo module using Doodba's invoke scaffold task.
    **Suggest dependencies**:
    ```bash
    # Find which module defines a model
-   ./scripts/run.sh scripts/search.py "quality.check" --type model
+   uv run scripts/search.py "quality.check" --type model
    # Add returned module to __manifest__.py dependencies
    ```
 

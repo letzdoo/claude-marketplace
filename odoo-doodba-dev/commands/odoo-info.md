@@ -16,37 +16,37 @@ Get detailed information about Odoo installation, modules, and structure using t
 2. **For modules** - Use odoo-indexer skill (no file reading):
    ```bash
    # List all modules
-   ./scripts/run.sh scripts/list_modules.py
+   uv run scripts/list_modules.py
 
    # Get module statistics
-   ./scripts/run.sh scripts/module_stats.py sale
+   uv run scripts/module_stats.py sale
    # Returns: models, fields, views, actions, menus counts
    ```
 
 3. **For models** - Use odoo-indexer skill (90% of cases):
    ```bash
    # Get complete model details (all fields, methods, views)
-   ./scripts/run.sh scripts/get_details.py model "sale.order"
+   uv run scripts/get_details.py model "sale.order"
    # Returns: All fields with types, methods, views, inheritance
 
    # List all models in module
-   ./scripts/run.sh scripts/search.py "%" --type model --module sale --limit 50
+   uv run scripts/search.py "%" --type model --module sale --limit 50
 
    # Find Many2one fields
-   ./scripts/run.sh scripts/search_by_attr.py field \
+   uv run scripts/search_by_attr.py field \
        --filters '{"parent_name": "sale.order", "field_type": "Many2one"}'
    ```
 
 4. **For views/actions/menus** - Use odoo-indexer skill:
    ```bash
    # Find view
-   ./scripts/run.sh scripts/search_xml_id.py "sale_order_form" --module sale
+   uv run scripts/search_xml_id.py "sale_order_form" --module sale
 
    # Get view details
-   ./scripts/run.sh scripts/get_details.py view "sale.sale_order_form"
+   uv run scripts/get_details.py view "sale.sale_order_form"
 
    # Find all form views for model
-   ./scripts/run.sh scripts/search_by_attr.py view \
+   uv run scripts/search_by_attr.py view \
        --filters '{"model": "sale.order", "view_type": "form"}'
    ```
 
