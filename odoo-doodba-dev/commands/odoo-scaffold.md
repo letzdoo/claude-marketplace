@@ -1,5 +1,4 @@
 ---
-name: odoo-scaffold
 description: Scaffold a new Odoo module with proper structure
 ---
 

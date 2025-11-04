@@ -1,5 +1,4 @@
 ---
-name: odoo-workflow
 description: Orchestrate multi-stage Odoo development with human-in-the-loop checkpoints
 ---
 

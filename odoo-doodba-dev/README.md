@@ -33,12 +33,14 @@ Professional Odoo development toolkit for Claude Code with deep knowledge of Doo
 
 ### Available Commands
 
-- `/odoo-scaffold` - Create a new Odoo module
-- `/odoo-test` - Run tests for modules
-- `/odoo-addons` - Manage addons.yaml
-- `/odoo-shell` - Launch Odoo shell
-- `/odoo-logs` - View Odoo logs
-- `/odoo-info` - Get system/module information
+- `/odoo-doodba-dev:odoo-scaffold` - Create a new Odoo module
+- `/odoo-doodba-dev:odoo-test` - Run tests for modules
+- `/odoo-doodba-dev:odoo-addons` - Manage addons.yaml
+- `/odoo-doodba-dev:odoo-shell` - Launch Odoo shell
+- `/odoo-doodba-dev:odoo-logs` - View Odoo logs
+- `/odoo-doodba-dev:odoo-info` - Get system/module information
+- `/odoo-doodba-dev:odoo-validate` - Validate module before installation
+- `/odoo-doodba-dev:odoo-workflow` - Multi-stage development workflow
 
 ### Odoo Developer Agent
 
@@ -82,7 +84,7 @@ This plugin includes the odoo-indexer skill that provides fast code navigation t
 ### Create a new module
 
 ```shell
-/odoo-scaffold
+/odoo-doodba-dev:odoo-scaffold
 ```
 
 Then develop iteratively using the odoo-developer agent:
@@ -108,14 +110,14 @@ The indexer automatically maintains an up-to-date SQLite database of your Odoo c
 ### Test your changes
 
 ```shell
-/odoo-test
+/odoo-doodba-dev:odoo-test
 # This will guide you to use: invoke test --modules=my_module
 ```
 
 ### View logs during development
 
 ```shell
-/odoo-logs
+/odoo-doodba-dev:odoo-logs
 # This will guide you to use: invoke logs --tail=100
 ```
 
@@ -169,12 +171,12 @@ Understanding the Doodba structure is key to effective development.
 
 ## Development Workflow
 
-1. **Scaffold** a new module using `/odoo-scaffold`
+1. **Scaffold** a new module using `/odoo-doodba-dev:odoo-scaffold`
 2. **Switch** to the odoo-developer agent for implementation
 3. **Develop** models, views, and business logic
-4. **Test** using `/odoo-test` continuously
-5. **Debug** issues with `/odoo-shell` and `/odoo-logs`
-6. **Manage** module activation with `/odoo-addons`
+4. **Test** using `/odoo-doodba-dev:odoo-test` continuously
+5. **Debug** issues with `/odoo-doodba-dev:odoo-shell` and `/odoo-doodba-dev:odoo-logs`
+6. **Manage** module activation with `/odoo-doodba-dev:odoo-addons`
 
 ## Module Development Best Practices
 
@@ -274,8 +276,8 @@ class TestModuleName(TransactionCase):
 
 - Use `import pdb; pdb.set_trace()` for interactive debugging
 - Use logging: `_logger.info()`, `_logger.warning()`, `_logger.error()`
-- Check logs with `/odoo-logs`
-- Use `/odoo-shell` for quick tests and data exploration
+- Check logs with `/odoo-doodba-dev:odoo-logs`
+- Use `/odoo-doodba-dev:odoo-shell` for quick tests and data exploration
 - Enable developer mode in UI for debugging views
 
 ## Support

@@ -1,5 +1,4 @@
 ---
-name: odoo-addons
 description: Manage addons.yaml configuration and install/uninstall modules
 ---
 

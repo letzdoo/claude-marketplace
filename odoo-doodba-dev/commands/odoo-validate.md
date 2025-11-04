@@ -1,5 +1,4 @@
 ---
-name: odoo-validate
 description: Validate Odoo module before installation using indexer
 ---
 
