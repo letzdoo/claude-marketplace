@@ -2,6 +2,8 @@
 
 Professional Odoo development toolkit for Claude Code with intelligent workflows, fast code indexing, and deep Doodba integration.
 
+**🚀 New to v2.0?** Start with **[START_HERE.md](START_HERE.md)** for a 5-minute quick start guide!
+
 ---
 
 ## ⚡ What's New in v2.0
@@ -372,9 +374,11 @@ See [MIGRATION.md](MIGRATION.md) for complete migration guide.
 
 ## Documentation
 
+- **[START_HERE.md](START_HERE.md)** - Quick start guide (read this first!)
 - **[INSTALLATION.md](INSTALLATION.md)** - Complete installation guide
 - **[MIGRATION.md](MIGRATION.md)** - v1 to v2 migration guide
 - **[USAGE_GUIDE.md](USAGE_GUIDE.md)** - Detailed usage examples
+- **[CHANGELOG.md](CHANGELOG.md)** - What's new in v2.0
 - **Skills README**: `skills/odoo-indexer/README.md` - Indexer documentation
 
 ---
