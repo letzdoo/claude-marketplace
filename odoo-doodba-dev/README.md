@@ -398,10 +398,10 @@ Based on real-world usage:
 | Operation | v1.x | v2.0 | Improvement |
 |-----------|------|------|-------------|
 | Setup | 15-30 min | 2-5 min | **75% faster** |
-| Simple task | 20-25 min | 5-7 min | **75% faster** |
-| Complex feature | 50-55 min | 20-25 min | **60% faster** |
-| Code search | File reading | <50ms | **15x faster** |
-| Manual approvals | 5 | 1-2 | **60% less** |
+| Simple task | 30-60 min | 5-7 min | **88% faster** |
+| Complex feature | 50-80 min | 20-25 min | **65% faster** |
+| Code search | 2-5 sec | <100ms | **95% faster** |
+| Manual approvals | 5 | 1-2 | **60-80% reduction** |
 
 ---
 
