@@ -11,7 +11,7 @@ Run tests for Odoo modules using Doodba's invoke tasks.
 2. Ask test scope:
    - Current module (default if in module directory)
    - Specific module(s)
-   - All private/core/extra/enterprise modules
+   - All odoo-sh/core/extra/enterprise modules
    - With or without debug mode
 
 3. Execute tests using invoke tasks:
@@ -22,18 +22,6 @@ Run tests for Odoo modules using Doodba's invoke tasks.
    # Test specific module(s)
    invoke test --modules=module_name
    invoke test --modules=module1,module2
-
-   # Test module categories
-   invoke test --private
-   invoke test --core
-   invoke test --extra
-   invoke test --enterprise
-
-   # Test with debugger attached
-   invoke test --modules=module_name --debugpy
-
-   # Skip specific modules
-   invoke test --private --skip=module_to_skip
    ```
 
 4. Parse and present test results clearly

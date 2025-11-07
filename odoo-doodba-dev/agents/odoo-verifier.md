@@ -57,7 +57,7 @@ uv run skills/odoo-indexer/scripts/module_stats.py module_name
 Check module directory exists and has proper structure:
 
 ```bash
-ls -la odoo/custom/src/private/{module_name}/
+ls -la odoo/custom/src/odoo-sh/{module_name}/
 ```
 
 **Required files**:

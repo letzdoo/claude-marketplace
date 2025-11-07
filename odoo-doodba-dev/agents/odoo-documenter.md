@@ -35,7 +35,7 @@ You create user-facing and developer documentation for completed, tested Odoo mo
 **Dependencies:** module1, module2
 
 **Steps:**
-1. Add to `odoo/custom/src/private/{module_name}`
+1. Add to `odoo/custom/src/odoo-sh/{module_name}`
 2. Restart Odoo or update apps list
 3. Apps → Search "{Module}" → Install
 

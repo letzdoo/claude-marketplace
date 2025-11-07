@@ -226,7 +226,7 @@ After `/odoo-setup` completes:
 
 - [ ] **Test**: `/odoo-scaffold my_custom_module`
   - Expected:
-    - Module created in odoo/custom/src/private/
+    - Module created in odoo/custom/src/odoo-sh/
     - All required files present
     - Validated with indexer
     - Ready for development

@@ -70,8 +70,8 @@ Let's add a simple field to an existing model:
 ✅ Complete! (6 minutes)
 
 Files modified:
-- odoo/custom/src/private/partner_notes/models/res_partner.py
-- odoo/custom/src/private/partner_notes/views/res_partner_views.xml
+- odoo/custom/src/odoo-sh/partner_notes/models/res_partner.py
+- odoo/custom/src/odoo-sh/partner_notes/views/res_partner_views.xml
 
 Install: invoke install -m partner_notes
 ```
@@ -201,7 +201,7 @@ Full Mode is for complex features: new modules, multiple models, workflows.
 📐 Architecture Proposal:
 
 **Module**: equipment_tracking
-**Location**: odoo/custom/src/private/equipment_tracking
+**Location**: odoo/custom/src/odoo-sh/equipment_tracking
 
 **Models**:
 1. equipment.tracking

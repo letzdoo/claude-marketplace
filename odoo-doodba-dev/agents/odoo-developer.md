@@ -99,7 +99,7 @@ Present architecture inline in this format:
 
 **Approach**: {New module / Extension}
 **Module Name**: `{module_name}`
-**Location**: `odoo/custom/src/private/{module_name}/`
+**Location**: `odoo/custom/src/odoo-sh/{module_name}/`
 
 **Components**:
 - Models: {X} ({list model names})
@@ -136,7 +136,7 @@ After user approves architecture:
 ### Step 1: Create Module Structure
 
 ```bash
-mkdir -p odoo/custom/src/private/{module_name}/{models,views,security,data,tests,static/description}
+mkdir -p odoo/custom/src/odoo-sh/{module_name}/{models,views,security,data,tests,static/description}
 ```
 
 ### Step 2: Implement Manifest
@@ -456,7 +456,7 @@ Show validation as it happens:
 ✅ **Development Complete!**
 
 **Module**: `{module_name}`
-**Location**: `odoo/custom/src/private/{module_name}/`
+**Location**: `odoo/custom/src/odoo-sh/{module_name}/`
 
 **Files Created**:
 - `__manifest__.py` - Module manifest

@@ -102,7 +102,7 @@ For simple tasks (most common):
      subagent_type="odoo-verifier",
      description="Verify {module_name}",
      prompt="Verify module: {module_name}
-     Location: odoo/custom/src/private/{module_name}
+     Location: odoo/custom/src/odoo-sh/{module_name}
 
      - Validate structure
      - Run tests
