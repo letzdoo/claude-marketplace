@@ -1,5 +1,5 @@
 ---
-description: Launch an interactive Odoo shell for debugging and exploration
+description: Launch an interactive Odoo shell for debugging and exploration. AUTO-USE when user says "open shell", "odoo shell", "debug in shell", "test code snippet", "query database", "check records", or needs to interactively explore data/test code. Provides full ORM access for debugging and data exploration.
 ---
 
 # Odoo Shell Command

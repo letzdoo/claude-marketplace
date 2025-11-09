@@ -1,5 +1,5 @@
 ---
-description: View and analyze Odoo logs effectively
+description: View and analyze Odoo logs effectively. AUTO-USE when user says "check logs", "show logs", "view logs", "what's the error", "debug issue", after test failures, installation errors, or when investigating bugs. Uses Doodba's invoke logs with tail/follow options. CRITICAL for debugging - use proactively when errors occur.
 ---
 
 # Odoo Logs Command

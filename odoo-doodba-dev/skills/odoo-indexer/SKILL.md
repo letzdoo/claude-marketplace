@@ -1,6 +1,6 @@
 ---
 name: Odoo Indexer
-description: Index and search Odoo codebase elements (models, fields, functions, views, actions, menus). Use when exploring Odoo code structure, searching for models/fields/views, finding references, or analyzing module dependencies.
+description: Fast indexer for Odoo codebases - 95% more token-efficient than reading files. USE AUTOMATICALLY AND PROACTIVELY before ANY Odoo code work. AUTO-TRIGGER when user mentions models (sale.order, res.partner, account.move, etc.), fields (partner_id, name, state, etc.), views (form, tree, kanban), XML IDs, or when you need to search/validate/explore Odoo code. USE BEFORE writing code to validate references exist, USE BEFORE reading files to locate elements, USE DURING debugging to trace dependencies. CRITICAL: Always validate models/fields/xmlids with indexer before using them in code. Provides <100ms searches vs reading 20+ files. Essential for all Odoo development tasks.
 allowed-tools: Read, Bash, Grep, Glob
 ---
 

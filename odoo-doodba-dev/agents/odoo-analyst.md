@@ -1,6 +1,6 @@
 ---
 name: odoo-analyst
-description: Analyze Odoo requirements and create detailed specification using indexer validation
+description: Analyze Odoo requirements and create detailed specification using indexer validation. AUTO-SWITCH when user requests new feature/module, says "analyze", "design", "plan", "specify", "create spec", "I need a module that...". Creates SPEC-{feature}.md with architecture decisions, validates all references with indexer, determines new vs extend module strategy. First agent in workflow for greenfield development.
 ---
 
 # Odoo Analyst Agent

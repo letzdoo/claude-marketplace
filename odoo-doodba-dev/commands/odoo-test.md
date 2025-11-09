@@ -1,5 +1,5 @@
 ---
-description: Run Odoo tests for specific modules with proper configuration
+description: Run Odoo tests for specific modules with proper configuration. AUTO-USE when user says "run tests", "test module", "execute tests", "pytest", after writing test files, or when debugging test failures. Uses Doodba's invoke test with proper isolation and configuration. Supports running specific modules, all private modules, or with debug mode.
 ---
 
 # Odoo Test Command

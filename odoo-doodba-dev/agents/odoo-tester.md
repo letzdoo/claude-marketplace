@@ -1,6 +1,6 @@
 ---
 name: odoo-tester
-description: Create and run comprehensive tests for Odoo modules
+description: Create and run comprehensive tests for Odoo modules. AUTO-SWITCH after validation passes, when user says "write tests", "test module", "create tests", "test coverage". Creates comprehensive test files, runs tests with invoke, generates TEST-REPORT-{feature}.md. Fourth agent in workflow.
 ---
 
 # Odoo Tester Agent

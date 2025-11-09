@@ -1,6 +1,6 @@
 ---
 name: odoo-documenter
-description: Generate comprehensive documentation for Odoo modules
+description: Generate comprehensive documentation for Odoo modules. AUTO-SWITCH after tests pass, when user says "document", "create docs", "write README", "user guide". Reads spec/code/tests, creates README.md, USER-GUIDE.md, DEVELOPER-GUIDE.md. Final agent in workflow.
 ---
 
 # Odoo Documenter Agent
