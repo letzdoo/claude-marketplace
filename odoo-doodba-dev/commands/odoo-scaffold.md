@@ -26,12 +26,13 @@ Create a new Odoo module using Doodba's invoke scaffold task.
    cat odoo/custom/src/odoo/odoo/release.py | grep version_info
    ```
 
-3. **Execute scaffold**:
+3. **Execute scaffold** (ALWAYS in odoo-sh directory):
    ```bash
-   invoke scaffold --module-name=module_name
-   # Or with custom path
+   # ALWAYS create modules in odoo-sh directory
    invoke scaffold --module-name=module_name --path=odoo/custom/src/odoo-sh/
    ```
+
+   **⚠️ CRITICAL: Never create modules in odoo/custom/src/private/ to avoid duplicate module issues!**
 
 4. **Customize module** with indexer-assisted development (use odoo-indexer skill):
 
@@ -61,7 +62,11 @@ Create a new Odoo module using Doodba's invoke scaffold task.
    - Add views with validated fields
    - Add tests
 
-6. **Add to addons.yaml** under `private` section
+6. **Add to addons.yaml** under `odoo-sh` section (NOT private!)
+   ```yaml
+   odoo-sh:
+     - module_name
+   ```
 
 7. **Validation**: Validation and testing are now automatic when using `/odoo-doodba-dev:odoo-dev` for further development
 

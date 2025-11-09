@@ -432,11 +432,32 @@ The plugin validates EVERYTHING with the indexer:
 
 **If the plugin says it's validated, it's validated!**
 
-### 5. Path Conventions
+### 5. Path Conventions & Ghost Module Prevention
 
-**ALWAYS use relative paths from project root:**
-- ✅ `odoo/custom/src/private/my_module/`
-- ✅ `odoo/custom/src/odoo-sh/my_module/`
+**⚠️ CRITICAL: ALWAYS create modules ONLY in `odoo-sh/` directory!**
+
+**Module Creation Path (MANDATORY):**
+- ✅ `odoo/custom/src/odoo-sh/my_module/` - **ONLY USE THIS!**
+- ❌ `odoo/custom/src/private/my_module/` - **NEVER CREATE HERE!**
+
+**Why this matters:**
+- Creating modules in multiple locations causes "ghost modules"
+- Odoo may load the wrong version (e.g., scaffold template instead of implementation)
+- Fields never get created in database
+- Installation appears successful but uses wrong files
+- Wastes 10+ minutes debugging "invisible" modules
+
+**Before creating ANY module, ALWAYS:**
+1. Check for existing duplicates:
+   ```bash
+   find odoo/custom/src -name "module_name" -type d
+   ```
+2. If duplicates exist, remove them before proceeding
+3. Create ONLY in `odoo/custom/src/odoo-sh/`
+
+**Path conventions for other uses:**
+- ✅ `odoo/custom/src/odoo-sh/my_module/` - Module creation (ONLY location)
+- ✅ Relative paths from project root
 - ❌ `/opt/odoo/custom/src/` (inside container)
 - ❌ Absolute paths (unless specifically required)
 
@@ -660,6 +681,65 @@ Claude: /odoo-doodba-dev:odoo-dev "add partner_id field"
         [Plugin validates field type]
         [Plugin validates in views]
         ✅ CORRECT!
+```
+
+---
+
+### ❌ DON'T: Create modules in wrong directory (causes ghost modules)
+
+```
+User: "Create inventory module"
+
+Claude: [Creates scaffold in odoo/custom/src/private/]
+        [Later creates implementation in odoo/custom/src/odoo-sh/]
+        [Both exist - Odoo loads wrong one!]
+        ❌ WRONG! (Ghost module problem - fields never created)
+```
+
+### ✅ DO: Check for duplicates and use ONLY odoo-sh directory
+
+```
+User: "Create inventory module"
+
+Claude: /odoo-doodba-dev:odoo-dev "create inventory module"
+        [Plugin checks: find odoo/custom/src -name "inventory_*"]
+        [Plugin verifies no duplicates exist]
+        [Plugin creates ONLY in odoo/custom/src/odoo-sh/]
+        [Adds duplicate check to completion report]
+        ✅ CORRECT! (Single source of truth)
+```
+
+---
+
+### ❌ DON'T: Assume XPath expressions in view inheritance
+
+```
+User: "Add field to pos.order search view"
+
+Claude: [Generates view inheritance]
+        <xpath expr="//group[@name='group_by']" position="inside">
+        [Doesn't read parent view]
+        [Assumes group has name='group_by']
+        ❌ WRONG! (ParseError - group_by doesn't exist in parent view)
+```
+
+### ✅ DO: Validate XPath by reading parent view first
+
+```
+User: "Add field to pos.order search view"
+
+Claude: /odoo-doodba-dev:odoo-dev "add field to pos.order search view"
+        [Plugin finds parent view XML ID with indexer]
+        [Plugin reads parent view file]
+        [Plugin verifies actual structure:
+         - Sees <group expand="0" string="Group By"> (no name attribute!)
+         - Finds <filter name="order_date"> (actual filter name)
+         - Verifies <field name="partner_id"> exists]
+        [Plugin writes inheritance with correct XPath:
+         <xpath expr="//group[@string='Group By']" position="inside">
+         OR
+         <xpath expr="//field[@name='partner_id']" position="after">]
+        ✅ CORRECT! (XPath validated against actual parent structure)
 ```
 
 ---

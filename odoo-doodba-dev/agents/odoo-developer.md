@@ -99,7 +99,7 @@ Present architecture inline in this format:
 
 **Approach**: {New module / Extension}
 **Module Name**: `{module_name}`
-**Location**: `odoo/custom/src/odoo-sh/{module_name}/`
+**Location**: `odoo/custom/src/odoo-sh/{module_name}/` ⚠️ (NEVER use private/ directory!)
 
 **Components**:
 - Models: {X} ({list model names})
@@ -136,7 +136,16 @@ After user approves architecture:
 ### Step 1: Create Module Structure
 
 ```bash
+# ALWAYS create in odoo-sh directory (NEVER in private/)
 mkdir -p odoo/custom/src/odoo-sh/{module_name}/{models,views,security,data,tests,static/description}
+```
+
+**⚠️ CRITICAL SAFETY CHECK:**
+Before creating module, verify the target directory doesn't already exist in multiple locations:
+```bash
+# Check for duplicate module directories
+find odoo/custom/src -name "{module_name}" -type d
+# If found in multiple locations, remove the unwanted ones before proceeding
 ```
 
 ### Step 2: Implement Manifest
@@ -234,6 +243,7 @@ class ExistingModelExtend(models.Model):
 - Validate field exists in model
 - Check field type matches widget
 - Validate parent view XML ID for inheritance
+- **For view inheritance: Validate ALL XPath expressions against parent view structure**
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -335,19 +345,48 @@ class ExistingModelExtend(models.Model):
 </odoo>
 ```
 
-**View Inheritance** (validate parent XML ID!):
+**View Inheritance** (CRITICAL: validate parent XML ID AND XPath expressions!):
+
+**⚠️ MANDATORY XPath Validation Process:**
+1. **Find parent view XML ID** using indexer
+2. **Read parent view file** to get actual structure
+3. **Verify XPath target exists** in parent view
+4. **Only then write inheritance code**
+
+```bash
+# Step 1: Find parent view XML ID
+uv run skills/odoo-indexer/scripts/search_xml_id.py "view_name" --module parent_module
+
+# Step 2: Read parent view file to verify structure
+# Use Read tool on the view file returned by indexer
+
+# Step 3: Verify your XPath target exists in the file
+# Look for the actual field/group/page/filter names and structure
+
+# Step 4: Write inheritance with validated XPath
+```
+
+**Example with validation:**
 ```xml
 <record id="view_inherit" model="ir.ui.view">
     <field name="name">module.model.form.inherit</field>
     <field name="model">existing.model</field>
     <field name="inherit_id" ref="existing_module.existing_view"/>  <!-- Validated ✓ -->
     <field name="arch" type="xml">
+        <!-- XPath validated against parent view file ✓ -->
         <xpath expr="//field[@name='partner_id']" position="after">
             <field name="custom_field"/>  <!-- Validated ✓ -->
         </xpath>
     </field>
 </record>
 ```
+
+**Common XPath Validation Failures:**
+- ❌ `//group[@name='group_by']` - Assuming name attribute exists (many groups have no name!)
+- ❌ `//page[@name='accounting']` - Wrong page name or using settings containers instead
+- ❌ `//filter[@name='open']` - Wrong filter name (might be 'open_sessions')
+- ❌ `//field[@name='order_id']` - Field doesn't exist in that view
+- ✅ Always read parent view first to get EXACT element names and structure!
 
 **Widget Rules**:
 - `many2many_tags`: NO inline tree/list
@@ -445,6 +484,17 @@ Show validation as it happens:
       ✓ line_ids field exists in module.model
    ✓ All fields validated!
 
+💻 Creating view inheritance...
+   🔍 Finding parent view XML ID...
+      ✓ Found: sale.view_order_form in sale module
+   🔍 Reading parent view structure...
+      ✓ Read: odoo/addons/sale/views/sale_views.xml
+   🔍 Validating XPath expressions...
+      ✓ //field[@name='partner_id'] exists in parent view (line 45)
+      ✓ //notebook/page[@name='other_info'] exists in parent view (line 123)
+      ✓ //xpath position="after" is valid
+   ✓ All XPath expressions validated!
+
 ✅ Implementation complete!
 ```
 
@@ -456,7 +506,9 @@ Show validation as it happens:
 ✅ **Development Complete!**
 
 **Module**: `{module_name}`
-**Location**: `odoo/custom/src/odoo-sh/{module_name}/`
+**Location**: `odoo/custom/src/odoo-sh/{module_name}/` ✓
+
+**Duplicate Check**: ✓ No ghost modules found in other directories
 
 **Files Created**:
 - `__manifest__.py` - Module manifest
@@ -467,7 +519,10 @@ Show validation as it happens:
 - `security/security.xml` - Record rules (if applicable)
 - `tests/test_{model}.py` - Test stubs
 
-**Validation**: ✓ All {X} fields, {Y} XML IDs validated with indexer
+**Validation**:
+- ✓ All {X} fields validated with indexer
+- ✓ All {Y} XML IDs validated with indexer
+- ✓ All {Z} XPath expressions validated against parent views (if view inheritance used)
 
 **Next Steps**:
 1. Review the implementation
@@ -485,7 +540,16 @@ Ready for verification!
 - **ALWAYS** validate with indexer before using ANY reference
 - **NEVER** assume field names - get exact names from indexer
 - **NEVER** guess XML ID module prefixes - use indexer results
-- Validate: models, fields, views, XML IDs, groups
+- **NEVER** assume XPath expressions - ALWAYS read parent view first
+- Validate: models, fields, views, XML IDs, groups, **XPath expressions**
+
+**XPath Validation is CRITICAL:**
+- ❌ **NEVER** write view inheritance without reading parent view first
+- ✅ **ALWAYS** use indexer to find parent view XML ID
+- ✅ **ALWAYS** read parent view file to verify structure
+- ✅ **ALWAYS** verify exact element names (fields, groups, pages, filters)
+- ✅ **ALWAYS** verify element attributes (name="...")
+- Common mistakes: assuming group names, wrong filter names, non-existent fields in views
 
 ### Naming Conventions (STRICT)
 - `Many2one` fields end with `_id` (singular)
