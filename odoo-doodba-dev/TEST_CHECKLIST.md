@@ -2,7 +2,7 @@
 
 Comprehensive testing checklist to ensure v2.0 quality standards and verify all improvements.
 
-**Target**: 100% quality preservation from v1.x with 60-80% faster performance.
+**Target**: 100% quality preservation from previous version with 60-80% faster performance.
 
 ---
 
@@ -17,12 +17,12 @@ Comprehensive testing checklist to ensure v2.0 quality standards and verify all 
 - ✅ **Workflows** - Quick/Full/Search modes with correct timing
 - ✅ **Integration** - End-to-end scenarios
 - ✅ **Performance** - Speed and token efficiency
-- ✅ **Regression** - v1.x features preserved
+- ✅ **Regression** - previous version features preserved
 
 ### Test Environments
 
 - [ ] Fresh installation (no prior setup)
-- [ ] Upgrade from v1.x
+- [ ] Upgrade from previous version
 - [ ] Multiple Odoo versions (14.0, 15.0, 16.0, 17.0)
 - [ ] Different operating systems (Linux, macOS)
 
@@ -531,9 +531,9 @@ After `/odoo-setup` completes:
 
 ### 7.1 Speed Benchmarks
 
-Compare v1.x vs v2.0:
+Compare previous version vs v2.0:
 
-| Task | v1.x Time | v2.0 Target | v2.0 Actual | Pass/Fail |
+| Task | previous version Time | v2.0 Target | v2.0 Actual | Pass/Fail |
 |------|-----------|-------------|-------------|-----------|
 | Setup | 15-30 min | 2-5 min | _____ min | ⬜ |
 | Simple field add | 30-60 min | 5-7 min | _____ min | ⬜ |
@@ -555,7 +555,7 @@ Compare v1.x vs v2.0:
 
 ### 7.3 Automation Rate
 
-- [ ] **Manual commands in v1.x**: ~10 per workflow
+- [ ] **Manual commands in previous version**: ~10 per workflow
 - [ ] **Manual commands in v2.0**: ~1 per workflow
 - [ ] **Expected**: 90% automation
 
@@ -565,7 +565,7 @@ Compare v1.x vs v2.0:
 
 ### 8.1 Feature Preservation
 
-Ensure v1.x features are preserved:
+Ensure previous version features are preserved:
 
 - [ ] **Module scaffolding**: Still works, enhanced
 - [ ] **Code generation**: Quality maintained
@@ -598,7 +598,6 @@ Ensure v1.x features are preserved:
 
 - [ ] **INSTALLATION.md**: All steps work
 - [ ] **USAGE_GUIDE.md**: Examples executable
-- [ ] **MIGRATION.md**: Migration steps complete
 - [ ] **README.md**: Quick start accurate
 - [ ] **CHANGELOG.md**: All changes documented
 
@@ -622,11 +621,11 @@ Ensure v1.x features are preserved:
 - [ ] Gets helpful error messages
 - [ ] Can find help when stuck
 
-### 10.2 Experienced User (v1.x)
+### 10.2 Experienced User (previous version)
 
-- [ ] Can migrate from v1.x successfully
+- [ ] Can migrate from previous version successfully
 - [ ] Finds v2.0 faster and easier
-- [ ] Misses no v1.x features
+- [ ] Misses no previous version features
 - [ ] Appreciates reduced approvals
 - [ ] Adapts to new workflow quickly
 

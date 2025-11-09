@@ -18,7 +18,7 @@ Professional Odoo development toolkit for Claude Code with intelligent workflows
 - **Module Scaffolding** (`/odoo-scaffold`): Generate properly structured Odoo modules
 - **Testing Framework** (`/odoo-test`): Run and manage Odoo tests with Doodba integration
 - **Proactive Tools**: 90% automated with AUTO-TRIGGER keywords
-- **Streamlined Workflow**: 3 stages, 1-2 approvals (vs 5 stages, 5 approvals in v1.x)
+- **Streamlined Workflow**: 3 stages, 1-2 approvals (vs 5 stages, 5 approvals in previous version)
 - **Unified Agents**: 3 intelligent agents (developer, verifier, documenter)
 
 #### Key Capabilities
@@ -30,11 +30,10 @@ Professional Odoo development toolkit for Claude Code with intelligent workflows
 - **Quality**: 100% validation and testing coverage maintained
 - **Knowledge**: Deep Doodba structure and Odoo best practices
 - **Validation**: Real-time validation with indexer integration
-- **Documentation**: Comprehensive guides (START_HERE, INSTALLATION, MIGRATION, USAGE_GUIDE, CHANGELOG)
 
 #### Performance Metrics
 
-| Operation | v1.x | v2.0 | Improvement |
+| Operation | previous version | v2.0 | Improvement |
 |-----------|------|------|-------------|
 | Setup | 15-30 min | 2-5 min | **75% faster** |
 | Simple tasks | 30-60 min | 5-7 min | **88% faster** |
@@ -117,7 +116,6 @@ This will check prerequisites, install dependencies, and build the code indexer 
 
 - **[START_HERE.md](odoo-doodba-dev/START_HERE.md)** - Quick start guide (5 minutes)
 - **[INSTALLATION.md](odoo-doodba-dev/INSTALLATION.md)** - Complete installation guide
-- **[MIGRATION.md](odoo-doodba-dev/MIGRATION.md)** - v1.x → v2.0 migration guide
 - **[USAGE_GUIDE.md](odoo-doodba-dev/USAGE_GUIDE.md)** - Practical examples and workflows
 - **[CHANGELOG.md](odoo-doodba-dev/CHANGELOG.md)** - What's new in v2.0
 - **[TEST_CHECKLIST.md](odoo-doodba-dev/TEST_CHECKLIST.md)** - Comprehensive testing guide

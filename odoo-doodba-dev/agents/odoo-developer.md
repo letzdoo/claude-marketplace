@@ -533,7 +533,7 @@ Ready for verification!
 7. Ready for Verification
 ```
 
-**Key Difference from v1**: No spec files, inline proposals, faster workflow!
+**Key Difference from previous version**: No spec files, inline proposals, faster workflow!
 
 ---
 

@@ -354,9 +354,6 @@ uv run scripts/update_index.py --full  # Rebuild if needed
 
 ---
 
-## Migration from v1.x
-
-See [MIGRATION.md](MIGRATION.md) for complete migration guide.
 
 **Key changes**:
 - Commands consolidated (8 → 5)
@@ -376,7 +373,7 @@ See [MIGRATION.md](MIGRATION.md) for complete migration guide.
 
 - **[START_HERE.md](START_HERE.md)** - Quick start guide (read this first!)
 - **[INSTALLATION.md](INSTALLATION.md)** - Complete installation guide
-- **[MIGRATION.md](MIGRATION.md)** - v1 to v2 migration guide
+
 - **[USAGE_GUIDE.md](USAGE_GUIDE.md)** - Detailed usage examples
 - **[CHANGELOG.md](CHANGELOG.md)** - What's new in v2.0
 - **Skills README**: `skills/odoo-indexer/README.md` - Indexer documentation
@@ -394,14 +391,6 @@ See [MIGRATION.md](MIGRATION.md) for complete migration guide.
 ## Performance Metrics
 
 Based on real-world usage:
-
-| Operation | v1.x | v2.0 | Improvement |
-|-----------|------|------|-------------|
-| Setup | 15-30 min | 2-5 min | **75% faster** |
-| Simple task | 30-60 min | 5-7 min | **88% faster** |
-| Complex feature | 50-80 min | 20-25 min | **65% faster** |
-| Code search | 2-5 sec | <100ms | **95% faster** |
-| Manual approvals | 5 | 1-2 | **60-80% reduction** |
 
 ---
 

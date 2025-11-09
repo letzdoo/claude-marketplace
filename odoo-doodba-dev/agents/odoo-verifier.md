@@ -469,7 +469,7 @@ Ensure tests cover:
    └─ Any Fail → Detailed report file → Stop, wait for fixes ✗
 ```
 
-**Key Difference from v1**: Combined validation + testing, inline reporting, auto-proceed on success!
+**Key Difference from previous version**: Combined validation + testing, inline reporting, auto-proceed on success!
 
 ---
 

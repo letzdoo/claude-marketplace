@@ -669,14 +669,13 @@ Claude: /odoo-doodba-dev:odoo-dev "add partner_id field"
 - **START_HERE.md** - 5-minute quick start guide
 - **INSTALLATION.md** - Detailed setup instructions
 - **USAGE_GUIDE.md** - Command reference and examples
-- **MIGRATION.md** - Upgrading from v1.x to v2.0
 - **CHANGELOG.md** - What's new in v2.0
 
 ---
 
 ## 📊 PERFORMANCE METRICS (v2.0)
 
-| Task | Time (v1.x) | Time (v2.0) | Improvement |
+| Task | Time (previous version) | Time (v2.0) | Improvement |
 |------|-------------|-------------|-------------|
 | Setup | 15-30 min | 2-5 min | **75% faster** |
 | Simple field | 30-60 min | 5-7 min | **88% faster** |

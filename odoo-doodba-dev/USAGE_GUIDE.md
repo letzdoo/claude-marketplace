@@ -926,7 +926,6 @@ For quick checks:
 
 - **README.md**: Plugin overview and features
 - **INSTALLATION.md**: Setup and configuration
-- **MIGRATION.md**: Upgrading from v1.x
 - **Skill README**: Indexer usage details
 
 ---

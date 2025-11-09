@@ -99,7 +99,7 @@ v2.0 is **90% automated**:
 - ✅ Indexer auto-searches for code information
 - ✅ Validation happens automatically (no separate command)
 - ✅ Testing runs automatically (no separate command)
-- ✅ One approval for simple tasks (vs 5 in v1.x)
+- ✅ One approval for simple tasks (vs 5 in previous version)
 
 ---
 
@@ -168,13 +168,13 @@ v2.0 is **90% automated**:
 
 ---
 
-## 🎓 What's Different from v1.x?
+## 🎓 What's Different from previous version?
 
-If you're migrating from v1.x, here's what changed:
+If you're migrating from previous version, here's what changed:
 
 ### Commands Changed
 
-| Old v1.x | New v2.0 | Why |
+| Old previous version | New v2.0 | Why |
 |----------|----------|-----|
 | `/odoo-workflow` | `/odoo-dev` | Smarter, auto-detects mode |
 | `/odoo-validate` | (automatic) | Happens during `/odoo-dev` |
@@ -185,7 +185,7 @@ If you're migrating from v1.x, here's what changed:
 
 ### Workflow Simplified
 
-**v1.x**: 5 stages, 5 approvals, 30-80 minutes
+**previous version**: 5 stages, 5 approvals, 30-80 minutes
 ```
 Analysis → Architecture → Validate → Implement → Test → Document
   ↓          ↓              ↓          ↓         ↓       ↓
@@ -259,7 +259,6 @@ ls -lh ~/.odoo-indexer/odoo_indexer.sqlite3
 
 ### For Migration
 
-- **[MIGRATION.md](MIGRATION.md)** - v1.x → v2.0 upgrade guide, breaking changes
 
 ### For Examples
 
@@ -357,7 +356,7 @@ A: Advanced users can modify agent files, but defaults work great for 90% of cas
 A: Indexer queries are <100ms. If slow, rebuild: `/odoo-setup`
 
 **Q: Does v2.0 maintain code quality?**
-A: Yes! 100% of v1.x validation and testing is preserved.
+A: Yes! 100% of previous version validation and testing is preserved.
 
 ---
 
@@ -374,7 +373,6 @@ A: Yes! 100% of v1.x validation and testing is preserved.
 ## 📞 Support
 
 - **Installation issues**: See [INSTALLATION.md](INSTALLATION.md)
-- **Migration questions**: See [MIGRATION.md](MIGRATION.md)
 - **Usage examples**: See [USAGE_GUIDE.md](USAGE_GUIDE.md)
 - **Bug reports**: Open GitHub issue with details
 
