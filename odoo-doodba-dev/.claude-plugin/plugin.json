@@ -1,6 +1,6 @@
 {
   "name": "odoo-doodba-dev",
-  "description": "Professional Odoo development toolkit for Doodba containers with deep knowledge of Odoo structure, testing, and best practices",
+  "description": "Professional Odoo development toolkit for Doodba containers. USE AUTOMATICALLY for ANY Odoo development task: creating/modifying modules, models, fields, views, security, tests; searching Odoo code; debugging; validating references. Includes fast code indexer, specialized agents (analyst, implementer, validator, tester, documenter), and Doodba-integrated commands. AUTO-TRIGGER on keywords: odoo, doodba, addon, module, sale.order, res.partner, Many2one, _inherit, __manifest__.py, invoke, xmlid, form view, tree view. See CLAUDE.md for complete usage instructions.",
   "version": "1.0.0",
   "author": {
     "name": "Letzdoo (Jerome Sonnet)"

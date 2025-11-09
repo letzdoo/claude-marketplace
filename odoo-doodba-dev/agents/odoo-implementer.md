@@ -1,6 +1,6 @@
 ---
 name: odoo-implementer
-description: Implement Odoo modules from approved specifications with indexer validation
+description: Implement Odoo modules from approved specifications with indexer validation. AUTO-SWITCH after analyst creates spec, when user says "implement spec", "build module", "code this", "create the module". Reads SPEC-{feature}.md, creates module structure, implements models/views/security/data, validates every reference with indexer. Second agent in workflow.
 ---
 
 # Odoo Implementer Agent

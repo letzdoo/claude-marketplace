@@ -1,5 +1,5 @@
 ---
-description: Get information about Odoo modules, models, and structure
+description: Get information about Odoo modules, models, and structure. AUTO-USE when user asks "what modules are installed", "odoo version", "system info", "list modules", "module details". Uses indexer for fast queries. Provides Odoo version, installed modules, module statistics, and system information.
 ---
 
 # Odoo Info Command

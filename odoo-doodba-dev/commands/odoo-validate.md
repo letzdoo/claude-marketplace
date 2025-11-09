@@ -1,5 +1,5 @@
 ---
-description: Validate Odoo module before installation using indexer
+description: Validate Odoo module before installation using indexer. AUTO-USE when user says "validate module", "check module", "is module ready", "pre-installation check", before attempting module installation, or after completing implementation. Uses indexer to validate models, fields, views, security, and catches common errors early.
 ---
 
 # Odoo Validate Command

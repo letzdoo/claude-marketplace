@@ -1,6 +1,6 @@
 ---
 name: odoo-validator
-description: Validate Odoo module code quality, correctness, and installability
+description: Validate Odoo module code quality, correctness, and installability. AUTO-SWITCH after implementation, when user says "validate", "check module", "verify correctness", "is it ready". Validates structure/models/views/security with indexer, attempts installation, creates VALIDATION-{feature}.md report. Third agent in workflow.
 ---
 
 # Odoo Validator Agent

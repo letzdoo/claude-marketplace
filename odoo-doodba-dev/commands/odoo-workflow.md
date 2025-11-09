@@ -1,5 +1,5 @@
 ---
-description: Orchestrate multi-stage Odoo development with human-in-the-loop checkpoints
+description: Orchestrate multi-stage Odoo development with human-in-the-loop checkpoints. AUTO-USE for complex features requiring analysis→implementation→validation→testing→documentation stages with user approval between each. Uses specialized agents (analyst, implementer, validator, tester, documenter) sequentially. Best for complete feature development with proper oversight.
 ---
 
 # Odoo Development Workflow

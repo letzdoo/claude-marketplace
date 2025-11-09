@@ -1,5 +1,5 @@
 ---
-description: Manage addons.yaml configuration and install/uninstall modules
+description: Manage addons.yaml configuration and install/uninstall modules. AUTO-USE when user says "install module", "activate addon", "add to addons.yaml", "enable module", "uninstall", or needs to configure module installation. Uses Doodba's invoke install/uninstall tasks. Essential after creating new modules or when managing module dependencies.
 ---
 
 # Odoo Addons Management
