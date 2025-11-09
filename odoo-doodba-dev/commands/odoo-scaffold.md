@@ -11,7 +11,7 @@ Create a new Odoo module using Doodba's invoke scaffold task.
 1. **Ask for**:
    - Module name (snake_case, e.g., `custom_sales_report`)
    - Models to extend (if any)
-   - Target path (default: `odoo/custom/src/private/`)
+   - Target path (default: `odoo/custom/src/odoo-sh/`)
 
 2. **Validate with indexer** (use odoo-indexer skill):
    ```bash
@@ -30,7 +30,7 @@ Create a new Odoo module using Doodba's invoke scaffold task.
    ```bash
    invoke scaffold --module-name=module_name
    # Or with custom path
-   invoke scaffold --module-name=module_name --path=odoo/custom/src/private/
+   invoke scaffold --module-name=module_name --path=odoo/custom/src/odoo-sh/
    ```
 
 4. **Customize module** with indexer-assisted development (use odoo-indexer skill):

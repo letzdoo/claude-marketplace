@@ -29,7 +29,7 @@ As a {role}, I want to {action}, so that {benefit}.
 **Rationale**:
 - {Why this approach}
 
-**Location**: `odoo/custom/src/private/{module_name}/`
+**Location**: `odoo/custom/src/odoo-sh/{module_name}/`
 
 **Dependencies**:
 ```python
