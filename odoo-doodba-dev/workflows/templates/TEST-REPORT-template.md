@@ -1,5 +1,15 @@
 # Test Report: {FEATURE_NAME}
 
+> **⚠️ DEPRECATED (v2.0)**: This template is for v1.x workflow reference only.
+>
+> **v2.0 testing is automatic and inline** - results are reported directly in chat.
+> The `odoo-verifier` agent runs tests automatically and reports results inline.
+> Detailed test reports are only created if there are failures requiring investigation.
+>
+> This template is kept for reference but is not actively used in v2.0 workflow.
+
+---
+
 **Date**: {DATE}
 **Module**: `{module_name}`
 **Status**: ⏳ Running / ✅ Passed / ❌ Failed

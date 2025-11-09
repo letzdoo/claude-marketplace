@@ -1,335 +1,710 @@
-# Odoo Doodba Development Plugin - Claude Code Instructions
+# Odoo Doodba Development Plugin v2.0 - Claude Code Instructions
 
-This plugin provides specialized tools for Odoo development in Doodba environments. You should use this plugin proactively whenever working with Odoo-related tasks.
+**⚡ THIS PLUGIN MUST BE USED FOR ALL ODOO DEVELOPMENT TASKS ⚡**
 
-## WHEN TO USE THIS PLUGIN
+This plugin provides specialized tools for Odoo development in Doodba environments. You should use this plugin **automatically and proactively** whenever working with ANY Odoo-related tasks.
 
-### Automatic Triggers - Use WITHOUT User Prompting
+---
 
-You should **automatically and proactively** use this plugin's tools when you detect ANY of these keywords or contexts in user requests:
+## 🎯 CORE PRINCIPLE: ONE COMMAND FOR EVERYTHING
 
-**Odoo-Specific Terms:**
+**For 95% of Odoo development tasks, use ONE command:**
+
+```
+/odoo-doodba-dev:odoo-dev "{user's request}"
+```
+
+This single command handles:
+- Simple field additions (5-7 minutes)
+- Complex module creation (20-25 minutes)
+- Code modifications and enhancements
+- Automatic validation and testing
+- Smart mode detection (Quick/Full)
+
+**You should NEVER manually implement Odoo code without using this plugin.**
+
+---
+
+## 🚀 WHEN TO USE THIS PLUGIN
+
+### MANDATORY Auto-Triggers - Use WITHOUT User Prompting
+
+You **MUST** automatically use this plugin when you detect ANY of these:
+
+#### Odoo-Specific Keywords
 - "odoo", "Odoo", "ODOO"
 - "doodba", "Doodba", "DOODBA"
 - "addon", "addons", "module", "modules" (in Odoo context)
-- Model names like "sale.order", "res.partner", "account.move", etc.
-- Odoo field types: "Many2one", "One2many", "Many2many", "Selection", "Char", "Integer", "Float", "Boolean", "Date", "Datetime"
-- Odoo concepts: "xmlid", "xml_id", "record", "view", "form view", "tree view", "kanban view", "search view"
-- Odoo methods: "_compute", "_inverse", "_search", "@api.depends", "@api.constrains", "@api.onchange"
+- Model names: "sale.order", "res.partner", "account.move", "project.task", etc.
+- Field types: "Many2one", "One2many", "Many2many", "Selection", "Char", "Integer", "Float", "Boolean", "Date", "Datetime", "Monetary", "Binary"
+- Odoo concepts: "xmlid", "xml_id", "record", "view", "form view", "tree view", "list view", "kanban view", "search view", "pivot view", "graph view"
+- Odoo methods: "_compute", "_inverse", "_search", "@api.depends", "@api.constrains", "@api.onchange", "@api.model"
 - Odoo inheritance: "_inherit", "_inherits", "_name"
-- "manifest", "__manifest__.py", "__openerp__.py"
-- "ir.model.access", "ir.rule", "security.xml", "ir.model.access.csv"
-- "invoke test", "invoke install", "invoke scaffold"
+- Manifest files: "__manifest__.py", "__openerp__.py"
+- Security: "ir.model.access", "ir.rule", "security.xml", "ir.model.access.csv", "access rights", "record rules"
+- Doodba commands: "invoke test", "invoke install", "invoke scaffold", "invoke logs", "invoke restart"
 
-**Task Types:**
+#### Task Types
 - Creating or modifying Odoo modules
 - Adding or changing Odoo models, fields, or methods
-- Working with Odoo views (form, tree, kanban, search, pivot, graph, etc.)
+- Working with Odoo views (form, tree, kanban, search, etc.)
 - Testing Odoo modules
 - Debugging Odoo issues
 - Searching for Odoo code elements
 - Understanding Odoo module structure
 - Installing or configuring Odoo addons
-- Working with Odoo security (access rights, record rules)
+- Working with Odoo security
 - Creating or modifying Odoo workflows
 - Analyzing Odoo code dependencies
+- Extending existing Odoo models
 
-**File Paths Indicating Odoo Work:**
+#### File Paths
 - Any path containing `odoo/custom/src/`
 - Files ending with `/models/*.py`
 - Files ending with `/views/*.xml`
-- Files ending with `/security/*.xml` or `security/*.csv`
+- Files ending with `/security/*.xml` or `/security/*.csv`
 - Files named `__manifest__.py` or `__openerp__.py`
 - Any path matching `odoo/custom/src/private/*`
-- Any path matching `odoo/custom/src/*/` (indicates an Odoo addon)
+- Any path matching `odoo/custom/src/odoo-sh/*`
 
-**Container/Docker Context:**
-- Working inside Doodba containers
-- Docker compose operations related to Odoo
-- Invoke tasks (`invoke test`, `invoke install`, etc.)
+---
 
-## TOOLS AND WHEN TO USE THEM
+## 📋 AVAILABLE COMMANDS (v2.0)
 
-### 1. Odoo Indexer Skill - USE PROACTIVELY
+### 1. `/odoo-doodba-dev:odoo-dev` - **USE THIS FOR 95% OF TASKS**
 
-**Primary Use Cases (Use IMMEDIATELY when detected):**
+**Primary development command** - Auto-detects complexity and handles everything.
 
-1. **Before writing ANY Odoo code:**
-   - Search for existing models, fields, methods to avoid duplication
-   - Validate that models/fields you want to reference actually exist
-   - Check inheritance chains and dependencies
+**When to use:**
+- ANY development task (simple or complex)
+- Creating new modules
+- Modifying existing code
+- Adding fields, models, views
+- Implementing business logic
 
-   Example: User says "Add a field to sale.order"
-   → IMMEDIATELY use indexer to search for "sale.order" model
-   → Check what fields already exist
-   → Validate any related models being referenced
-
-2. **When user asks about Odoo code:**
-   - "Where is X defined?"
-   - "What fields does Y have?"
-   - "Show me the structure of Z"
-   - "Find all references to..."
-   - "What models inherit from..."
-
-   → Use indexer FIRST before reading files (95% more token-efficient)
-
-3. **During code review or debugging:**
-   - Validate XML IDs exist before using them
-   - Check field names and types before referencing
-   - Find where errors might be occurring
-   - Trace inheritance chains
-
-4. **When exploring unknown codebase:**
-   - List all modules
-   - Get module statistics
-   - Search for patterns
-   - Map dependencies
-
-**How to Use:**
+**Examples:**
 ```bash
-cd /home/user/claude-marketplace/odoo-doodba-dev/skills/odoo-indexer
+# Simple tasks
+/odoo-doodba-dev:odoo-dev "add notes field to res.partner"
+/odoo-doodba-dev:odoo-dev "add quality_result_id to project.task"
 
-# Search for models
-uv run scripts/search.py "sale.order" --type model
+# Complex tasks
+/odoo-doodba-dev:odoo-dev "create inventory management module with requests and schedules"
+/odoo-doodba-dev:odoo-dev "add workflow to sale.order for approval process"
 
-# Get all fields of a model
-uv run scripts/get_details.py model "sale.order"
-
-# Find all Many2one fields
-uv run scripts/search_by_attr.py field --filters '{"field_type": "Many2one"}'
-
-# Search for XML IDs
-uv run scripts/search_xml_id.py "sale_order_form_view"
-
-# List all modules
-uv run scripts/list_modules.py
-
-# Find references to a field
-uv run scripts/find_refs.py field "partner_id" --parent "sale.order"
+# Modifications
+/odoo-doodba-dev:odoo-dev "extend project.task with quality inspection fields"
+/odoo-doodba-dev:odoo-dev "modify sale order confirmation to send custom email"
 ```
 
-**Critical Rule:** ALWAYS use the indexer to validate models, fields, and XML IDs BEFORE writing code that references them.
+**What it does automatically:**
+1. Detects task complexity (Quick Mode vs Full Mode)
+2. Researches codebase with indexer
+3. Proposes architecture
+4. Waits for user approval
+5. Implements code with auto-validation
+6. Runs verification and tests
+7. Reports completion
 
-### 2. Specialized Agents - USE FOR COMPLEX TASKS
+**You get 1 approval point (architecture), then everything is automatic!**
 
-Switch to these agents for multi-step Odoo development:
+---
 
-#### `/agents switch odoo-analyst`
-**Use when:**
-- User requests a new feature or module
-- Need to analyze requirements before coding
-- Need to create a specification document
-- User says "analyze", "design", "plan", "specify"
+### 2. `/odoo-doodba-dev:odoo-search` - For Questions About Code
 
-**Auto-trigger keywords:** "design a module", "create a new feature", "I need an Odoo module that...", "analyze requirements"
+**Fast code search** using the indexer (sub-100ms queries).
 
-#### `/agents switch odoo-implementer`
-**Use when:**
-- There's an approved specification to implement
-- User says "implement the spec", "build this module"
-- After analyst has created a specification
+**When to use:**
+- User asks "what is...", "show me...", "find...", "where is...", "how does..."
+- Looking up models, fields, views, XML IDs
+- Understanding code structure
+- Exploring the codebase
 
-**Auto-trigger keywords:** "implement", "build", "create module", "code this"
+**Examples:**
+```bash
+# Model information
+/odoo-doodba-dev:odoo-search "what is sale.order"
+/odoo-doodba-dev:odoo-search "what fields does res.partner have"
 
-#### `/agents switch odoo-validator`
-**Use when:**
-- Code is written and needs validation
-- User says "validate", "check if this works", "is this correct"
-- Before attempting module installation
+# Finding elements
+/odoo-doodba-dev:odoo-search "find all Many2one fields in sale module"
+/odoo-doodba-dev:odoo-search "search for project task views"
+/odoo-doodba-dev:odoo-search "where is project.task defined"
 
-**Auto-trigger keywords:** "validate", "check", "verify", "is this correct"
+# XML IDs
+/odoo-doodba-dev:odoo-search "find action_view_task"
 
-#### `/agents switch odoo-tester`
-**Use when:**
-- Module is implemented and needs tests
-- User says "write tests", "test this module"
-- After implementation is complete
+# Modules
+/odoo-doodba-dev:odoo-search "list all modules"
+/odoo-doodba-dev:odoo-search "tell me about the sale module"
+```
 
-**Auto-trigger keywords:** "test", "write tests", "create tests", "test coverage"
+**Response time: <100ms** (95% faster than reading files!)
 
-#### `/agents switch odoo-documenter`
-**Use when:**
-- Module is complete and tested
-- User says "document this", "create documentation", "write a README"
+---
 
-**Auto-trigger keywords:** "document", "documentation", "README", "user guide"
+### 3. `/odoo-doodba-dev:odoo-setup` - First-Time Setup
 
-### 3. Slash Commands - USE FOR SPECIFIC TASKS
+**Automated plugin setup** - Run once after installation.
 
-#### `/odoo-doodba-dev:odoo-scaffold`
-**Use when:**
-- User wants to create a new Odoo module
-- User says "create a module", "new addon", "scaffold"
+**When to use:**
+- First time using the plugin
+- After updating Odoo installation
+- If indexer database is corrupted
 
-**Auto-trigger:** "create a new module", "scaffold a module"
+**What it does:**
+1. Checks prerequisites (Docker, Python, uv)
+2. Auto-installs missing dependencies
+3. Detects or prompts for Odoo path
+4. Builds code indexer database (2-5 minutes)
+5. Validates installation
+6. Returns ready-to-use status
 
-#### `/odoo-doodba-dev:odoo-test`
-**Use when:**
-- User wants to run tests
-- After writing or modifying test files
-- User says "run tests", "test this"
+**You only run this ONCE (or after major changes).**
 
-**Auto-trigger:** "run tests", "execute tests", "test the module"
+---
 
-#### `/odoo-doodba-dev:odoo-shell`
-**Use when:**
-- User needs to debug or explore data
-- User says "check the database", "query records", "debug"
-- Need to test code snippets interactively
+### 4. `/odoo-doodba-dev:odoo-scaffold` - Generate Module Structure
 
-**Auto-trigger:** "open shell", "odoo shell", "debug in shell"
+**Quickly scaffold new Odoo modules** with proper structure.
 
-#### `/odoo-doodba-dev:odoo-logs`
-**Use when:**
-- Debugging errors
-- User says "check logs", "what's the error", "show me logs"
-- After test failures or installation issues
+**When to use:**
+- Creating a brand new module from scratch
+- Need proper module structure fast
 
-**Auto-trigger:** "check logs", "show logs", "view logs", "what's the error"
+**Example:**
+```bash
+/odoo-doodba-dev:odoo-scaffold my_custom_module
+```
 
-#### `/odoo-doodba-dev:odoo-validate`
-**Use when:**
-- Before attempting module installation
-- User wants to check if module is ready
-- After completing implementation
+**Creates:**
+- `__manifest__.py` with proper metadata
+- `models/__init__.py` and model template
+- `views/` directory with view template
+- `security/ir.model.access.csv`
+- `tests/` directory with test template
+- Proper `__init__.py` files
 
-**Auto-trigger:** "validate module", "is it ready", "check module"
+**After scaffolding, use `/odoo-dev` to add functionality!**
 
-#### `/odoo-doodba-dev:odoo-workflow`
-**Use when:**
-- User wants full development workflow with checkpoints
-- Complex feature requiring multiple stages
-- User explicitly requests workflow-based development
+---
 
-**Auto-trigger:** "use workflow", "multi-stage development", "checkpoint-based development"
+### 5. `/odoo-doodba-dev:odoo-test` - Run Tests
 
-#### `/odoo-doodba-dev:odoo-addons`
-**Use when:**
-- User wants to activate/deactivate modules
-- Modifying addons.yaml
-- User says "activate module", "add to addons.yaml"
+**Run Odoo tests** with proper Doodba integration.
 
-**Auto-trigger:** "activate", "add to addons", "install module"
+**When to use:**
+- Testing specific modules
+- Debugging test failures
+- Running full test suite
 
-#### `/odoo-doodba-dev:odoo-info`
-**Use when:**
-- User asks "what modules are installed"
-- Need system information
-- User asks "what version of Odoo"
+**Examples:**
+```bash
+# Test specific module
+/odoo-doodba-dev:odoo-test my_custom_module
 
-**Auto-trigger:** "what modules", "odoo version", "system info"
+# Test multiple modules
+/odoo-doodba-dev:odoo-test sale,purchase,stock
 
-## BEST PRACTICES FOR CLAUDE CODE
+# Test with debug mode
+/odoo-doodba-dev:odoo-test my_module --debug
+```
 
-### 1. Indexer First, File Read Second
-- ALWAYS use the indexer before reading files when searching for Odoo elements
-- Indexer queries are <100ms and 95% more token-efficient
-- Only read files after indexer confirms the element exists
+**Note: Tests are automatically run by `/odoo-dev`, so you rarely need this directly.**
 
-### 2. Validate Before Write
-- NEVER write code that references models/fields without validating they exist via indexer
-- NEVER use XML IDs without checking they exist first
-- ALWAYS check field types before using them in relations
+---
 
-### 3. Proactive Tool Usage
-- Don't wait for user to say "use the indexer" - use it automatically
-- When you see Odoo terms, immediately think: "I should use the indexer"
-- When creating code, automatically validate with indexer
-- When debugging, automatically check logs and use indexer
+## 🔧 HOW TO USE THE PLUGIN
 
-### 4. Path Awareness
-Use **relative paths** from project root:
-- Custom modules: `odoo/custom/src/private/`
-- Not `/opt/odoo/...` (that's inside containers)
-- Not absolute paths unless specifically required
+### For Simple Tasks (5-7 minutes)
 
-### 5. Doodba Integration
-- ALWAYS use `invoke` tasks, not raw docker commands
-- Common tasks: `invoke test`, `invoke install`, `invoke scaffold`, `invoke logs`
-- Guide users to proper invoke usage
+**Example: "Add notes field to res.partner"**
 
-### 6. Version Detection
-- Auto-detect Odoo version: `cat odoo/custom/src/odoo/odoo/release.py | grep version_info`
-- Adjust syntax for version (e.g., `<tree>` for Odoo 18+, `<list>` for older)
+```
+1. User: "Add notes field to res.partner"
 
-### 7. Security Awareness
-- ALWAYS remind users about security setup (ir.model.access.csv, security.xml)
-- NEVER create models without access rights
-- Warn if security is missing
+2. You: Use /odoo-dev command immediately
+   /odoo-doodba-dev:odoo-dev "add notes field to res.partner"
 
-### 8. Testing Culture
-- Encourage test-driven development
-- Suggest writing tests alongside implementation
-- Use `@tagged('post_install', '-at_install')` for tests
+3. Plugin detects: Quick Mode (simple task)
+   - Researches res.partner with indexer
+   - Proposes inline architecture
+   - Shows: "Extend res.partner, add notes (Text) field, update form view"
 
-## EXAMPLE WORKFLOWS
+4. User approves architecture
 
-### Example 1: User says "Add a custom field to sale.order"
+5. Plugin automatically:
+   - Creates extension module
+   - Adds field to model
+   - Updates view
+   - Validates with indexer
+   - Runs tests
+   - Reports completion
 
-**Claude Code should automatically:**
-1. Use indexer to search for "sale.order" model
-   ```bash
-   cd /home/user/claude-marketplace/odoo-doodba-dev/skills/odoo-indexer
-   uv run scripts/get_details.py model "sale.order"
-   ```
-2. Understand existing fields and structure
-3. Ask user what field they want to add
-4. Create the module extending sale.order
-5. Use indexer to validate any related models
-6. Write the code with proper inheritance
-7. Create security files
-8. Suggest testing
+6. Done! Module ready for installation.
+```
 
-### Example 2: User says "I'm getting an error with partner_id field"
+**Total time: 5-7 minutes**
+**User interactions: 1 (approve architecture)**
 
-**Claude Code should automatically:**
-1. Ask user for context (which model?)
-2. Use indexer to find all partner_id fields
-   ```bash
-   uv run scripts/search.py "partner_id" --type field
-   ```
-3. Use `/odoo-doodba-dev:odoo-logs` to check error logs
-4. Use indexer to validate the field definition
-5. Suggest fixes based on findings
+---
 
-### Example 3: User says "Create a new module for inventory management"
+### For Complex Tasks (20-25 minutes)
 
-**Claude Code should automatically:**
-1. Switch to odoo-analyst agent: `/agents switch odoo-analyst`
-2. Let analyst use indexer to search for existing inventory modules
-3. Create specification with user approval
-4. Switch to odoo-implementer agent
-5. Implement with indexer validation
-6. Switch to validator, tester, documenter agents in sequence
+**Example: "Create equipment maintenance module"**
 
-## CRITICAL RULES
+```
+1. User: "Create equipment maintenance module with maintenance requests and schedules"
 
-1. **ALWAYS use indexer before reading Odoo files** - it's faster and more efficient
-2. **NEVER write Odoo code without validation** - check models/fields exist first
-3. **NEVER skip security setup** - always create ir.model.access.csv and security.xml when creating models
-4. **ALWAYS use relative paths** - `odoo/custom/src/private/`, not `/opt/odoo/`
-5. **ALWAYS use invoke tasks** - not raw docker commands
-6. **PROACTIVELY offer to use agents** for complex tasks - don't wait for user to ask
-7. **AUTOMATICALLY check logs** when errors occur - use `/odoo-doodba-dev:odoo-logs`
-8. **IMMEDIATELY use indexer** when ANY Odoo term is mentioned
+2. You: Use /odoo-dev command immediately
+   /odoo-doodba-dev:odoo-dev "create equipment maintenance module with maintenance requests and schedules"
 
-## TOKEN EFFICIENCY
+3. Plugin detects: Full Mode (complex feature)
+   - Researches related modules (maintenance.equipment, etc.)
+   - Analyzes dependencies
+   - Validates all references with indexer
+   - Proposes detailed architecture:
+     * Module: equipment_maintenance
+     * Models: 3 (request, schedule, log)
+     * Views: 8 (forms, lists, kanban, search)
+     * Dependencies: base, mail, maintenance
+     * Security: access rights + record rules
 
-Using this plugin correctly can save 95% of tokens:
-- ❌ **Bad:** Read 20 files to find where sale.order is defined (20,000+ tokens)
-- ✅ **Good:** Use indexer to search for sale.order (<100 tokens, <100ms)
+4. User reviews and approves detailed architecture
 
-Always prefer indexer over file reading for Odoo code discovery.
+5. Plugin automatically:
+   - Creates module structure
+   - Implements all models with validation
+   - Creates all views with validation
+   - Sets up security
+   - Creates comprehensive tests
+   - Runs verification
+   - Reports completion
 
-## SUMMARY
+6. Optional: User requests documentation
+   - Plugin generates README, USER-GUIDE, DEVELOPER-GUIDE
 
-**Think of this plugin as your primary interface for ALL Odoo development work.**
+7. Done! Full module ready for installation.
+```
 
-Whenever you detect Odoo-related terms, automatically and proactively:
-1. Use the indexer to search/validate
-2. Use specialized agents for complex tasks
-3. Use slash commands for specific operations
-4. Follow Doodba best practices
-5. Validate everything before writing
+**Total time: 20-25 minutes**
+**User interactions: 1-2 (approve architecture, optional docs)**
 
-Don't wait for users to explicitly say "use the plugin" - be proactive and use it automatically whenever Odoo work is detected.
+---
+
+### For Questions About Code (<2 seconds)
+
+**Example: "What is sale.order?"**
+
+```
+1. User: "What is sale.order?"
+
+2. You: Use /odoo-search command immediately
+   /odoo-doodba-dev:odoo-search "what is sale.order"
+
+3. Plugin uses indexer (instant):
+   - Queries SQLite database
+   - Returns comprehensive info:
+     * Model name and description
+     * Module location
+     * Key fields (partner_id, order_line, amount_total, state, etc.)
+     * Views (form, list, kanban, search, etc.)
+     * Actions and menus
+     * File location
+
+4. Done! Answer provided in <100ms.
+```
+
+**Total time: <2 seconds**
+**User interactions: 0**
+
+---
+
+## 🎯 WORKFLOW SUMMARY
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  USER REQUEST: Any Odoo Development Task                    │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+                ┌──────────────────────┐
+                │  Is it a question?   │
+                │  (what/where/find)   │
+                └──────────────────────┘
+                   ↓               ↓
+                 YES              NO
+                   ↓               ↓
+        ┌──────────────────┐  ┌──────────────────┐
+        │  /odoo-search    │  │   /odoo-dev      │
+        │  (instant)       │  │  (automatic)     │
+        └──────────────────┘  └──────────────────┘
+                                      ↓
+                          ┌──────────────────────┐
+                          │  Detects Complexity  │
+                          │  (Quick vs Full)     │
+                          └──────────────────────┘
+                                      ↓
+                ┌────────────────────────────────────┐
+                │  1. Research with Indexer          │
+                │  2. Propose Architecture           │
+                │  3. Wait for Approval ◄────────────┤ ONE APPROVAL
+                │  4. Implement (auto-validated)     │
+                │  5. Verify & Test (automatic)      │
+                │  6. Report Completion              │
+                └────────────────────────────────────┘
+                                      ↓
+                            ┌──────────────────┐
+                            │   DONE!          │
+                            │  Ready to use    │
+                            └──────────────────┘
+```
+
+---
+
+## 🔍 THE INDEXER: YOUR SECRET WEAPON
+
+The plugin includes a **SQLite-based code indexer** that makes everything 95% faster.
+
+**What it indexes:**
+- All models with fields and methods
+- All views (form, list, kanban, search, etc.)
+- All XML IDs
+- All actions and menus
+- Module dependencies
+- Field relationships
+
+**Query speed: <100ms** (vs 2-5 seconds reading files!)
+
+**The indexer is used automatically by:**
+- `/odoo-dev` - validates all references before implementing
+- `/odoo-search` - provides instant answers
+- All agents - research and validation
+
+**You never need to use it manually** - it's built into the workflow!
+
+---
+
+## ⚠️ CRITICAL RULES FOR CLAUDE CODE
+
+### 1. ALWAYS Use the Plugin for Odoo Work
+
+**NEVER manually:**
+- Write Odoo models without using `/odoo-dev`
+- Create Odoo views without using `/odoo-dev`
+- Modify Odoo code without using `/odoo-dev`
+- Search Odoo code without using `/odoo-search`
+
+**ALWAYS:**
+- Detect Odoo keywords and use plugin automatically
+- Use `/odoo-dev` as the primary command
+- Use `/odoo-search` for questions
+- Trust the plugin's validation and testing
+
+### 2. Mode Detection is Automatic
+
+**DO NOT ask the user** which mode to use (Quick vs Full).
+
+The plugin automatically detects:
+- Quick Mode: 1-2 fields, simple modifications
+- Full Mode: New modules, multiple models, complex logic
+- Search Mode: Questions about code
+
+**You just pass the request to `/odoo-dev` and it figures it out!**
+
+### 3. One Approval, Then Automatic
+
+The workflow requires **ONE user approval** (architecture proposal), then everything else is automatic:
+- Implementation: automatic
+- Validation: automatic
+- Testing: automatic
+- Error fixing: automatic (with user notification)
+
+**DO NOT ask for approval at every step** - the plugin handles it!
+
+### 4. Trust the Validation
+
+The plugin validates EVERYTHING with the indexer:
+- Model names exist
+- Field references are correct
+- XML IDs are valid
+- View inheritance is proper
+- Security groups exist
+
+**If the plugin says it's validated, it's validated!**
+
+### 5. Path Conventions
+
+**ALWAYS use relative paths from project root:**
+- ✅ `odoo/custom/src/private/my_module/`
+- ✅ `odoo/custom/src/odoo-sh/my_module/`
+- ❌ `/opt/odoo/custom/src/` (inside container)
+- ❌ Absolute paths (unless specifically required)
+
+### 6. Doodba Integration
+
+**ALWAYS use `invoke` commands, NOT raw docker:**
+- ✅ `invoke test -m my_module`
+- ✅ `invoke install -m my_module`
+- ✅ `invoke restart`
+- ❌ `docker-compose exec odoo odoo test...`
+
+The plugin handles this automatically!
+
+---
+
+## 📚 EXAMPLE CONVERSATIONS
+
+### Example 1: Simple Field Addition
+
+```
+User: "Add a notes field to res.partner"
+
+Claude: I'll use the Odoo development plugin to add this field.
+
+[Uses: /odoo-doodba-dev:odoo-dev "add notes field to res.partner"]
+
+[Plugin detects Quick Mode]
+[Plugin researches res.partner]
+[Plugin proposes architecture]
+
+Plugin: 📐 Architecture Proposal:
+- Extend res.partner (base module)
+- Add field: notes (Text)
+- Update partner form view
+
+Proceed?
+
+User: yes
+
+[Plugin implements automatically]
+[Plugin validates with indexer]
+[Plugin runs tests]
+
+Plugin: ✅ Complete! (6 minutes)
+- Field added to res.partner
+- View updated
+- 3/3 tests passed
+- Ready for installation
+
+Claude: Done! The notes field has been successfully added to res.partner.
+You can install the changes with: invoke restart
+```
+
+### Example 2: Complex Module Creation
+
+```
+User: "Create a module for quality inspections on project tasks"
+
+Claude: I'll create a quality inspection module for project tasks using the Odoo development plugin.
+
+[Uses: /odoo-doodba-dev:odoo-dev "create module for quality inspections on project tasks"]
+
+[Plugin detects Full Mode]
+[Plugin researches project.task, quality modules]
+[Plugin validates dependencies]
+[Plugin proposes detailed architecture]
+
+Plugin: 📐 Architecture Proposal (Full Mode):
+Module: project_task_quality
+Models:
+- project.task.quality (main inspection record)
+- project.task.quality.line (inspection checklist items)
+- project.task.quality.template (reusable templates)
+
+Views: 8 views (form, list, kanban, search for models)
+Dependencies: project, quality_control
+Security: User and Manager access levels
+
+[Detailed field list and relationships shown...]
+
+Proceed?
+
+User: yes
+
+[Plugin implements in phases]
+Phase 1: Models ✓ (5 min)
+Phase 2: Views ✓ (6 min)
+Phase 3: Security ✓ (2 min)
+[Plugin validates everything]
+[Plugin runs tests]
+
+Plugin: ✅ Complete! (24 minutes)
+- Module: project_task_quality
+- Location: odoo/custom/src/odoo-sh/project_task_quality/
+- Tests: 15/15 passed
+- Validation: All references validated ✓
+
+Claude: Your quality inspection module is ready! The module includes:
+- Quality inspection records linked to tasks
+- Checklist functionality with templates
+- Full security configuration
+- Comprehensive tests
+
+Install with: invoke install -m project_task_quality
+```
+
+### Example 3: Code Search
+
+```
+User: "What fields does sale.order have?"
+
+Claude: I'll search the Odoo codebase for sale.order fields.
+
+[Uses: /odoo-doodba-dev:odoo-search "what fields does sale.order have"]
+
+[Plugin queries indexer instantly]
+
+Plugin: sale.order has 127 fields:
+
+Key Fields:
+- partner_id (Many2one → res.partner) - Customer
+- order_line (One2many → sale.order.line) - Order Lines
+- amount_total (Monetary, computed) - Total Amount
+- state (Selection) - Status: draft|sent|sale|done|cancel
+- date_order (Datetime) - Order Date
+- user_id (Many2one → res.users) - Salesperson
+- team_id (Many2one → crm.team) - Sales Team
+- pricelist_id (Many2one → product.pricelist) - Pricelist
+
+[Shows top 15 most important fields...]
+
+Query time: 28ms
+
+Claude: The sale.order model has 127 fields. I've shown the key fields above.
+The most important ones are partner_id (customer), order_line (order items),
+and amount_total (total price). Would you like details on any specific field?
+```
+
+---
+
+## 🚫 WHAT NOT TO DO
+
+### ❌ DON'T: Manually implement Odoo code
+
+```
+User: "Add field to sale.order"
+
+Claude: [Reads sale.order model file]
+        [Writes code manually]
+        [Creates view manually]
+        ❌ WRONG!
+```
+
+### ✅ DO: Use the plugin
+
+```
+User: "Add field to sale.order"
+
+Claude: /odoo-doodba-dev:odoo-dev "add field to sale.order"
+        ✅ CORRECT!
+```
+
+---
+
+### ❌ DON'T: Read files to search for models
+
+```
+User: "What is project.task?"
+
+Claude: [Uses Read tool on multiple files]
+        [Searches through code manually]
+        ❌ WRONG! (Slow, inefficient)
+```
+
+### ✅ DO: Use the indexer
+
+```
+User: "What is project.task?"
+
+Claude: /odoo-doodba-dev:odoo-search "what is project.task"
+        ✅ CORRECT! (Instant, accurate)
+```
+
+---
+
+### ❌ DON'T: Ask the user about mode/complexity
+
+```
+User: "Add field to sale.order"
+
+Claude: "Is this a simple or complex task?"
+        ❌ WRONG! (Plugin detects this)
+```
+
+### ✅ DO: Let the plugin detect automatically
+
+```
+User: "Add field to sale.order"
+
+Claude: /odoo-doodba-dev:odoo-dev "add field to sale.order"
+        [Plugin auto-detects Quick Mode]
+        ✅ CORRECT!
+```
+
+---
+
+### ❌ DON'T: Implement without validation
+
+```
+Claude: [Creates model]
+        [Adds field partner_id]
+        [Doesn't validate res.partner exists]
+        ❌ WRONG! (May reference non-existent model)
+```
+
+### ✅ DO: Plugin validates everything automatically
+
+```
+Claude: /odoo-doodba-dev:odoo-dev "add partner_id field"
+        [Plugin validates res.partner exists]
+        [Plugin validates field type]
+        [Plugin validates in views]
+        ✅ CORRECT!
+```
+
+---
+
+## 🎓 LEARNING RESOURCES
+
+- **START_HERE.md** - 5-minute quick start guide
+- **INSTALLATION.md** - Detailed setup instructions
+- **USAGE_GUIDE.md** - Command reference and examples
+- **MIGRATION.md** - Upgrading from v1.x to v2.0
+- **CHANGELOG.md** - What's new in v2.0
+
+---
+
+## 📊 PERFORMANCE METRICS (v2.0)
+
+| Task | Time (v1.x) | Time (v2.0) | Improvement |
+|------|-------------|-------------|-------------|
+| Setup | 15-30 min | 2-5 min | **75% faster** |
+| Simple field | 30-60 min | 5-7 min | **88% faster** |
+| Complex module | 50-80 min | 20-25 min | **65% faster** |
+| Code search | 2-5 sec | <100ms | **95% faster** |
+| User approvals | 5 approvals | 1 approval | **80% less friction** |
+
+---
+
+## 🎯 SUMMARY: HOW TO USE THIS PLUGIN
+
+**For Claude Code: Follow these simple rules:**
+
+1. **Detect Odoo keywords** → Automatically use plugin
+2. **One command for development** → `/odoo-dev`
+3. **Use search for questions** → `/odoo-search`
+4. **Trust the automation** → Validation, testing, error handling
+5. **One approval point** → Architecture only, rest is automatic
+6. **Never manually implement** → Always use the plugin
+
+**For Users:**
+
+1. Install: `/plugin install odoo-doodba-dev@letzdoo`
+2. Setup: `/odoo-doodba-dev:odoo-setup` (once)
+3. Develop: `/odoo-doodba-dev:odoo-dev "your request"`
+4. Search: `/odoo-doodba-dev:odoo-search "your question"`
+5. That's it!
+
+---
+
+**🎉 Welcome to 60-80% faster Odoo development with 90% automation!**

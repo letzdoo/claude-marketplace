@@ -1,5 +1,15 @@
 # Validation Report: {FEATURE_NAME}
 
+> **⚠️ DEPRECATED (v2.0)**: This template is for v1.x workflow reference only.
+>
+> **v2.0 validation is automatic and inline** - no report files are created unless there are failures.
+> The `odoo-verifier` agent validates and tests automatically, reporting results inline.
+> Detailed reports are only created if validation fails.
+>
+> This template is kept for reference but is not actively used in v2.0 workflow.
+
+---
+
 **Date**: {DATE}
 **Module**: `{module_name}`
 **Status**: ⏳ Validating / ✅ Passed / ❌ Failed

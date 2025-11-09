@@ -63,7 +63,7 @@ Create a new Odoo module using Doodba's invoke scaffold task.
 
 6. **Add to addons.yaml** under `private` section
 
-7. **Optional**: Run `/odoo-doodba-dev:odoo-validate` to catch errors early
+7. **Validation**: Validation and testing are now automatic when using `/odoo-doodba-dev:odoo-dev` for further development
 
 8. **Install**: `invoke install --modules=module_name`
 

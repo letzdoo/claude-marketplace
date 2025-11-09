@@ -1,5 +1,15 @@
 # Specification: {FEATURE_NAME}
 
+> **⚠️ DEPRECATED (v2.0)**: This template is for v1.x workflow reference only.
+>
+> **v2.0 uses inline architecture proposals** instead of spec files.
+> The `/odoo-doodba-dev:odoo-dev` command proposes architecture directly in chat,
+> gets user approval, then implements automatically.
+>
+> This template is kept for reference but is not used in the v2.0 workflow.
+
+---
+
 **Date**: {DATE}
 **Module**: `{module_name}`
 **Odoo Version**: {VERSION}
