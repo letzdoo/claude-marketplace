@@ -1,8 +1,18 @@
 # Odoo Doodba Development Plugin v2.0 - Claude Code Instructions
 
-**⚡ THIS PLUGIN MUST BE USED FOR ALL ODOO DEVELOPMENT TASKS ⚡**
+# ⚠️ CRITICAL: MANDATORY PLUGIN USAGE ⚠️
 
-This plugin provides specialized tools for Odoo development in Doodba environments. You should use this plugin **automatically and proactively** whenever working with ANY Odoo-related tasks.
+**YOU MUST USE THIS PLUGIN FOR ALL ODOO WORK - NO EXCEPTIONS**
+
+## 🚨 ABSOLUTE RULES - READ FIRST 🚨
+
+1. **NEVER** manually write Odoo Python code, XML views, or security files
+2. **NEVER** use grep/find/read to search for Odoo models/fields/views
+3. **ALWAYS** use `/odoo-dev` for ANY Odoo development task
+4. **ALWAYS** use `/odoo-search` for ANY Odoo code questions
+5. **DETECT** Odoo context immediately: model names (sale.order, res.partner), keywords (field, view, module), file paths (odoo/custom/src/)
+
+**If you see Odoo mentioned ANYWHERE → Use this plugin IMMEDIATELY**
 
 ---
 
@@ -21,11 +31,35 @@ This single command handles:
 - Automatic validation and testing
 - Smart mode detection (Quick/Full)
 
-**You should NEVER manually implement Odoo code without using this plugin.**
+**VIOLATION EXAMPLE** ❌:
+```
+User: "Add notes field to res.partner"
+You: [Reads res.partner model file, writes code manually]
+```
+
+**CORRECT USAGE** ✅:
+```
+User: "Add notes field to res.partner"
+You: /odoo-dev "add notes field to res.partner"
+```
 
 ---
 
 ## 🚀 WHEN TO USE THIS PLUGIN
+
+### ⚡ INSTANT DETECTION CHECKLIST ⚡
+
+**Before responding to ANY user message, check these indicators:**
+
+☑️ Does the message contain "odoo", "Odoo", or "ODOO"?
+☑️ Does it mention a model name with dots? (sale.order, res.partner, etc.)
+☑️ Does it mention Odoo field types? (Many2one, Char, Selection, etc.)
+☑️ Does it mention views? (form, tree, list, kanban, search, etc.)
+☑️ Does it mention "field", "model", "module", "view", "security", "workflow"?
+☑️ Does it reference paths with "odoo/custom/src/"?
+☑️ Does the user want to: create, add, modify, extend, fix, update, search, find, list?
+
+**If ANY checkbox is YES → Use `/odoo-dev` or `/odoo-search` IMMEDIATELY**
 
 ### MANDATORY Auto-Triggers - Use WITHOUT User Prompting
 
@@ -598,48 +632,111 @@ and amount_total (total price). Would you like details on any specific field?
 
 ---
 
-## 🚫 WHAT NOT TO DO
+## 🚫 WHAT NOT TO DO - COMMON VIOLATIONS
 
-### ❌ DON'T: Manually implement Odoo code
+### ❌ VIOLATION #1: Manually implementing Odoo code
 
+**WRONG** - This is a CRITICAL ERROR:
 ```
 User: "Add field to sale.order"
 
-Claude: [Reads sale.order model file]
-        [Writes code manually]
-        [Creates view manually]
-        ❌ WRONG!
+Claude: Let me read the sale.order model file first...
+        [Uses Read tool on models/sale_order.py]
+        [Uses Edit tool to add field manually]
+        [Uses Edit tool to modify view manually]
+        ❌ ABSOLUTE VIOLATION! DO NOT DO THIS!
 ```
 
-### ✅ DO: Use the plugin
-
+**CORRECT** - This is the ONLY acceptable approach:
 ```
 User: "Add field to sale.order"
 
-Claude: /odoo-dev "add field to sale.order"
+Claude: I'll use the Odoo development plugin for this.
+        [Uses: /odoo-dev "add field to sale.order"]
         ✅ CORRECT!
+```
+
+**Why this matters**: Manual code bypasses validation, breaks conventions, causes bugs, wastes time.
+
+---
+
+### ❌ VIOLATION #2: Using grep/find/read to search Odoo code
+
+**WRONG**:
+```
+User: "What fields does res.partner have?"
+
+Claude: [Uses Read tool to read res.partner Python file]
+        [Uses Grep to search for field definitions]
+        ❌ WRONG! 95% slower and incomplete!
+```
+
+**CORRECT**:
+```
+User: "What fields does res.partner have?"
+
+Claude: [Uses: /odoo-search "what fields does res.partner have"]
+        ✅ CORRECT! <100ms response with complete info!
 ```
 
 ---
 
-### ❌ DON'T: Read files to search for models
+### ❌ VIOLATION #3: Not detecting Odoo context
 
+**WRONG**:
 ```
-User: "What is project.task?"
+User: "I need to add a partner_id field to project.task"
 
-Claude: [Uses Read tool on multiple files]
-        [Searches through code manually]
-        ❌ WRONG! (Slow, inefficient)
+Claude: I can help you with that. What type of field?
+        ❌ MISSED ODOO CONTEXT! Should use plugin immediately!
 ```
 
-### ✅ DO: Use the indexer
-
+**CORRECT**:
 ```
-User: "What is project.task?"
+User: "I need to add a partner_id field to project.task"
 
-Claude: /odoo-search "what is project.task"
-        ✅ CORRECT! (Instant, accurate)
+Claude: I'll use the Odoo plugin to add this field.
+        [Uses: /odoo-dev "add partner_id field to project.task"]
+        ✅ DETECTED ODOO CONTEXT IMMEDIATELY!
 ```
+
+---
+
+### ❌ VIOLATION #4: Asking unnecessary questions
+
+**WRONG**:
+```
+User: "Add notes field to res.partner"
+
+Claude: What type of field? Where should it appear? Required or optional?
+        ❌ PLUGIN WILL HANDLE THIS! Don't waste user's time!
+```
+
+**CORRECT**:
+```
+User: "Add notes field to res.partner"
+
+Claude: I'll add a notes field to res.partner using the Odoo plugin.
+        [Uses: /odoo-dev "add notes field to res.partner"]
+        ✅ CORRECT! Plugin auto-detects field type and proposes complete solution!
+```
+
+---
+
+### 🎯 DETECTION TRAINING EXAMPLES
+
+**Practice detecting Odoo context immediately:**
+
+| User Message | Your Instant Response | Why |
+|--------------|----------------------|-----|
+| "Add priority to project.task" | `/odoo-dev "add priority to project.task"` | project.task = Odoo model |
+| "What is sale.order?" | `/odoo-search "what is sale.order"` | sale.order = Odoo model name |
+| "Create inventory module" | `/odoo-dev "create inventory module"` | "module" in Odoo context |
+| "Find Many2one fields in sale" | `/odoo-search "find Many2one fields in sale"` | Many2one = Odoo field type |
+| "Modify partner form view" | `/odoo-dev "modify partner form view"` | "view" in Odoo context |
+| "List all modules" | `/odoo-search "list all modules"` | Odoo codebase query |
+
+**⚡ Speed test**: If you can't respond with a command in <2 seconds of reading the user message, you're doing it wrong!
 
 ---
 

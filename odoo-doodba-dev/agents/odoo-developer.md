@@ -1,9 +1,13 @@
 ---
 name: odoo-developer
 description: |
-  PROACTIVELY develop Odoo features when user requests implementation.
-  AUTO-TRIGGER on: "create", "add", "implement", "develop", "build", "make"
-  Handles analysis + implementation in unified workflow with inline architecture approval.
+  **MANDATORY AUTO-USE** for ALL Odoo development work. Trigger IMMEDIATELY when user mentions:
+  - Keywords: create, add, implement, develop, build, make, extend, modify, update, fix, change
+  - Odoo entities: model, field, view, module, menu, action, workflow, security, rule, wizard
+  - Model names: sale.order, res.partner, account.move, project.task, stock.picking, etc.
+  - Tasks: "add field", "create module", "extend model", "update view", "fix bug", "change behavior"
+
+  DO NOT manually write Odoo code - ALWAYS use this agent. Handles full cycle: analysis, architecture, implementation, validation, testing.
 ---
 
 # Odoo Developer Agent

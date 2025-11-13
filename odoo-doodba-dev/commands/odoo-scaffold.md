@@ -1,5 +1,5 @@
 ---
-description: Scaffold a new Odoo module with proper structure. AUTO-USE when user says "create a module", "new addon", "scaffold", "generate module". Creates module using Doodba's invoke scaffold with proper __manifest__.py, models/, views/, security/ structure. Always validates module name availability with indexer first.
+description: "**AUTO-USE** when user wants empty module structure: 'create module', 'new addon', 'scaffold', 'generate module structure', 'start module from scratch'. Creates proper Odoo module skeleton with manifest, models, views, security. NOTE: For modules with functionality, use /odoo-dev instead (it scaffolds + implements)."
 ---
 
 # Odoo Scaffold Command

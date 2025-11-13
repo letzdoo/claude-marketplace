@@ -1,5 +1,5 @@
 ---
-description: Smart Odoo development with automatic mode detection and streamlined workflow
+description: "**MANDATORY AUTO-USE** for ALL Odoo development tasks. Use immediately when user mentions: create/add/modify/extend Odoo models, fields, views, modules, workflows, business logic, security rules, or any Odoo customization. Auto-detects complexity (Quick/Full mode). DO NOT manually implement Odoo code - ALWAYS use this command."
 ---
 
 # Odoo Development Command

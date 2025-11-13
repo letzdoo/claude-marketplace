@@ -1,5 +1,5 @@
 ---
-description: Fast unified search for Odoo codebase using the indexer (models, fields, views, actions, menus)
+description: "**MANDATORY AUTO-USE** when user asks questions about Odoo code: 'what is', 'show me', 'find', 'where is', 'list', 'search for', 'which fields', 'what models', 'how does', or mentions any Odoo model name (sale.order, res.partner, account.move, etc). Use BEFORE reading files - indexer is 95% faster. DO NOT use grep/find/read for Odoo code discovery."
 ---
 
 # Odoo Code Search

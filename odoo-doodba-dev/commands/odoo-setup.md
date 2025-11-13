@@ -1,5 +1,5 @@
 ---
-description: Automated setup and validation of Odoo plugin prerequisites
+description: "**AUTO-USE** on first plugin use, when indexer fails, or user reports setup issues. Checks prerequisites, installs dependencies, builds indexer. Use when: 'setup', 'install', 'configure', 'indexer not found', 'not working', or if /odoo-search returns errors."
 ---
 
 # Odoo Plugin Setup

@@ -1,9 +1,11 @@
 ---
 name: odoo-verifier
 description: |
-  PROACTIVELY verify and test Odoo modules after development.
-  AUTO-TRIGGER after implementation completion.
-  Handles validation + testing in unified workflow with inline reporting.
+  **AUTO-TRIGGER** after odoo-developer completes implementation. Validates structure and runs tests.
+  Also use when user says: "verify", "validate", "check", "test", "is it correct", "does it work".
+
+  Performs: structure validation with indexer, test execution, quality checks. Auto-proceeds if passing.
+  Only creates report files on failures. DO NOT skip - quality assurance is mandatory.
 ---
 
 # Odoo Verifier Agent
