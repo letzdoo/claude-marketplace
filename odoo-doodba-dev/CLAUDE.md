@@ -11,7 +11,7 @@ This plugin provides specialized tools for Odoo development in Doodba environmen
 **For 95% of Odoo development tasks, use ONE command:**
 
 ```
-/odoo-doodba-dev:odoo-dev "{user's request}"
+/odoo-dev "{user's request}"
 ```
 
 This single command handles:
@@ -71,7 +71,7 @@ You **MUST** automatically use this plugin when you detect ANY of these:
 
 ## 📋 AVAILABLE COMMANDS (v2.0)
 
-### 1. `/odoo-doodba-dev:odoo-dev` - **USE THIS FOR 95% OF TASKS**
+### 1. `/odoo-dev` - **USE THIS FOR 95% OF TASKS**
 
 **Primary development command** - Auto-detects complexity and handles everything.
 
@@ -85,16 +85,16 @@ You **MUST** automatically use this plugin when you detect ANY of these:
 **Examples:**
 ```bash
 # Simple tasks
-/odoo-doodba-dev:odoo-dev "add notes field to res.partner"
-/odoo-doodba-dev:odoo-dev "add quality_result_id to project.task"
+/odoo-dev "add notes field to res.partner"
+/odoo-dev "add quality_result_id to project.task"
 
 # Complex tasks
-/odoo-doodba-dev:odoo-dev "create inventory management module with requests and schedules"
-/odoo-doodba-dev:odoo-dev "add workflow to sale.order for approval process"
+/odoo-dev "create inventory management module with requests and schedules"
+/odoo-dev "add workflow to sale.order for approval process"
 
 # Modifications
-/odoo-doodba-dev:odoo-dev "extend project.task with quality inspection fields"
-/odoo-doodba-dev:odoo-dev "modify sale order confirmation to send custom email"
+/odoo-dev "extend project.task with quality inspection fields"
+/odoo-dev "modify sale order confirmation to send custom email"
 ```
 
 **What it does automatically:**
@@ -110,7 +110,7 @@ You **MUST** automatically use this plugin when you detect ANY of these:
 
 ---
 
-### 2. `/odoo-doodba-dev:odoo-search` - For Questions About Code
+### 2. `/odoo-search` - For Questions About Code
 
 **Fast code search** using the indexer (sub-100ms queries).
 
@@ -123,27 +123,27 @@ You **MUST** automatically use this plugin when you detect ANY of these:
 **Examples:**
 ```bash
 # Model information
-/odoo-doodba-dev:odoo-search "what is sale.order"
-/odoo-doodba-dev:odoo-search "what fields does res.partner have"
+/odoo-search "what is sale.order"
+/odoo-search "what fields does res.partner have"
 
 # Finding elements
-/odoo-doodba-dev:odoo-search "find all Many2one fields in sale module"
-/odoo-doodba-dev:odoo-search "search for project task views"
-/odoo-doodba-dev:odoo-search "where is project.task defined"
+/odoo-search "find all Many2one fields in sale module"
+/odoo-search "search for project task views"
+/odoo-search "where is project.task defined"
 
 # XML IDs
-/odoo-doodba-dev:odoo-search "find action_view_task"
+/odoo-search "find action_view_task"
 
 # Modules
-/odoo-doodba-dev:odoo-search "list all modules"
-/odoo-doodba-dev:odoo-search "tell me about the sale module"
+/odoo-search "list all modules"
+/odoo-search "tell me about the sale module"
 ```
 
 **Response time: <100ms** (95% faster than reading files!)
 
 ---
 
-### 3. `/odoo-doodba-dev:odoo-setup` - First-Time Setup
+### 3. `/odoo-setup` - First-Time Setup
 
 **Automated plugin setup** - Run once after installation.
 
@@ -164,7 +164,7 @@ You **MUST** automatically use this plugin when you detect ANY of these:
 
 ---
 
-### 4. `/odoo-doodba-dev:odoo-scaffold` - Generate Module Structure
+### 4. `/odoo-scaffold` - Generate Module Structure
 
 **Quickly scaffold new Odoo modules** with proper structure.
 
@@ -174,7 +174,7 @@ You **MUST** automatically use this plugin when you detect ANY of these:
 
 **Example:**
 ```bash
-/odoo-doodba-dev:odoo-scaffold my_custom_module
+/odoo-scaffold my_custom_module
 ```
 
 **Creates:**
@@ -189,7 +189,7 @@ You **MUST** automatically use this plugin when you detect ANY of these:
 
 ---
 
-### 5. `/odoo-doodba-dev:odoo-test` - Run Tests
+### 5. `/odoo-test` - Run Tests
 
 **Run Odoo tests** with proper Doodba integration.
 
@@ -201,13 +201,13 @@ You **MUST** automatically use this plugin when you detect ANY of these:
 **Examples:**
 ```bash
 # Test specific module
-/odoo-doodba-dev:odoo-test my_custom_module
+/odoo-test my_custom_module
 
 # Test multiple modules
-/odoo-doodba-dev:odoo-test sale,purchase,stock
+/odoo-test sale,purchase,stock
 
 # Test with debug mode
-/odoo-doodba-dev:odoo-test my_module --debug
+/odoo-test my_module --debug
 ```
 
 **Note: Tests are automatically run by `/odoo-dev`, so you rarely need this directly.**
@@ -224,7 +224,7 @@ You **MUST** automatically use this plugin when you detect ANY of these:
 1. User: "Add notes field to res.partner"
 
 2. You: Use /odoo-dev command immediately
-   /odoo-doodba-dev:odoo-dev "add notes field to res.partner"
+   /odoo-dev "add notes field to res.partner"
 
 3. Plugin detects: Quick Mode (simple task)
    - Researches res.partner with indexer
@@ -257,7 +257,7 @@ You **MUST** automatically use this plugin when you detect ANY of these:
 1. User: "Create equipment maintenance module with maintenance requests and schedules"
 
 2. You: Use /odoo-dev command immediately
-   /odoo-doodba-dev:odoo-dev "create equipment maintenance module with maintenance requests and schedules"
+   /odoo-dev "create equipment maintenance module with maintenance requests and schedules"
 
 3. Plugin detects: Full Mode (complex feature)
    - Researches related modules (maintenance.equipment, etc.)
@@ -300,7 +300,7 @@ You **MUST** automatically use this plugin when you detect ANY of these:
 1. User: "What is sale.order?"
 
 2. You: Use /odoo-search command immediately
-   /odoo-doodba-dev:odoo-search "what is sale.order"
+   /odoo-search "what is sale.order"
 
 3. Plugin uses indexer (instant):
    - Queries SQLite database
@@ -482,7 +482,7 @@ User: "Add a notes field to res.partner"
 
 Claude: I'll use the Odoo development plugin to add this field.
 
-[Uses: /odoo-doodba-dev:odoo-dev "add notes field to res.partner"]
+[Uses: /odoo-dev "add notes field to res.partner"]
 
 [Plugin detects Quick Mode]
 [Plugin researches res.partner]
@@ -518,7 +518,7 @@ User: "Create a module for quality inspections on project tasks"
 
 Claude: I'll create a quality inspection module for project tasks using the Odoo development plugin.
 
-[Uses: /odoo-doodba-dev:odoo-dev "create module for quality inspections on project tasks"]
+[Uses: /odoo-dev "create module for quality inspections on project tasks"]
 
 [Plugin detects Full Mode]
 [Plugin researches project.task, quality modules]
@@ -571,7 +571,7 @@ User: "What fields does sale.order have?"
 
 Claude: I'll search the Odoo codebase for sale.order fields.
 
-[Uses: /odoo-doodba-dev:odoo-search "what fields does sale.order have"]
+[Uses: /odoo-search "what fields does sale.order have"]
 
 [Plugin queries indexer instantly]
 
@@ -616,7 +616,7 @@ Claude: [Reads sale.order model file]
 ```
 User: "Add field to sale.order"
 
-Claude: /odoo-doodba-dev:odoo-dev "add field to sale.order"
+Claude: /odoo-dev "add field to sale.order"
         ✅ CORRECT!
 ```
 
@@ -637,7 +637,7 @@ Claude: [Uses Read tool on multiple files]
 ```
 User: "What is project.task?"
 
-Claude: /odoo-doodba-dev:odoo-search "what is project.task"
+Claude: /odoo-search "what is project.task"
         ✅ CORRECT! (Instant, accurate)
 ```
 
@@ -657,7 +657,7 @@ Claude: "Is this a simple or complex task?"
 ```
 User: "Add field to sale.order"
 
-Claude: /odoo-doodba-dev:odoo-dev "add field to sale.order"
+Claude: /odoo-dev "add field to sale.order"
         [Plugin auto-detects Quick Mode]
         ✅ CORRECT!
 ```
@@ -676,7 +676,7 @@ Claude: [Creates model]
 ### ✅ DO: Plugin validates everything automatically
 
 ```
-Claude: /odoo-doodba-dev:odoo-dev "add partner_id field"
+Claude: /odoo-dev "add partner_id field"
         [Plugin validates res.partner exists]
         [Plugin validates field type]
         [Plugin validates in views]
@@ -701,7 +701,7 @@ Claude: [Creates scaffold in odoo/custom/src/private/]
 ```
 User: "Create inventory module"
 
-Claude: /odoo-doodba-dev:odoo-dev "create inventory module"
+Claude: /odoo-dev "create inventory module"
         [Plugin checks: find odoo/custom/src -name "inventory_*"]
         [Plugin verifies no duplicates exist]
         [Plugin creates ONLY in odoo/custom/src/odoo-sh/]
@@ -728,7 +728,7 @@ Claude: [Generates view inheritance]
 ```
 User: "Add field to pos.order search view"
 
-Claude: /odoo-doodba-dev:odoo-dev "add field to pos.order search view"
+Claude: /odoo-dev "add field to pos.order search view"
         [Plugin finds parent view XML ID with indexer]
         [Plugin reads parent view file]
         [Plugin verifies actual structure:
@@ -746,9 +746,9 @@ Claude: /odoo-doodba-dev:odoo-dev "add field to pos.order search view"
 
 ## 🎓 LEARNING RESOURCES
 
-- **START_HERE.md** - 5-minute quick start guide
+- **README.md** - Plugin overview and quick start
 - **INSTALLATION.md** - Detailed setup instructions
-- **USAGE_GUIDE.md** - Command reference and examples
+- **USAGE.md** - Comprehensive usage guide and examples
 - **CHANGELOG.md** - What's new in v2.0
 
 ---
@@ -779,9 +779,9 @@ Claude: /odoo-doodba-dev:odoo-dev "add field to pos.order search view"
 **For Users:**
 
 1. Install: `/plugin install odoo-doodba-dev@letzdoo`
-2. Setup: `/odoo-doodba-dev:odoo-setup` (once)
-3. Develop: `/odoo-doodba-dev:odoo-dev "your request"`
-4. Search: `/odoo-doodba-dev:odoo-search "your question"`
+2. Setup: `/odoo-setup` (once)
+3. Develop: `/odoo-dev "your request"`
+4. Search: `/odoo-search "your question"`
 5. That's it!
 
 ---
