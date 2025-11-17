@@ -5,14 +5,16 @@ description: |
 
   **MANDATORY AUTO-TRIGGER RULES:**
 
-  1. **At Session Start**: IMMEDIATELY retrieve relevant project memory when starting any task
+  1. **At Session Start**: IMMEDIATELY get context summary (get_context.py) to understand project state
   2. **Before Agent Transitions**: ALWAYS store important context before launching subagents
   3. **After Important Decisions**: STORE key decisions, requirements, and findings
   4. **When User Says**: "remember this", "keep track of", "note that", "for future reference"
-  5. **Multi-Step Tasks**: Store context between steps to maintain continuity
-  6. **Error Recovery**: Store error patterns and solutions for future reference
+  5. **When User Asks**: "what's the status", "what have we decided", "what's the context"
+  6. **Multi-Step Tasks**: Store context between steps to maintain continuity
+  7. **Error Recovery**: Store error patterns and solutions for future reference
 
   **Auto-Trigger Keywords:**
+  - Context summary: "get context", "what's the status", "project state", "current situation", "where are we"
   - Memory operations: "remember", "recall", "retrieve", "store", "save context"
   - Session context: "what did we decide", "previous decision", "earlier finding"
   - Task continuity: "continue from", "pick up where", "resume"
@@ -37,6 +39,34 @@ allowed-tools: Read, Bash, Grep, Glob
 The **Claude Memory** skill provides persistent storage for project context, decisions, and findings across different Claude agent sessions and subagents. This solves the problem of context loss when using subagents or when resuming work after interruptions.
 
 ## Core Capabilities
+
+### 0. Get Context Summary (START HERE)
+
+**ALWAYS use this first when starting a session or task** to get a coherent overview of the project state:
+
+```bash
+# Get a formatted context summary
+python -m scripts.get_context
+
+# Markdown format (better for LLMs)
+python -m scripts.get_context --format markdown
+
+# Recent changes only (last 7 days)
+python -m scripts.get_context --days 7
+
+# JSON format for programmatic use
+python -m scripts.get_context --format json
+```
+
+This provides a structured, cache-friendly summary organized by category:
+- Key Decisions
+- Requirements
+- Current Context
+- Important Findings
+- Known Issues & Solutions
+- Configuration
+- Pending Items
+- References
 
 ### 1. Store Memory
 

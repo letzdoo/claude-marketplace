@@ -35,6 +35,17 @@ The skill is automatically available when the `odoo-doodba-dev` plugin is instal
 ### Basic Usage
 
 ```bash
+# ALWAYS START HERE: Get a context summary
+python -m scripts.get_context
+
+# This shows you organized overview of:
+# - Key Decisions made
+# - Requirements defined
+# - Current Context
+# - Important Findings
+# - Known Issues & Solutions
+# - And more...
+
 # Store a decision
 python -m scripts.store "decision.auth.method" \
   "Using JWT tokens for authentication" \
@@ -52,6 +63,43 @@ python -m scripts.list_memory
 ```
 
 ## Core Features
+
+### 0. Get Context Summary (START HERE)
+
+**Always use this first** to get a coherent, organized overview of the project state:
+
+```bash
+# Get formatted context summary
+python -m scripts.get_context
+
+# Markdown format (better for LLMs, improves cache hits)
+python -m scripts.get_context --format markdown
+
+# Show only recent changes (last 7 days)
+python -m scripts.get_context --days 7
+
+# Filter by category
+python -m scripts.get_context --category decision
+
+# JSON output for programmatic use
+python -m scripts.get_context --format json
+```
+
+**Why this is important:**
+- **Cache-friendly**: Consistent formatting improves LLM cache hits
+- **Organized**: Groups items by category in predictable order
+- **Quick orientation**: Understand project state in seconds
+- **Fresh context**: See what's been decided and what's current
+
+The summary is organized by category:
+1. **Key Decisions** - Architectural and design decisions
+2. **Requirements** - User requirements and specifications
+3. **Current Context** - Current project state and ongoing work
+4. **Important Findings** - Discoveries and insights
+5. **Known Issues & Solutions** - Error patterns and solutions
+6. **Configuration** - Configuration decisions
+7. **Pending Items** - Future work
+8. **References** - External references and documentation
 
 ### 1. Store Information
 

@@ -4,6 +4,16 @@ These are convenience shell scripts that wrap the Python memory commands using `
 
 ## Available Scripts
 
+### get_context.sh (START HERE)
+Get a coherent context summary of the project:
+```bash
+./get_context.sh
+./get_context.sh --format markdown
+./get_context.sh --days 7
+./get_context.sh --category decision
+./get_context.sh --format json
+```
+
 ### store.sh
 Store a memory item:
 ```bash
