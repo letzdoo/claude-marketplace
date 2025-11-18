@@ -156,6 +156,7 @@ Required:
 
 ```bash
 export ANTHROPIC_API_KEY="sk-..."
+export VOYAGE_API_KEY="pa-..."  # For embeddings (voyage-3)
 ```
 
 Optional:
@@ -163,6 +164,8 @@ Optional:
 ```bash
 export REASONINGBANK_DB="~/.reasoningbank/memory.db"
 ```
+
+**Note**: If `VOYAGE_API_KEY` is not set, the system will fall back to deterministic hash-based embeddings for development/testing.
 
 ## Examples
 

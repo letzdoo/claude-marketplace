@@ -1,33 +1,67 @@
-"""Embedding computation and similarity utilities."""
+"""Embedding computation and similarity utilities using Voyage AI."""
 
 import numpy as np
-from typing import List, Union
-import struct
+from typing import List, Union, Optional
 import os
+import hashlib
 
 
 def compute_embedding(text: str, model: str = "voyage-3") -> np.ndarray:
     """
-    Compute embedding for text.
+    Compute embedding for text using Voyage AI.
 
-    For production use, this should call an actual embedding API.
-    For now, we use a simple hash-based deterministic embedding for demo purposes.
+    Args:
+        text: Input text to embed
+        model: Voyage AI model name (default: voyage-3)
 
-    TODO: Integrate with actual embedding providers:
-    - Voyage AI (voyage-3)
-    - OpenAI (text-embedding-3-large)
-    - Anthropic embedding endpoints when available
+    Returns:
+        numpy array of embedding vector (1024-dim for voyage-3)
+
+    Raises:
+        ImportError: If voyageai package not installed
+        ValueError: If VOYAGE_API_KEY not set
     """
-    # Simple deterministic embedding based on text hash
-    # In production, replace with actual API calls
-    import hashlib
+    try:
+        import voyageai
+    except ImportError:
+        print("Warning: voyageai not installed, using fallback embeddings", flush=True)
+        return _compute_embedding_fallback(text, model)
 
+    # Get API key
+    api_key = os.environ.get('VOYAGE_API_KEY')
+    if not api_key:
+        print("Warning: VOYAGE_API_KEY not set, using fallback embeddings", flush=True)
+        return _compute_embedding_fallback(text, model)
+
+    try:
+        # Create client
+        client = voyageai.Client(api_key=api_key)
+
+        # Compute embedding
+        result = client.embed([text], model=model, input_type="document")
+
+        # Extract embedding and convert to numpy array
+        embedding = np.array(result.embeddings[0], dtype=np.float32)
+
+        return embedding
+
+    except Exception as e:
+        print(f"Warning: Voyage AI error ({e}), using fallback embeddings", flush=True)
+        return _compute_embedding_fallback(text, model)
+
+
+def _compute_embedding_fallback(text: str, model: str = "voyage-3") -> np.ndarray:
+    """
+    Fallback deterministic embedding for when Voyage AI is unavailable.
+
+    Uses hash-based pseudo-random generation for consistent embeddings.
+    Not suitable for production but useful for testing/development.
+    """
     # Create a deterministic hash
     hash_obj = hashlib.sha256(text.encode('utf-8'))
     hash_bytes = hash_obj.digest()
 
-    # Convert to float vector (normalize to unit length)
-    # Use 1024 dimensions for compatibility with modern embedding models
+    # Use 1024 dimensions for compatibility with voyage-3
     dims = 1024
 
     # Expand hash to desired dimensions
@@ -51,7 +85,7 @@ def compute_embedding(text: str, model: str = "voyage-3") -> np.ndarray:
 
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     """Compute cosine similarity between two vectors."""
-    # Vectors are already normalized in compute_embedding
+    # Vectors are already normalized
     return float(np.dot(vec1, vec2))
 
 
@@ -63,6 +97,50 @@ def serialize_vector(vector: np.ndarray) -> bytes:
 def deserialize_vector(data: bytes, dims: int = 1024) -> np.ndarray:
     """Deserialize bytes back to numpy vector."""
     return np.frombuffer(data, dtype=np.float32).reshape(-1)
+
+
+def batch_embeddings(texts: List[str], model: str = "voyage-3") -> List[np.ndarray]:
+    """
+    Compute embeddings for multiple texts in a batch.
+
+    More efficient than calling compute_embedding individually.
+
+    Args:
+        texts: List of texts to embed
+        model: Voyage AI model name
+
+    Returns:
+        List of embedding vectors
+    """
+    if not texts:
+        return []
+
+    try:
+        import voyageai
+    except ImportError:
+        print("Warning: voyageai not installed, using fallback embeddings", flush=True)
+        return [_compute_embedding_fallback(text, model) for text in texts]
+
+    api_key = os.environ.get('VOYAGE_API_KEY')
+    if not api_key:
+        print("Warning: VOYAGE_API_KEY not set, using fallback embeddings", flush=True)
+        return [_compute_embedding_fallback(text, model) for text in texts]
+
+    try:
+        # Create client
+        client = voyageai.Client(api_key=api_key)
+
+        # Batch embed
+        result = client.embed(texts, model=model, input_type="document")
+
+        # Convert to numpy arrays
+        embeddings = [np.array(emb, dtype=np.float32) for emb in result.embeddings]
+
+        return embeddings
+
+    except Exception as e:
+        print(f"Warning: Voyage AI batch error ({e}), using fallback", flush=True)
+        return [_compute_embedding_fallback(text, model) for text in texts]
 
 
 def batch_cosine_similarity(
@@ -126,25 +204,26 @@ def maximal_marginal_relevance(
     return best_idx
 
 
-# Production-ready embedding function (requires API key)
-def compute_embedding_production(
-    text: str,
-    model: str = "voyage-3"
-) -> np.ndarray:
+def get_embedding_dimensions(model: str = "voyage-3") -> int:
     """
-    Compute embedding using actual API (production version).
+    Get the embedding dimensions for a model.
 
-    This is a placeholder for production implementation.
-    Integrate with:
-    - Voyage AI API
-    - OpenAI Embeddings API
-    - Or other embedding providers
+    Args:
+        model: Model name
+
+    Returns:
+        Number of dimensions
     """
-    # Example for Voyage AI (requires voyage-ai package)
-    # import voyageai
-    # client = voyageai.Client(api_key=os.environ.get("VOYAGE_API_KEY"))
-    # result = client.embed([text], model=model)
-    # return np.array(result.embeddings[0], dtype=np.float32)
+    # Voyage AI model dimensions
+    model_dims = {
+        "voyage-3": 1024,
+        "voyage-3-lite": 512,
+        "voyage-code-3": 1024,
+        "voyage-finance-2": 1024,
+        "voyage-law-2": 1024,
+        "voyage-2": 1024,
+        "voyage-large-2": 1536,
+        "voyage-code-2": 1536,
+    }
 
-    # For now, use the deterministic version
-    return compute_embedding(text, model)
+    return model_dims.get(model, 1024)

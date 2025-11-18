@@ -23,8 +23,9 @@ cd odoo-doodba-dev/skills/reasoningbank
 # Install dependencies
 uv sync
 
-# Set API key
+# Set API keys
 export ANTHROPIC_API_KEY="sk-..."
+export VOYAGE_API_KEY="pa-..."  # For embeddings (voyage-3)
 
 # Initialize database
 uv run scripts/init_db.py
@@ -56,7 +57,7 @@ uv run scripts/matts.py "complex task" --mode parallel -k 6
 
 ### 1. Semantic Memory Retrieval
 
-Finds relevant past experiences using:
+Finds relevant past experiences using **Voyage AI embeddings** (voyage-3, 1024 dimensions):
 - **Semantic similarity** (cosine similarity on embeddings)
 - **Recency** (exponential decay with configurable half-life)
 - **Relevance** (confidence scores from judge and reuse frequency)
@@ -65,6 +66,8 @@ Finds relevant past experiences using:
 ```python
 score = α*similarity + β*recency + γ*relevance - δ*diversity
 ```
+
+**Note**: If `VOYAGE_API_KEY` is not set, falls back to deterministic hash-based embeddings for development/testing.
 
 ### 2. LLM-as-Judge
 

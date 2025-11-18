@@ -53,6 +53,7 @@ This skill requires:
 
 ```bash
 export ANTHROPIC_API_KEY="sk-..."
+export VOYAGE_API_KEY="pa-..."  # For embeddings (voyage-3)
 cd odoo-doodba-dev/skills/reasoningbank
 uv sync
 uv run scripts/init_db.py
