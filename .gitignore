@@ -73,4 +73,5 @@ node_modules/
 # OS specific
 Thumbs.db
 
-ERRORS.md
+ERRORS.md.odoo_context.json
+.odoo_context.yaml
