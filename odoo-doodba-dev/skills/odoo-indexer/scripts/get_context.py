@@ -310,6 +310,153 @@ def get_computed_fields(db: Database, limit: int = 20) -> list[dict]:
         return fields
 
 
+def get_controller_routes(db: Database, limit: int = 30) -> list[dict]:
+    """Get HTTP controller routes.
+
+    Args:
+        db: Database instance
+        limit: Maximum number of routes
+
+    Returns:
+        List of controller routes
+    """
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                name,
+                parent_name,
+                module,
+                attributes
+            FROM indexed_items
+            WHERE item_type = 'controller_route'
+            ORDER BY module, name
+            LIMIT ?
+        """, (limit,))
+
+        routes = []
+        for row in cursor.fetchall():
+            attrs = json.loads(row['attributes']) if row['attributes'] else {}
+            routes.append({
+                'route': row['name'],
+                'handler': row['parent_name'],
+                'module': row['module'],
+                'methods': attrs.get('methods', ['GET']),
+                'auth': attrs.get('auth', 'user'),
+                'type': attrs.get('type', 'http')
+            })
+
+        return routes
+
+
+def get_qweb_templates(db: Database, limit: int = 30) -> dict:
+    """Get QWeb templates categorized by type.
+
+    Args:
+        db: Database instance
+        limit: Maximum number per category
+
+    Returns:
+        Dict with template categories
+    """
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+
+        # Get all templates
+        cursor.execute("""
+            SELECT
+                name,
+                module,
+                attributes
+            FROM indexed_items
+            WHERE item_type = 'report_template'
+            ORDER BY module, name
+        """)
+
+        report_templates = []
+        website_templates = []
+        other_templates = []
+
+        for row in cursor.fetchall():
+            attrs = json.loads(row['attributes']) if row['attributes'] else {}
+            template_info = {
+                'name': row['name'],
+                'module': row['module'],
+                'template_name': attrs.get('template_name', ''),
+                'is_report': attrs.get('is_report', False)
+            }
+
+            # Categorize templates
+            if attrs.get('is_report'):
+                report_templates.append(template_info)
+            elif 'website' in row['name'].lower() or 'website' in row['module']:
+                website_templates.append(template_info)
+            else:
+                other_templates.append(template_info)
+
+        return {
+            'reports': report_templates[:limit],
+            'website': website_templates[:limit],
+            'other': other_templates[:limit],
+            'total': len(report_templates) + len(website_templates) + len(other_templates)
+        }
+
+
+def get_frontend_overview(db: Database) -> dict:
+    """Get overview of frontend-related items.
+
+    Args:
+        db: Database instance
+
+    Returns:
+        Frontend stats dict
+    """
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+
+        # Count controllers
+        cursor.execute("""
+            SELECT COUNT(*) as count
+            FROM indexed_items
+            WHERE item_type = 'controller_route'
+        """)
+        controller_count = cursor.fetchone()['count']
+
+        # Count templates
+        cursor.execute("""
+            SELECT COUNT(*) as count
+            FROM indexed_items
+            WHERE item_type = 'report_template'
+        """)
+        template_count = cursor.fetchone()['count']
+
+        # Count website-related items
+        cursor.execute("""
+            SELECT COUNT(*) as count
+            FROM indexed_items
+            WHERE module LIKE '%website%'
+            OR name LIKE '%website%'
+        """)
+        website_count = cursor.fetchone()['count']
+
+        # Get JS-related actions (client actions)
+        cursor.execute("""
+            SELECT COUNT(*) as count
+            FROM indexed_items
+            WHERE item_type = 'action'
+            AND json_extract(attributes, '$.action_type') = 'client'
+        """)
+        client_action_count = cursor.fetchone()['count']
+
+        return {
+            'controllers': controller_count,
+            'templates': template_count,
+            'website_items': website_count,
+            'client_actions': client_action_count
+        }
+
+
 def format_context_text(context: dict) -> str:
     """Format context as readable text.
 
@@ -408,6 +555,52 @@ def format_context_text(context: dict) -> str:
             lines.append(f"• {field['model']}.{field['field']}{stored}")
             lines.append(f"  Compute: {field['compute_method']} ({field['module']})")
         lines.append("")
+
+    # Frontend overview
+    if 'frontend' in context:
+        frontend = context['frontend']
+        lines.append("FRONTEND & WEB COMPONENTS")
+        lines.append("-" * 80)
+        lines.append(f"HTTP Controllers: {frontend['controllers']}")
+        lines.append(f"QWeb Templates: {frontend['templates']}")
+        lines.append(f"Client Actions (JS): {frontend['client_actions']}")
+        lines.append(f"Website-related items: {frontend['website_items']}")
+        lines.append("")
+
+    # Controller routes
+    if 'controller_routes' in context and context['controller_routes']:
+        lines.append("HTTP ROUTES (Sample)")
+        lines.append("-" * 80)
+        for route in context['controller_routes'][:10]:
+            methods_str = ', '.join(route['methods'])
+            lines.append(f"• {route['route']} [{methods_str}]")
+            lines.append(f"  Handler: {route['handler']} ({route['module']})")
+            lines.append(f"  Auth: {route['auth']}, Type: {route['type']}")
+        lines.append("")
+
+    # QWeb templates
+    if 'qweb_templates' in context:
+        templates = context['qweb_templates']
+        if templates['reports'] or templates['website'] or templates['other']:
+            lines.append("QWEB TEMPLATES")
+            lines.append("-" * 80)
+            lines.append(f"Total templates: {templates['total']}")
+
+            if templates['reports']:
+                lines.append(f"\nReport Templates ({len(templates['reports'])}):")
+                for tpl in templates['reports'][:5]:
+                    lines.append(f"  • {tpl['name']} ({tpl['module']})")
+
+            if templates['website']:
+                lines.append(f"\nWebsite Templates ({len(templates['website'])}):")
+                for tpl in templates['website'][:5]:
+                    lines.append(f"  • {tpl['name']} ({tpl['module']})")
+
+            if templates['other']:
+                lines.append(f"\nOther Templates ({len(templates['other'])}):")
+                for tpl in templates['other'][:5]:
+                    lines.append(f"  • {tpl['name']} ({tpl['module']})")
+            lines.append("")
 
     lines.append("=" * 80)
     lines.append("Use specific indexer commands for detailed information on any item")
@@ -519,6 +712,58 @@ def format_context_markdown(context: dict) -> str:
             lines.append(f"  - Compute: `{field['compute_method']}` ({field['module']})")
         lines.append("")
 
+    # Frontend overview
+    if 'frontend' in context:
+        frontend = context['frontend']
+        lines.append("## Frontend & Web Components")
+        lines.append("")
+        lines.append(f"- **HTTP Controllers**: {frontend['controllers']}")
+        lines.append(f"- **QWeb Templates**: {frontend['templates']}")
+        lines.append(f"- **Client Actions** (JS): {frontend['client_actions']}")
+        lines.append(f"- **Website-related items**: {frontend['website_items']}")
+        lines.append("")
+
+    # Controller routes
+    if 'controller_routes' in context and context['controller_routes']:
+        lines.append("## HTTP Routes (Sample)")
+        lines.append("")
+        for route in context['controller_routes'][:10]:
+            methods_str = ', '.join(route['methods'])
+            lines.append(f"### `{route['route']}` [{methods_str}]")
+            lines.append(f"- Handler: `{route['handler']}` ({route['module']})")
+            lines.append(f"- Auth: {route['auth']}, Type: {route['type']}")
+            lines.append("")
+
+    # QWeb templates
+    if 'qweb_templates' in context:
+        templates = context['qweb_templates']
+        if templates['reports'] or templates['website'] or templates['other']:
+            lines.append("## QWeb Templates")
+            lines.append("")
+            lines.append(f"**Total templates**: {templates['total']}")
+            lines.append("")
+
+            if templates['reports']:
+                lines.append(f"### Report Templates ({len(templates['reports'])})")
+                lines.append("")
+                for tpl in templates['reports'][:5]:
+                    lines.append(f"- `{tpl['name']}` ({tpl['module']})")
+                lines.append("")
+
+            if templates['website']:
+                lines.append(f"### Website Templates ({len(templates['website'])})")
+                lines.append("")
+                for tpl in templates['website'][:5]:
+                    lines.append(f"- `{tpl['name']}` ({tpl['module']})")
+                lines.append("")
+
+            if templates['other']:
+                lines.append(f"### Other Templates ({len(templates['other'])})")
+                lines.append("")
+                for tpl in templates['other'][:5]:
+                    lines.append(f"- `{tpl['name']}` ({tpl['module']})")
+                lines.append("")
+
     lines.append("---")
     lines.append("*Use specific indexer commands for detailed information on any item*")
 
@@ -538,7 +783,7 @@ def main():
     )
     parser.add_argument(
         '--section',
-        choices=['overview', 'modules', 'models', 'security', 'views', 'inheritance', 'computed'],
+        choices=['overview', 'modules', 'models', 'security', 'views', 'inheritance', 'computed', 'frontend', 'templates', 'routes'],
         help='Show only specific section',
         default=None
     )
@@ -593,6 +838,15 @@ def main():
 
         if not args.section or args.section in ('computed',):
             context['computed_fields'] = get_computed_fields(db)
+
+        if not args.section or args.section in ('frontend', 'templates', 'routes'):
+            context['frontend'] = get_frontend_overview(db)
+
+        if not args.section or args.section in ('routes', 'frontend'):
+            context['controller_routes'] = get_controller_routes(db)
+
+        if not args.section or args.section in ('templates', 'frontend'):
+            context['qweb_templates'] = get_qweb_templates(db)
 
         # Output based on format
         if args.format == 'json':

@@ -20,9 +20,9 @@ Get comprehensive project context overview:
 ./tools/get_context.sh --section models  # Show only models section
 ```
 
-**Shows**: Overview stats, custom modules, key models, recent models, security overview, view patterns, inheritance patterns, computed fields
+**Shows**: Overview stats, custom modules, key models, recent models, security overview, view patterns, inheritance patterns, computed fields, frontend components (controllers, templates, routes, website content)
 
-**When to use**: At session start, before feature implementation, during code review
+**When to use**: At session start, before feature implementation, during code review, when working on frontend/website features
 
 ### 1. search_model.sh
 

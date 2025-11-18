@@ -148,6 +148,9 @@ uv run scripts/get_context.py --format json
 # Show only specific section
 uv run scripts/get_context.py --section models
 uv run scripts/get_context.py --section security
+uv run scripts/get_context.py --section frontend
+uv run scripts/get_context.py --section templates
+uv run scripts/get_context.py --section routes
 ```
 
 **What it shows**:
@@ -159,6 +162,9 @@ uv run scripts/get_context.py --section security
 - **View Patterns**: Distribution of view types (form, tree, kanban, etc.)
 - **Inheritance Patterns**: Models with complex inheritance
 - **Computed Fields**: Sample of computed/calculated fields
+- **Frontend & Web**: HTTP controllers, QWeb templates, client actions, website content
+- **HTTP Routes**: Controller endpoints with methods and auth
+- **QWeb Templates**: Report templates, website templates, OWL components
 
 **When to use**:
 - ✅ **At session start** - Get oriented before starting work
