@@ -1,0 +1,44 @@
+reasoningbank:
+  retrieve:
+    k: 3
+    alpha: 0.65
+    beta: 0.15
+    gamma: 0.20
+    delta: 0.10
+    recency_half_life_days: 45
+    duplicate_threshold: 0.87
+    embedding_model: "voyage-3"
+
+  judge:
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0
+    max_tokens: 1024
+
+  distill:
+    max_items_per_traj: 3
+    redact_pii: true
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 2048
+
+  consolidate:
+    run_every_new_items: 20
+    contradiction_threshold: 0.60
+    prune_age_days: 180
+    min_confidence_keep: 0.30
+    dedup_threshold: 0.87
+
+  matts:
+    enabled: true
+    parallel_k: 6
+    sequential_r: 3
+
+  database:
+    path: "~/.reasoningbank/memory.db"
+
+  learning:
+    initial_confidence_success: 0.75
+    initial_confidence_failure: 0.65
+    learning_rate: 0.05
+    success_delta: 1.0
+    failure_delta: -0.5
