@@ -14,6 +14,9 @@ Fast indexing and search for Odoo codebase elements with sub-100ms query perform
 
 ## When to Auto-Use This Skill
 
+✅ **User starts session or asks about project**: "What's in this project?", "Give me an overview"
+→ **AUTO-USE**: `uv run scripts/get_context.py --format markdown`
+
 ✅ **User asks**: "What is sale.order?"
 → **AUTO-USE**: `uv run scripts/get_details.py model "sale.order"`
 
@@ -44,6 +47,7 @@ Fast indexing and search for Odoo codebase elements with sub-100ms query perform
 
 **Automatically use this skill when user query contains**:
 
+- **"overview"** / **"context"** / **"project status"** / **"what's in this project"**
 - **"what is"** + model/field/view name
 - **"what fields"** + model name
 - **"find"** / **"search"** / **"search for"** + element type
@@ -126,6 +130,45 @@ Database size: 42.3 MB
 ## Core Commands
 
 All commands use `uv run` from the `skills/odoo-indexer/` directory:
+
+### 0. Get Project Context Summary (START HERE)
+
+**NEW: Get a comprehensive overview of your Odoo project** - Use this at the start of any Odoo development session to understand the codebase structure:
+
+```bash
+# Get full context summary
+uv run scripts/get_context.py
+
+# Markdown format (better for LLMs)
+uv run scripts/get_context.py --format markdown
+
+# JSON format for programmatic use
+uv run scripts/get_context.py --format json
+
+# Show only specific section
+uv run scripts/get_context.py --section models
+uv run scripts/get_context.py --section security
+```
+
+**What it shows**:
+- **Overview**: Total modules, models, fields, views
+- **Custom Modules**: Your project-specific modules with stats
+- **Key Models**: Most referenced models in the codebase
+- **Recent Models**: Models likely being worked on (recently indexed)
+- **Security Overview**: Record rules, access rights, models without security
+- **View Patterns**: Distribution of view types (form, tree, kanban, etc.)
+- **Inheritance Patterns**: Models with complex inheritance
+- **Computed Fields**: Sample of computed/calculated fields
+
+**When to use**:
+- ✅ **At session start** - Get oriented before starting work
+- ✅ **Before implementing features** - Understand current architecture
+- ✅ **When exploring unfamiliar modules** - See what's already there
+- ✅ **During code reviews** - Get context on changes
+
+**Performance**: <200ms for full context
+
+---
 
 ### 1. Search for Elements
 

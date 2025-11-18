@@ -11,6 +11,19 @@ chmod +x tools/*.sh
 
 ## Available Tools
 
+### 0. get_context.sh (START HERE)
+
+Get comprehensive project context overview:
+```bash
+./tools/get_context.sh
+./tools/get_context.sh --format markdown
+./tools/get_context.sh --section models  # Show only models section
+```
+
+**Shows**: Overview stats, custom modules, key models, recent models, security overview, view patterns, inheritance patterns, computed fields
+
+**When to use**: At session start, before feature implementation, during code review
+
 ### 1. search_model.sh
 
 Search for models:
