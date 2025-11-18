@@ -73,5 +73,6 @@ node_modules/
 # OS specific
 Thumbs.db
 
-ERRORS.md.odoo_context.json
+# User-specific context files (use .odoo_context.json.example as template)
+.odoo_context.json
 .odoo_context.yaml
