@@ -8,6 +8,7 @@ highlighting key models, modules, and architectural patterns.
 import argparse
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 from collections import defaultdict
@@ -457,6 +458,74 @@ def get_frontend_overview(db: Database) -> dict:
         }
 
 
+def get_user_context(project_path: Optional[Path] = None) -> Optional[dict]:
+    """Load user context from file if available.
+
+    User context should be stored in .odoo_context.json or .odoo_context.yaml
+    in the project root. This captures user requirements, decisions, and the
+    'why' behind the work.
+
+    Args:
+        project_path: Path to project (defaults to searching common locations)
+
+    Returns:
+        User context dict or None if not found
+    """
+    search_paths = []
+
+    if project_path:
+        search_paths.append(project_path)
+    else:
+        # Search in multiple locations
+        # 1. Parent of ODOO_PATH (if configured)
+        try:
+            search_paths.append(config.ODOO_PATH.parent.parent)  # Project root
+            search_paths.append(config.ODOO_PATH.parent)  # odoo directory
+        except:
+            pass
+
+        # 2. Current working directory and parents
+        cwd = Path.cwd()
+        search_paths.append(cwd)
+        search_paths.append(cwd.parent)
+        search_paths.append(cwd.parent.parent)
+
+        # 3. Common Git repo root
+        git_root = Path(os.environ.get('GIT_ROOT', '/home/user/claude-marketplace'))
+        if git_root.exists():
+            search_paths.append(git_root)
+
+    # Try each path
+    for path in search_paths:
+        if not path.exists():
+            continue
+
+        # Try JSON first
+        context_file = path / '.odoo_context.json'
+        if context_file.exists():
+            try:
+                with open(context_file, 'r') as f:
+                    logger.info(f"Loaded user context from {context_file}")
+                    return json.load(f)
+            except Exception as e:
+                logger.warning(f"Failed to load user context from {context_file}: {e}")
+
+        # Try YAML
+        try:
+            import yaml
+            context_file = path / '.odoo_context.yaml'
+            if context_file.exists():
+                with open(context_file, 'r') as f:
+                    logger.info(f"Loaded user context from {context_file}")
+                    return yaml.safe_load(f)
+        except ImportError:
+            pass  # YAML not available
+        except Exception as e:
+            logger.warning(f"Failed to load user context from {context_file}: {e}")
+
+    return None
+
+
 def format_context_text(context: dict) -> str:
     """Format context as readable text.
 
@@ -469,6 +538,64 @@ def format_context_text(context: dict) -> str:
     lines = []
     lines.append("=" * 80)
     lines.append("ODOO PROJECT CONTEXT SUMMARY")
+    lines.append("=" * 80)
+    lines.append("")
+
+    # *** CRITICAL: USER CONTEXT & REQUIREMENTS ***
+    lines.append("!!! USER CONTEXT & REQUIREMENTS !!!")
+    lines.append("=" * 80)
+    lines.append("*** IMPORTANT: This section captures USER INPUT, REQUIREMENTS, and DECISIONS ***")
+    lines.append("*** Do NOT lose this information - it represents the 'WHY' behind the work ***")
+    lines.append("")
+
+    if 'user_context' in context and context['user_context']:
+        user_ctx = context['user_context']
+
+        if user_ctx.get('current_task'):
+            lines.append("CURRENT TASK:")
+            lines.append(f"  {user_ctx['current_task']}")
+            lines.append("")
+
+        if user_ctx.get('user_requirements'):
+            lines.append("USER REQUIREMENTS:")
+            for req in user_ctx['user_requirements']:
+                lines.append(f"  • {req}")
+            lines.append("")
+
+        if user_ctx.get('decisions_made'):
+            lines.append("DECISIONS MADE (with reasoning):")
+            for decision in user_ctx['decisions_made']:
+                lines.append(f"  • {decision}")
+            lines.append("")
+
+        if user_ctx.get('qa_session'):
+            lines.append("Q&A SESSION (User questions and answers):")
+            for qa in user_ctx['qa_session']:
+                lines.append(f"  Q: {qa.get('question', '')}")
+                lines.append(f"  A: {qa.get('answer', '')}")
+            lines.append("")
+
+        if user_ctx.get('why_analysis'):
+            lines.append("WHY (Purpose and reasoning):")
+            lines.append(f"  {user_ctx['why_analysis']}")
+            lines.append("")
+    else:
+        lines.append("⚠️  NO USER CONTEXT CAPTURED YET")
+        lines.append("")
+        lines.append("ACTION REQUIRED: Add user requirements and decisions to preserve context:")
+        lines.append("  1. What is the user trying to achieve? (Current task/goal)")
+        lines.append("  2. What did the user explicitly request? (Requirements)")
+        lines.append("  3. What decisions were made and WHY? (Decision log)")
+        lines.append("  4. What questions did the user ask and answer? (Q&A log)")
+        lines.append("  5. What is the purpose/reasoning behind this work? (The 'why')")
+        lines.append("")
+        lines.append("This information is CRITICAL for:")
+        lines.append("  - Maintaining context across sessions")
+        lines.append("  - Understanding user intent and priorities")
+        lines.append("  - Making informed implementation decisions")
+        lines.append("  - Avoiding rework by remembering past discussions")
+        lines.append("")
+
     lines.append("=" * 80)
     lines.append("")
 
@@ -620,6 +747,73 @@ def format_context_markdown(context: dict) -> str:
     """
     lines = []
     lines.append("# Odoo Project Context Summary")
+    lines.append("")
+
+    # *** CRITICAL: USER CONTEXT & REQUIREMENTS ***
+    lines.append("## ⚠️ USER CONTEXT & REQUIREMENTS")
+    lines.append("")
+    lines.append("> **CRITICAL**: This section captures USER INPUT, REQUIREMENTS, and DECISIONS")
+    lines.append("> ")
+    lines.append("> **Do NOT lose this information** - it represents the 'WHY' behind the work")
+    lines.append("")
+
+    if 'user_context' in context and context['user_context']:
+        user_ctx = context['user_context']
+
+        if user_ctx.get('current_task'):
+            lines.append("### 🎯 Current Task")
+            lines.append("")
+            lines.append(f"**{user_ctx['current_task']}**")
+            lines.append("")
+
+        if user_ctx.get('user_requirements'):
+            lines.append("### 📋 User Requirements")
+            lines.append("")
+            for req in user_ctx['user_requirements']:
+                lines.append(f"- {req}")
+            lines.append("")
+
+        if user_ctx.get('decisions_made'):
+            lines.append("### ✅ Decisions Made (with reasoning)")
+            lines.append("")
+            for decision in user_ctx['decisions_made']:
+                lines.append(f"- {decision}")
+            lines.append("")
+
+        if user_ctx.get('qa_session'):
+            lines.append("### 💬 Q&A Session")
+            lines.append("")
+            for qa in user_ctx['qa_session']:
+                lines.append(f"**Q:** {qa.get('question', '')}")
+                lines.append("")
+                lines.append(f"**A:** {qa.get('answer', '')}")
+                lines.append("")
+
+        if user_ctx.get('why_analysis'):
+            lines.append("### 🤔 Why (Purpose and Reasoning)")
+            lines.append("")
+            lines.append(user_ctx['why_analysis'])
+            lines.append("")
+    else:
+        lines.append("### ⚠️ NO USER CONTEXT CAPTURED YET")
+        lines.append("")
+        lines.append("**ACTION REQUIRED**: Add user requirements and decisions to preserve context:")
+        lines.append("")
+        lines.append("1. **What is the user trying to achieve?** (Current task/goal)")
+        lines.append("2. **What did the user explicitly request?** (Requirements)")
+        lines.append("3. **What decisions were made and WHY?** (Decision log)")
+        lines.append("4. **What questions did the user ask and answer?** (Q&A log)")
+        lines.append("5. **What is the purpose/reasoning behind this work?** (The 'why')")
+        lines.append("")
+        lines.append("**This information is CRITICAL for:**")
+        lines.append("")
+        lines.append("- ✅ Maintaining context across sessions")
+        lines.append("- ✅ Understanding user intent and priorities")
+        lines.append("- ✅ Making informed implementation decisions")
+        lines.append("- ✅ Avoiding rework by remembering past discussions")
+        lines.append("")
+
+    lines.append("---")
     lines.append("")
 
     # Overview
@@ -818,6 +1012,11 @@ def main():
             'total_fields': total_fields,
             'total_views': total_views
         }
+
+        # Load user context (CRITICAL: preserves user input and decisions)
+        user_ctx = get_user_context()
+        if user_ctx:
+            context['user_context'] = user_ctx
 
         # Get section-specific data
         if not args.section or args.section in ('modules',):

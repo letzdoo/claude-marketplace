@@ -20,9 +20,15 @@ Get comprehensive project context overview:
 ./tools/get_context.sh --section models  # Show only models section
 ```
 
-**Shows**: Overview stats, custom modules, key models, recent models, security overview, view patterns, inheritance patterns, computed fields, frontend components (controllers, templates, routes, website content)
+**Shows**:
+- **⚠️ USER CONTEXT**: User requirements, decisions, Q&A, and reasoning (from `.odoo_context.json`)
+- Overview stats, custom modules, key models, recent models
+- Security overview, view patterns, inheritance patterns, computed fields
+- Frontend components (controllers, templates, routes, website content)
 
 **When to use**: At session start, before feature implementation, during code review, when working on frontend/website features
+
+**Important**: Create `.odoo_context.json` in project root to preserve user input and decisions across sessions
 
 ### 1. search_model.sh
 

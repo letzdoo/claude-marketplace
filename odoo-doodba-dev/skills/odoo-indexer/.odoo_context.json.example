@@ -1,0 +1,35 @@
+{
+  "current_task": "Refine get_context tool to focus on Odoo-specific concepts and preserve user input",
+
+  "user_requirements": [
+    "Make get_context tool Odoo-specific (models, fields, views) not generic (database tables)",
+    "Include frontend content: OWL extensions, website widgets, QWeb templates, controllers",
+    "Add section at beginning to capture user input and the 'why' behind decisions",
+    "Emphasize importance of preserving user input across sessions"
+  ],
+
+  "decisions_made": [
+    "Created get_context.py in odoo-indexer skill instead of generic memory skill - focuses on indexed Odoo elements",
+    "Query indexer database for Odoo-specific data: models, fields, views, actions, security, templates",
+    "Added frontend sections: controllers (HTTP routes), QWeb templates (categorized), client actions",
+    "Created user_context section at top of output to capture requirements and reasoning",
+    "User context loaded from .odoo_context.json file for persistence"
+  ],
+
+  "qa_session": [
+    {
+      "question": "From backup branch, what was the generic memory approach?",
+      "answer": "Generic memory had categories like 'decision', 'requirement', 'finding', 'error' - stored in separate database with key-value pairs. Not specific to Odoo concepts."
+    },
+    {
+      "question": "What Odoo-specific items are indexed?",
+      "answer": "Models, fields, functions, views, actions, menus, record rules, access rights, templates, controller routes, scheduled actions. All parsed from Python/XML/CSV files."
+    },
+    {
+      "question": "How to detect custom modules vs core?",
+      "answer": "Use dependency_depth (custom modules depend on core) and module name patterns (custom_, letzdoo_, l10n_)"
+    }
+  ],
+
+  "why_analysis": "The goal is to create an Odoo-focused context system that helps developers understand the project architecture quickly. Unlike generic memory systems, this leverages the indexer's parsed knowledge of Odoo structures. The user context section preserves the human decision-making and requirements that can't be automatically inferred from code - the 'why' behind architectural choices, user priorities, and session goals. This prevents context loss when resuming work or switching between agents."
+}

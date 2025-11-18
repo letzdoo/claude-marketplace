@@ -154,6 +154,7 @@ uv run scripts/get_context.py --section routes
 ```
 
 **What it shows**:
+- **⚠️ USER CONTEXT & REQUIREMENTS**: User input, decisions, Q&A, and the 'why' (from `.odoo_context.json`)
 - **Overview**: Total modules, models, fields, views
 - **Custom Modules**: Your project-specific modules with stats
 - **Key Models**: Most referenced models in the codebase
@@ -165,6 +166,15 @@ uv run scripts/get_context.py --section routes
 - **Frontend & Web**: HTTP controllers, QWeb templates, client actions, website content
 - **HTTP Routes**: Controller endpoints with methods and auth
 - **QWeb Templates**: Report templates, website templates, OWL components
+
+**IMPORTANT**: Create a `.odoo_context.json` file in your project root to capture:
+- Current task/goal
+- User requirements
+- Decisions made with reasoning
+- Q&A session notes
+- Why analysis (purpose and reasoning)
+
+See `.odoo_context.json.example` in the skill directory for template.
 
 **When to use**:
 - ✅ **At session start** - Get oriented before starting work
