@@ -95,3 +95,61 @@ reasoningbank:
     learning_rate: 0.05
     success_delta: 1.0
     failure_delta: -0.3  # Less penalty - failures teach us
+
+  # Centralized Reasoning Bank - Share patterns with community
+  central:
+    enabled: false  # Set to true to enable central sync
+    api_url: "https://reasoningbank.example.com/api/v1"
+    api_key: "${REASONINGBANK_API_KEY}"  # Set via environment variable
+    user_id: "${USER}"  # Anonymous by default
+    org_id: null  # Optional organization ID
+
+    # User consent management
+    consent:
+      mode: "ask_each_time"  # ask_each_time | always_allow | always_deny | domain_specific
+      share_domains:  # For domain_specific mode
+        - "odoo.orm"
+        - "odoo.performance"
+        - "odoo.views"
+      block_domains:  # Never auto-share these domains
+        - "odoo.security"  # Security patterns should be reviewed
+      auto_approve_high_confidence: true
+      min_confidence_auto: 0.90  # Auto-approve patterns >= 0.90 confidence
+      show_preview: true  # Show pattern preview before asking consent
+      anonymize_paths: true
+      anonymize_org: true
+      remember_choice: true  # Allow "Remember this choice" option
+
+    # Synchronization settings
+    sync:
+      upload_enabled: true
+      download_enabled: true
+      mode: "hybrid"  # hybrid | upload_only | download_only
+      batch_size: 10  # Patterns per batch upload
+      retry_max: 5
+      retry_backoff_base: 2  # Exponential backoff (seconds)
+      sync_interval: 21600  # 6 hours in seconds
+      offline_queue_max: 1000  # Max queued patterns
+
+    # Community pattern retrieval
+    retrieval:
+      include_community: true
+      community_weight: 0.7  # vs. 1.0 for local patterns
+      min_community_confidence: 0.65
+      min_community_upvotes: 3
+      cache_community_patterns: true
+      cache_ttl: 86400  # 24 hours in seconds
+
+    # Privacy controls
+    privacy:
+      redact_file_paths: true
+      redact_usernames: true
+      redact_ips: true
+      redact_custom_patterns:  # Custom regex patterns to redact
+        - '\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b'  # Emails
+      hash_task_ids: true  # Hash task IDs before upload
+
+    # Feedback settings
+    feedback:
+      auto_report_failures: false  # Report if pattern didn't help
+      auto_upvote_successes: false  # Upvote if pattern helped

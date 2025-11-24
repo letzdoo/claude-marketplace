@@ -17,6 +17,7 @@ dependencies = [
     "anthropic>=0.39.0",
     "pyyaml>=6.0",
     "voyageai>=0.2.0",
+    "aiohttp>=3.9.0",
 ]
 
 [project.scripts]
@@ -29,6 +30,9 @@ rb-pre-hook = "scripts.pre_hook:main"
 rb-post-hook = "scripts.post_hook:main"
 rb-init-db = "scripts.init_db:main"
 rb-status = "scripts.status:main"
+rb-init-central = "scripts.init_central:main"
+rb-sync = "scripts.central_sync:main"
+rb-sync-status = "scripts.central_status:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["scripts"]

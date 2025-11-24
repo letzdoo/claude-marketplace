@@ -24,6 +24,8 @@ from scripts.distill import (
 from scripts.consolidate import consolidate
 from scripts.database import get_database
 from scripts.utils.config import load_config
+from scripts.consent_manager import ConsentManager
+from scripts.sync_manager import SyncManager
 
 
 # Counter for consolidation trigger
@@ -91,7 +93,77 @@ async def post_task_hook(
         )
         _new_items_since_consolidation += len(inserted_ids)
 
-    # 4. Maybe consolidate
+    # 4. Request consent and queue for central upload (if enabled)
+    consent_results = []
+    upload_queued = 0
+    central_config = config.reasoningbank.get('central', {})
+
+    if central_config.get('enabled', False) and inserted_ids:
+        consent_mgr = ConsentManager(db, config)
+        sync_mgr = SyncManager(db, config.reasoningbank)
+
+        for pattern_id in inserted_ids:
+            try:
+                # Get pattern data
+                pattern = await db.get_pattern(pattern_id)
+                if not pattern:
+                    continue
+
+                pattern_data = json.loads(pattern['pattern_data']) if isinstance(pattern['pattern_data'], str) else pattern['pattern_data']
+
+                # Check if consent is required
+                consent_required = await consent_mgr.check_consent_required(pattern)
+
+                if consent_required:
+                    # Request user consent
+                    consent_given, consent_mode = await consent_mgr.request_consent(
+                        pattern_id,
+                        pattern_data,
+                        pattern.get('confidence', 0.7)
+                    )
+
+                    consent_results.append({
+                        'pattern_id': pattern_id,
+                        'consent_given': consent_given,
+                        'consent_mode': consent_mode
+                    })
+
+                    # Queue for upload if consent given
+                    if consent_given:
+                        queue_id = await sync_mgr.queue_pattern_upload(
+                            pattern_id,
+                            pattern_data,
+                            pattern.get('confidence', 0.7)
+                        )
+                        if queue_id:
+                            upload_queued += 1
+                else:
+                    # Auto-approved, queue for upload
+                    queue_id = await sync_mgr.queue_pattern_upload(
+                        pattern_id,
+                        pattern_data,
+                        pattern.get('confidence', 0.7)
+                    )
+                    if queue_id:
+                        upload_queued += 1
+                        consent_results.append({
+                            'pattern_id': pattern_id,
+                            'consent_given': True,
+                            'consent_mode': 'auto_approved'
+                        })
+
+            except Exception as e:
+                print(f"⚠️  Error processing consent for pattern {pattern_id}: {e}", file=sys.stderr)
+
+        # Trigger background upload (non-blocking)
+        if upload_queued > 0:
+            try:
+                # Process upload queue asynchronously
+                asyncio.create_task(sync_mgr.process_upload_queue(immediate=True))
+            except Exception as e:
+                print(f"⚠️  Error starting upload queue: {e}", file=sys.stderr)
+
+    # 5. Maybe consolidate
     consolidation_result = None
     if _new_items_since_consolidation >= config.consolidate.run_every_new_items:
         consolidation_result = await consolidate(config)
@@ -108,7 +180,9 @@ async def post_task_hook(
             "judgment": label,
             "confidence": confidence,
             "memories_created": len(inserted_ids),
-            "consolidation_triggered": consolidation_result is not None
+            "consolidation_triggered": consolidation_result is not None,
+            "consent_requested": len(consent_results),
+            "upload_queued": upload_queued
         }
     )
 
@@ -122,7 +196,12 @@ async def post_task_hook(
         },
         "memories_created": len(inserted_ids),
         "memory_ids": inserted_ids,
-        "consolidation": consolidation_result
+        "consolidation": consolidation_result,
+        "central_sync": {
+            "enabled": central_config.get('enabled', False),
+            "consent_results": consent_results,
+            "upload_queued": upload_queued
+        }
     }
 
 
@@ -175,6 +254,13 @@ async def main():
             print(f"  Duplicates: {result['consolidation']['duplicates_found']}")
             print(f"  Contradictions: {result['consolidation']['contradictions_found']}")
             print(f"  Pruned: {result['consolidation']['memories_pruned']}")
+
+        if result['central_sync']['enabled']:
+            print(f"\nCentral Sync:")
+            print(f"  Patterns queued for upload: {result['central_sync']['upload_queued']}")
+            if result['central_sync']['consent_results']:
+                approved = sum(1 for c in result['central_sync']['consent_results'] if c['consent_given'])
+                print(f"  Consent approved: {approved}/{len(result['central_sync']['consent_results'])}")
 
     return 0
 
