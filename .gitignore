@@ -74,3 +74,6 @@ node_modules/
 Thumbs.db
 
 ERRORS.md
+
+# Archives
+*.zip

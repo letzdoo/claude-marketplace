@@ -1,0 +1,562 @@
+# Model and View Inheritance Patterns
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  INHERITANCE PATTERNS                                                        ║
+║  Extending models, views, and controllers without modifying core code        ║
+║  Use for customizations, extensions, and module integrations                 ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
+## Inheritance Types Overview
+
+| Type | `_name` | `_inherit` | Use Case |
+|------|---------|-----------|----------|
+| Extension | None | `'model'` | Add fields/methods to existing model |
+| Delegation | `'new'` | `'model'` | Link new model to existing |
+| Prototype | `'new'` | `['model']` | Copy structure from existing |
+
+---
+
+## Model Extension (Most Common)
+
+### Add Fields to Existing Model
+```python
+from odoo import api, fields, models
+
+
+class ResPartner(models.Model):
+    _inherit = 'res.partner'
+
+    # New fields
+    x_loyalty_points = fields.Integer(
+        string='Loyalty Points',
+        default=0,
+    )
+    x_customer_tier = fields.Selection(
+        selection=[
+            ('bronze', 'Bronze'),
+            ('silver', 'Silver'),
+            ('gold', 'Gold'),
+        ],
+        string='Customer Tier',
+        compute='_compute_customer_tier',
+        store=True,
+    )
+    x_account_manager_id = fields.Many2one(
+        comodel_name='res.users',
+        string='Account Manager',
+    )
+
+    @api.depends('x_loyalty_points')
+    def _compute_customer_tier(self):
+        for partner in self:
+            if partner.x_loyalty_points >= 1000:
+                partner.x_customer_tier = 'gold'
+            elif partner.x_loyalty_points >= 500:
+                partner.x_customer_tier = 'silver'
+            else:
+                partner.x_customer_tier = 'bronze'
+```
+
+### Override Methods
+```python
+class SaleOrder(models.Model):
+    _inherit = 'sale.order'
+
+    def action_confirm(self):
+        """Override confirm to add custom logic."""
+        # Pre-processing
+        for order in self:
+            order._check_credit_limit()
+
+        # Call original method
+        result = super().action_confirm()
+
+        # Post-processing
+        for order in self:
+            order._send_confirmation_notification()
+
+        return result
+
+    def _check_credit_limit(self):
+        """Custom credit check before confirmation."""
+        if self.partner_id.credit_limit and \
+           self.amount_total > self.partner_id.credit_limit:
+            raise UserError("Order exceeds credit limit.")
+
+    def _send_confirmation_notification(self):
+        """Send notification after confirmation."""
+        template = self.env.ref('my_module.email_template_order_confirm')
+        template.send_mail(self.id)
+```
+
+### Extend Computed Fields
+```python
+class SaleOrderLine(models.Model):
+    _inherit = 'sale.order.line'
+
+    @api.depends('product_uom_qty', 'discount', 'price_unit', 'tax_id')
+    def _compute_amount(self):
+        """Extend to add loyalty discount."""
+        super()._compute_amount()
+
+        for line in self:
+            if line.order_id.partner_id.x_customer_tier == 'gold':
+                # Apply additional 5% discount for gold customers
+                line.price_subtotal *= 0.95
+```
+
+### Add to Selection Field
+```python
+class SaleOrder(models.Model):
+    _inherit = 'sale.order'
+
+    # Extend existing selection
+    state = fields.Selection(
+        selection_add=[
+            ('pending_approval', 'Pending Approval'),
+            ('approved', 'Approved'),
+        ],
+        ondelete={
+            'pending_approval': 'set default',
+            'approved': 'set default',
+        },
+    )
+```
+
+---
+
+## Delegation Inheritance
+
+### Link to Existing Model
+```python
+class Employee(models.Model):
+    _name = 'hr.employee'
+    _inherits = {'res.partner': 'partner_id'}
+
+    partner_id = fields.Many2one(
+        comodel_name='res.partner',
+        string='Related Partner',
+        required=True,
+        ondelete='cascade',
+    )
+
+    # Employee-specific fields
+    department_id = fields.Many2one('hr.department')
+    job_id = fields.Many2one('hr.job')
+
+    # Inherited fields from res.partner are accessible directly
+    # employee.name -> partner.name
+    # employee.email -> partner.email
+```
+
+### Custom Delegation
+```python
+class ProductVariant(models.Model):
+    _name = 'product.product'
+    _inherits = {'product.template': 'product_tmpl_id'}
+
+    product_tmpl_id = fields.Many2one(
+        comodel_name='product.template',
+        string='Product Template',
+        required=True,
+        ondelete='cascade',
+    )
+
+    # Variant-specific fields
+    barcode = fields.Char(string='Barcode')
+    default_code = fields.Char(string='Internal Reference')
+```
+
+---
+
+## Abstract Models (Mixins)
+
+### Create Reusable Mixin
+```python
+class TimestampMixin(models.AbstractModel):
+    _name = 'timestamp.mixin'
+    _description = 'Timestamp Mixin'
+
+    created_at = fields.Datetime(
+        string='Created At',
+        default=fields.Datetime.now,
+        readonly=True,
+    )
+    updated_at = fields.Datetime(
+        string='Updated At',
+        readonly=True,
+    )
+
+    def write(self, vals):
+        vals['updated_at'] = fields.Datetime.now()
+        return super().write(vals)
+
+
+class ApprovalMixin(models.AbstractModel):
+    _name = 'approval.mixin'
+    _description = 'Approval Mixin'
+
+    approval_state = fields.Selection(
+        selection=[
+            ('draft', 'Draft'),
+            ('pending', 'Pending Approval'),
+            ('approved', 'Approved'),
+            ('rejected', 'Rejected'),
+        ],
+        string='Approval Status',
+        default='draft',
+        tracking=True,
+    )
+    approved_by = fields.Many2one(
+        comodel_name='res.users',
+        string='Approved By',
+        readonly=True,
+    )
+    approved_date = fields.Datetime(
+        string='Approval Date',
+        readonly=True,
+    )
+
+    def action_submit_for_approval(self):
+        self.write({'approval_state': 'pending'})
+
+    def action_approve(self):
+        self.write({
+            'approval_state': 'approved',
+            'approved_by': self.env.uid,
+            'approved_date': fields.Datetime.now(),
+        })
+
+    def action_reject(self):
+        self.write({'approval_state': 'rejected'})
+```
+
+### Use Mixins
+```python
+class PurchaseRequest(models.Model):
+    _name = 'purchase.request'
+    _description = 'Purchase Request'
+    _inherit = ['mail.thread', 'timestamp.mixin', 'approval.mixin']
+
+    name = fields.Char(string='Reference', required=True)
+    amount = fields.Monetary(string='Amount')
+    # Gets all fields and methods from mixins
+```
+
+---
+
+## View Inheritance
+
+### Extend Form View
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_inherit" model="ir.ui.view">
+        <field name="name">res.partner.form.inherit.my_module</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <!-- Add after existing field -->
+            <field name="email" position="after">
+                <field name="x_loyalty_points"/>
+                <field name="x_customer_tier"/>
+            </field>
+
+            <!-- Add new page to notebook -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Loyalty" name="loyalty">
+                    <group>
+                        <field name="x_loyalty_points"/>
+                        <field name="x_customer_tier"/>
+                        <field name="x_account_manager_id"/>
+                    </group>
+                </page>
+            </xpath>
+
+            <!-- Replace existing element -->
+            <field name="title" position="replace">
+                <field name="title" placeholder="Select title..."/>
+            </field>
+
+            <!-- Add attributes -->
+            <field name="phone" position="attributes">
+                <attribute name="required">1</attribute>
+            </field>
+
+            <!-- Hide field (v17+) -->
+            <field name="fax" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </field>
+        </field>
+    </record>
+</odoo>
+```
+
+### XPath Expressions
+
+```xml
+<!-- By field name -->
+<field name="partner_id" position="after">
+
+<!-- By xpath -->
+<xpath expr="//field[@name='partner_id']" position="after">
+
+<!-- First field in group -->
+<xpath expr="//group[1]/field[1]" position="before">
+
+<!-- Field inside specific group -->
+<xpath expr="//group[@name='sale_info']/field[@name='date_order']" position="after">
+
+<!-- Page by name -->
+<xpath expr="//page[@name='other_info']" position="inside">
+
+<!-- Button by name -->
+<xpath expr="//button[@name='action_confirm']" position="before">
+
+<!-- Div by class -->
+<xpath expr="//div[hasclass('oe_title')]" position="inside">
+
+<!-- Last element -->
+<xpath expr="//sheet/*[last()]" position="after">
+```
+
+### Position Types
+| Position | Effect |
+|----------|--------|
+| `inside` | Add as child (at end) |
+| `after` | Add as sibling after |
+| `before` | Add as sibling before |
+| `replace` | Replace entire element |
+| `attributes` | Modify attributes |
+
+### Extend Tree View
+```xml
+<record id="view_order_tree_inherit" model="ir.ui.view">
+    <field name="name">sale.order.tree.inherit</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_tree"/>
+    <field name="arch" type="xml">
+        <field name="amount_total" position="after">
+            <field name="x_margin" optional="show"/>
+            <field name="x_priority" decoration-danger="x_priority == 'high'"/>
+        </field>
+    </field>
+</record>
+```
+
+### Extend Search View
+```xml
+<record id="view_order_search_inherit" model="ir.ui.view">
+    <field name="name">sale.order.search.inherit</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+    <field name="arch" type="xml">
+        <filter name="my_quotations" position="after">
+            <filter string="High Priority" name="high_priority"
+                    domain="[('x_priority', '=', 'high')]"/>
+        </filter>
+
+        <xpath expr="//group" position="inside">
+            <filter string="Priority" name="group_priority"
+                    context="{'group_by': 'x_priority'}"/>
+        </xpath>
+    </field>
+</record>
+```
+
+---
+
+## Controller Inheritance
+
+### Extend HTTP Controller
+```python
+from odoo import http
+from odoo.http import request
+from odoo.addons.website_sale.controllers.main import WebsiteSale
+
+
+class WebsiteSaleExtend(WebsiteSale):
+
+    @http.route()
+    def cart(self, **post):
+        """Extend cart to add custom data."""
+        response = super().cart(**post)
+
+        # Add custom values to qcontext
+        if hasattr(response, 'qcontext'):
+            response.qcontext['x_loyalty_points'] = \
+                request.env.user.partner_id.x_loyalty_points
+
+        return response
+
+    @http.route('/shop/cart/update_loyalty', type='json', auth='user')
+    def update_loyalty(self, points_to_use):
+        """New endpoint for loyalty point redemption."""
+        order = request.website.sale_get_order()
+        if order:
+            order.x_loyalty_points_used = points_to_use
+        return {'success': True}
+```
+
+---
+
+## Report Inheritance
+
+### Extend Report Template
+```xml
+<template id="report_invoice_document_inherit"
+          inherit_id="account.report_invoice_document">
+    <!-- Add custom section -->
+    <xpath expr="//div[@id='informations']" position="after">
+        <div class="row mt-3">
+            <div class="col-6">
+                <strong>Customer Tier:</strong>
+                <span t-field="o.partner_id.x_customer_tier"/>
+            </div>
+            <div class="col-6">
+                <strong>Loyalty Points Earned:</strong>
+                <span t-esc="int(o.amount_total / 10)"/>
+            </div>
+        </div>
+    </xpath>
+
+    <!-- Modify existing content -->
+    <xpath expr="//span[@t-field='o.name']" position="attributes">
+        <attribute name="class">h2 text-primary</attribute>
+    </xpath>
+</template>
+```
+
+---
+
+## Security Inheritance
+
+### Extend Access Rights
+```csv
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+# Extend existing model access
+access_partner_loyalty_user,res.partner.loyalty.user,base.model_res_partner,base.group_user,1,1,0,0
+access_partner_loyalty_manager,res.partner.loyalty.manager,base.model_res_partner,my_module.group_loyalty_manager,1,1,1,1
+```
+
+### Add Record Rules
+```xml
+<record id="rule_partner_loyalty_user" model="ir.rule">
+    <field name="name">Partner: Loyalty User See Own</field>
+    <field name="model_id" ref="base.model_res_partner"/>
+    <field name="domain_force">[
+        '|',
+        ('x_account_manager_id', '=', user.id),
+        ('x_account_manager_id', '=', False)
+    ]</field>
+    <field name="groups" eval="[(4, ref('my_module.group_loyalty_user'))]"/>
+</record>
+```
+
+---
+
+## Best Practices
+
+### 1. Use Proper Naming
+```python
+# Fields: x_ prefix for custom fields
+x_custom_field = fields.Char()
+
+# Views: include module name
+inherit_id="base.view_partner_form"
+name="res.partner.form.inherit.my_module"
+```
+
+### 2. Call Super Properly
+```python
+# Good - always call super
+def action_confirm(self):
+    result = super().action_confirm()
+    self._custom_logic()
+    return result
+
+# Bad - skipping super breaks inheritance chain
+def action_confirm(self):
+    self._custom_logic()
+    # Missing super() call!
+```
+
+### 3. Use Specific XPath
+```xml
+<!-- Good - specific path -->
+<xpath expr="//field[@name='partner_id']" position="after">
+
+<!-- Bad - fragile, may break -->
+<xpath expr="//field[3]" position="after">
+```
+
+### 4. Handle Dependencies
+```python
+# Manifest
+{
+    'depends': ['sale', 'account'],  # Declare all inherited modules
+}
+```
+
+### 5. Preserve Original Behavior
+```python
+# Good - extend, don't replace
+def _compute_amount(self):
+    super()._compute_amount()
+    # Add to computed value
+    for line in self:
+        line.price_subtotal += line.x_extra_fee
+
+# Bad - completely replaces original
+def _compute_amount(self):
+    for line in self:
+        line.price_subtotal = line.quantity * line.price_unit
+```
+
+---
+
+## Common Inheritance Patterns
+
+### Add Workflow State
+```python
+class SaleOrder(models.Model):
+    _inherit = 'sale.order'
+
+    state = fields.Selection(
+        selection_add=[
+            ('waiting_approval', 'Waiting Approval'),
+        ],
+        ondelete={'waiting_approval': 'set default'},
+    )
+
+    def action_submit_approval(self):
+        self.write({'state': 'waiting_approval'})
+
+    def action_approve(self):
+        self.action_confirm()
+```
+
+### Add Smart Button
+```xml
+<xpath expr="//div[@name='button_box']" position="inside">
+    <button class="oe_stat_button" type="object"
+            name="action_view_loyalty_history"
+            icon="fa-star">
+        <field string="Points" name="x_loyalty_points"
+               widget="statinfo"/>
+    </button>
+</xpath>
+```
+
+### Conditional Field Display
+```xml
+<!-- v17+ syntax -->
+<field name="x_approval_notes"
+       invisible="state not in ['waiting_approval', 'approved']"/>
+
+<!-- Pre-v17 syntax -->
+<field name="x_approval_notes"
+       attrs="{'invisible': [('state', 'not in', ['waiting_approval', 'approved'])]}"/>
+```

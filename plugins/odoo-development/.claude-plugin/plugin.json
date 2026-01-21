@@ -1,0 +1,12 @@
+{
+  "name": "odoo-development",
+  "version": "3.0.0",
+  "description": "Odoo module generation, review, and upgrade for versions 14-19 with progressive skill loading",
+  "author": {
+    "name": "Letzdoo Team",
+    "email": "contact@letzdoo.com"
+  },
+  "homepage": "https://github.com/letzdoo/claude-code-plugins",
+  "repository": "https://github.com/letzdoo/claude-code-plugins",
+  "license": "LGPL-3.0"
+}

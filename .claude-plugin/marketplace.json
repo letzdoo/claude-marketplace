@@ -1,13 +1,61 @@
 {
-  "name": "letzdoo-dev-local",
+  "name": "letzdoo-marketplace",
   "owner": {
-    "name": "Letzdoo (Jerome Sonnet)"
+    "name": "Letzdoo Team",
+    "email": "contact@letzdoo.com"
+  },
+  "metadata": {
+    "description": "Claude Code plugins for ERP and business application development",
+    "version": "1.0.0"
   },
   "plugins": [
     {
       "name": "odoo-doodba-dev",
       "source": "./odoo-doodba-dev",
-      "description": "Professional Odoo development toolkit for Doodba containers. You shall use this plugin for all Odoo related development, starting by asking the odoo-analyst agent to assist you."
+      "description": "Professional Odoo development toolkit for Doodba containers with intelligent workflows, fast code indexing, and deep integration",
+      "version": "2.0.0",
+      "author": {
+        "name": "Letzdoo Team",
+        "email": "contact@letzdoo.com"
+      },
+      "homepage": "https://github.com/letzdoo/claude-marketplace",
+      "repository": "https://github.com/letzdoo/claude-marketplace",
+      "license": "LGPL-3.0",
+      "keywords": ["odoo", "doodba", "docker", "erp", "python"],
+      "category": "development",
+      "tags": ["odoo", "doodba", "docker", "development"]
+    },
+    {
+      "name": "odoo-development",
+      "source": "./plugins/odoo-development",
+      "description": "Odoo module generation, review, and upgrade for versions 14-19 with progressive skill loading",
+      "version": "3.0.0",
+      "author": {
+        "name": "Letzdoo Team",
+        "email": "contact@letzdoo.com"
+      },
+      "homepage": "https://github.com/letzdoo/claude-marketplace",
+      "repository": "https://github.com/letzdoo/claude-marketplace",
+      "license": "LGPL-3.0",
+      "keywords": ["odoo", "erp", "python", "owl", "module-development"],
+      "category": "development",
+      "tags": ["odoo", "erp", "python", "owl"]
+    },
+    {
+      "name": "odoo-query",
+      "source": "./plugins/odoo-query",
+      "description": "Connect to Odoo instances via XML-RPC for read-only queries to investigate issues and explore data",
+      "version": "1.0.0",
+      "author": {
+        "name": "Letzdoo Team",
+        "email": "contact@letzdoo.com"
+      },
+      "homepage": "https://github.com/letzdoo/claude-marketplace",
+      "repository": "https://github.com/letzdoo/claude-marketplace",
+      "license": "LGPL-3.0",
+      "keywords": ["odoo", "xmlrpc", "query", "api", "investigation", "debugging"],
+      "category": "development",
+      "tags": ["odoo", "xmlrpc", "api", "readonly"]
     }
   ]
 }
