@@ -1,8 +1,12 @@
 {
   "name": "odoo-doodba-dev",
-  "description": "Professional Odoo development toolkit for Doodba containers. USE AUTOMATICALLY for ANY Odoo development task: creating/modifying modules, models, fields, views, security, tests; searching Odoo code; debugging; validating references. v2.0 features: fast code indexer (95% faster), unified agents (developer, verifier, documenter, setup), smart workflows (auto-detects complexity), streamlined commands (/odoo-dev, /odoo-search, /odoo-setup, /odoo-scaffold, /odoo-test). AUTO-TRIGGER on keywords: odoo, doodba, addon, module, sale.order, res.partner, Many2one, _inherit, __manifest__.py, invoke, xmlid, form view, tree view. ONE COMMAND for all development: /odoo-dev",
+  "description": "Professional Odoo development toolkit for Doodba containers with intelligent workflows, fast code indexing, and deep integration",
   "version": "2.0.0",
   "author": {
-    "name": "Letzdoo (Jerome Sonnet)"
-  }
+    "name": "Letzdoo Team",
+    "email": "contact@letzdoo.com"
+  },
+  "homepage": "https://github.com/letzdoo/claude-marketplace",
+  "repository": "https://github.com/letzdoo/claude-marketplace",
+  "license": "LGPL-3.0"
 }

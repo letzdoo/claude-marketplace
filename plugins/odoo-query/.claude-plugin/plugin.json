@@ -1,7 +1,7 @@
 {
-  "name": "odoo-development",
-  "version": "3.0.0",
-  "description": "Odoo module generation, review, and upgrade for versions 14-19 with progressive skill loading",
+  "name": "odoo-query",
+  "description": "Connect to Odoo instances via XML-RPC for read-only queries to investigate issues and explore data",
+  "version": "1.0.0",
   "author": {
     "name": "Letzdoo Team",
     "email": "contact@letzdoo.com"
