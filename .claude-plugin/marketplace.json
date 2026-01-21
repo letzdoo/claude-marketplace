@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "odoo-doodba-dev",
-      "source": "./odoo-doodba-dev",
+      "source": "./plugins/odoo-doodba-dev",
       "description": "Professional Odoo development toolkit for Doodba containers with intelligent workflows, fast code indexing, and deep integration",
       "version": "2.0.0",
       "author": {

@@ -6,7 +6,7 @@ A curated collection of Claude Code plugins for Odoo ERP and business applicatio
 
 | Plugin | Description | Version |
 |--------|-------------|---------|
-| [odoo-doodba-dev](./odoo-doodba-dev/) | Professional Odoo development toolkit for Doodba containers | 2.0.0 |
+| [odoo-doodba-dev](./plugins/odoo-doodba-dev/) | Professional Odoo development toolkit for Doodba containers | 2.0.0 |
 | [odoo-development](./plugins/odoo-development/) | Odoo module generation, review, and patterns for versions 14-19 | 3.0.0 |
 | [odoo-query](./plugins/odoo-query/) | Read-only XML-RPC queries to investigate Odoo instances | 1.0.0 |
 
@@ -38,7 +38,7 @@ Professional Odoo development toolkit for Claude Code with intelligent workflows
 /odoo-dev "add notes field to res.partner"
 ```
 
-**[Full Documentation](odoo-doodba-dev/README.md)**
+**[Full Documentation](plugins/odoo-doodba-dev/README.md)**
 
 ---
 
@@ -124,12 +124,12 @@ After installation, run the automated setup:
 .
 ├── .claude-plugin/
 │   └── marketplace.json      # Marketplace manifest
-├── odoo-doodba-dev/          # Doodba development toolkit
-│   ├── skills/
-│   │   ├── odoo-indexer/     # Fast code indexer
-│   │   └── reasoningbank/    # Pattern learning system
-│   └── README.md
 ├── plugins/
+│   ├── odoo-doodba-dev/      # Doodba development toolkit
+│   │   ├── skills/
+│   │   │   ├── odoo-indexer/ # Fast code indexer
+│   │   │   └── reasoningbank/# Pattern learning system
+│   │   └── README.md
 │   ├── odoo-development/     # Odoo patterns & generation
 │   │   ├── skills/           # On-demand skill files
 │   │   ├── agents/           # Subagents
