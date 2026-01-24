@@ -515,6 +515,25 @@ def _compute_amount(self):
         line.price_subtotal = line.quantity * line.price_unit
 ```
 
+### 6. Never Use 'string' Attribute as Selector
+```xml
+<!-- Good - use 'name' attribute (stable identifier) -->
+<xpath expr="//page[@name='other_info']" position="inside">
+<xpath expr="//field[@name='partner_id']" position="after">
+<xpath expr="//button[@name='action_confirm']" position="before">
+
+<!-- Bad - 'string' attribute is translated and may change -->
+<xpath expr="//page[@string='Other Information']" position="inside">
+<xpath expr="//button[@string='Confirm']" position="before">
+```
+
+The `string` attribute should not be used as a selector in view inheritance because:
+- It contains translatable text that varies by language
+- Labels may be changed in future Odoo versions
+- Other modules may override the same string differently
+
+Always prefer `name` attributes which are stable technical identifiers.
+
 ---
 
 ## Common Inheritance Patterns
