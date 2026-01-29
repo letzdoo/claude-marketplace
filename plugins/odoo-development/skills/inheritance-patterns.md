@@ -637,6 +637,131 @@ def _check_view_type_exists(self, model_name, view_type):
 5. Only then write your view inheritance
 6. Never assume or guess - always verify
 
+### 8. Always Test and Verify XPath Expressions
+
+**Critical:** Before implementing view inheritance with XPath, ALWAYS read the actual view structure to verify your XPath selector is correct. Incorrect XPath expressions fail silently or cause runtime errors.
+
+```xml
+<!-- Real-world example: API keys kanban view inheritance -->
+
+<!-- WRONG - Assumed XPath without reading the view -->
+<record id="res_users_apikeys_view_kanban_inherit" model="ir.ui.view">
+    <field name="name">res.users.apikeys.kanban.inherit</field>
+    <field name="model">res.users.apikeys</field>
+    <field name="inherit_id" ref="base.res_users_apikeys_view_kanban"/>
+    <field name="arch" type="xml">
+        <!-- This XPath is WRONG - assumed the structure -->
+        <xpath expr="//div[hasclass('flex-row')]" position="inside">
+            <span t-if="record.is_readonly.raw_value"
+                  class="badge text-bg-warning">Read-only</span>
+        </xpath>
+    </field>
+</record>
+
+<!-- CORRECT - After reading the actual view structure -->
+<record id="res_users_apikeys_view_kanban_inherit" model="ir.ui.view">
+    <field name="name">res.users.apikeys.kanban.inherit</field>
+    <field name="model">res.users.apikeys</field>
+    <field name="inherit_id" ref="base.res_users_apikeys_view_kanban"/>
+    <field name="arch" type="xml">
+        <!-- Correct XPath after reading: it's <t t-name="card">, not <div> -->
+        <xpath expr="//t[@t-name='card']/div/div" position="inside">
+            <span t-if="record.is_readonly.raw_value"
+                  class="badge text-bg-warning">Read-only</span>
+        </xpath>
+    </field>
+</record>
+```
+
+**Mandatory workflow for XPath view inheritance:**
+
+1. **Read the parent view first** - Always use grep/search to find and read the actual view XML:
+   ```bash
+   # Find the view file in Odoo source
+   grep -r "res_users_apikeys_view_kanban" odoo/addons/
+
+   # Or search in your Odoo installation
+   grep -r "id=\"view_partner_form\"" /path/to/odoo/
+   ```
+
+2. **Examine the actual structure** - Look at the exact XML structure:
+   ```xml
+   <!-- What you might find in the actual view: -->
+   <templates>
+       <t t-name="card">
+           <div class="d-flex">
+               <div class="flex-grow-1">
+                   <!-- Your target location -->
+               </div>
+           </div>
+       </t>
+   </templates>
+   ```
+
+3. **Test the XPath** - Before committing, verify your XPath matches:
+   - Install the module in a test environment
+   - Check for Odoo errors in the log: `"View inheritance may not use attribute"`
+   - Verify the UI shows your changes
+   - Check browser console for rendering errors
+
+4. **Common XPath mistakes to avoid:**
+   ```xml
+   <!-- Mistake 1: Wrong element type -->
+   <xpath expr="//div[@name='button_box']"/>  <!-- It's actually a <div> not a <group> -->
+
+   <!-- Mistake 2: Wrong attribute -->
+   <xpath expr="//page[@string='Sales']"/>  <!-- Should use @name, not @string -->
+
+   <!-- Mistake 3: Assuming structure -->
+   <xpath expr="//field[3]"/>  <!-- Fragile - field order may change -->
+
+   <!-- Mistake 4: Wrong nesting level -->
+   <xpath expr="//notebook/page"/>  <!-- May need deeper path: //form/sheet/notebook/page -->
+   ```
+
+5. **Debugging failed XPath expressions:**
+   ```python
+   # Check if view inheritance is working
+   def _debug_view_inheritance(self, view_xml_id):
+       """Debug view inheritance by examining the combined view."""
+       view = self.env.ref(view_xml_id)
+       # Get the final combined view after all inheritance
+       arch = view.get_combined_arch()
+       _logger.info("Combined view architecture:\n%s", arch)
+       return arch
+
+   # In Odoo shell:
+   # env['ir.ui.view'].search([('model', '=', 'res.partner'), ('type', '=', 'form')])
+   # Check inherit_id field to see inheritance chain
+   ```
+
+**Red flags that indicate XPath problems:**
+- Module installs without errors but changes don't appear
+- Error: "Element ... cannot be located in parent view"
+- UI elements appear in wrong location
+- Changes work in one Odoo version but break in another
+
+**Best practices:**
+- Never guess the XPath - always read the source view first
+- Use specific attributes (`@name`) rather than positions (`[1]`, `[2]`)
+- Prefer `name` or `id` attributes over classes or strings
+- Test in development environment before deploying
+- Add comments explaining non-obvious XPath expressions
+- Keep XPath expressions as simple as possible
+
+```xml
+<!-- Good - documented and verified -->
+<xpath expr="//t[@t-name='card']/div/div" position="inside">
+    <!-- Verified: base kanban uses <t t-name="card"> wrapper -->
+    <span t-if="record.is_readonly.raw_value" class="badge">Read-only</span>
+</xpath>
+
+<!-- Bad - complex and fragile -->
+<xpath expr="//templates/t[@t-name='kanban-box']/div[hasclass('oe_kanban_card')]/div[2]/div[hasclass('o_kanban_record_details')]//div[hasclass('o_kanban_record_body')]/field[1]" position="after">
+    <!-- This will break if ANY parent changes structure -->
+</xpath>
+```
+
 ---
 
 ## Common Inheritance Patterns
