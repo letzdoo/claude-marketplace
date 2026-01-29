@@ -13,6 +13,7 @@
 |----------|--------|--------|
 | SQL | `SQL()` builder **REQUIRED** | **CRITICAL** - All raw SQL |
 | Type Hints | **REQUIRED** for methods | High - Update all methods |
+| SQL Constraints | `models.Constraint()` class **REQUIRED** | High - All SQL constraints |
 | res.users | `groups_id` cannot be set in create() | High - User creation code |
 | OWL | OWL 3.x replaces 2.x | High - Component rewrite |
 | Multi-Company | `_check_company_auto` required | High - All multi-company models |
@@ -87,6 +88,60 @@ class MyModel(models.Model):
         # Invalidate ORM cache
         self.browse(updated_ids).invalidate_recordset()
         return len(updated_ids)
+```
+
+## SQL Constraints: models.Constraint() Class Required
+
+In Odoo 19, SQL constraints must use the `models.Constraint()` class instead of the `_sql_constraints` list.
+
+### Before (v18) - Worked
+```python
+class MyModel(models.Model):
+    _name = 'my.model'
+
+    percentage = fields.Float()
+
+    _sql_constraints = [
+        ('check_percentage',
+         'CHECK(percentage >= 0 AND percentage <= 100)',
+         'The percentage must be between 0 and 100.'),
+    ]
+```
+
+### After (v19) - Required
+```python
+class MyModel(models.Model):
+    _name = 'my.model'
+
+    percentage = fields.Float()
+
+    _check_percentage = models.Constraint(
+        'CHECK(percentage >= 0 AND percentage <= 100)',
+        'The percentage of an analytic distribution should be between 0 and 100.',
+    )
+```
+
+### Migration Pattern
+```python
+# Convert each constraint from _sql_constraints list to class attribute
+# Old format: (name, sql, message)
+# New format: attribute_name = models.Constraint(sql, message)
+
+# Before (v18)
+_sql_constraints = [
+    ('code_unique', 'UNIQUE(code)', 'Code must be unique.'),
+    ('amount_positive', 'CHECK(amount >= 0)', 'Amount must be positive.'),
+]
+
+# After (v19)
+_code_unique = models.Constraint(
+    'UNIQUE(code)',
+    'Code must be unique.',
+)
+_amount_positive = models.Constraint(
+    'CHECK(amount >= 0)',
+    'Amount must be positive.',
+)
 ```
 
 ## res.users: groups_id Cannot Be Set in create()

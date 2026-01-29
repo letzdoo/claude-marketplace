@@ -21,6 +21,27 @@
 
 ## BREAKING Changes from v18
 
+### SQL Constraints Use models.Constraint() Class
+```python
+# DEPRECATED in v19 - _sql_constraints list
+class MyModel(models.Model):
+    _name = 'my.model'
+
+    _sql_constraints = [
+        ('check_percentage', 'CHECK(percentage >= 0 AND percentage <= 100)',
+         'The percentage must be between 0 and 100.'),
+    ]
+
+# v19 REQUIRED - models.Constraint() class
+class MyModel(models.Model):
+    _name = 'my.model'
+
+    _check_percentage = models.Constraint(
+        'CHECK(percentage >= 0 AND percentage <= 100)',
+        'The percentage of an analytic distribution should be between 0 and 100.',
+    )
+```
+
 ### res.users.create() Cannot Set groups_id
 ```python
 # BROKEN - groups_id ignored during create

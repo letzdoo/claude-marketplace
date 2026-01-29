@@ -19,7 +19,61 @@
 
 ## SQL Constraints
 
-### Basic SQL Constraints
+### Odoo 19: models.Constraint() Class (REQUIRED)
+```python
+from odoo import models, fields
+
+
+class MyModel(models.Model):
+    _name = 'my.model'
+    _description = 'My Model'
+
+    name = fields.Char(required=True)
+    code = fields.Char()
+    amount = fields.Float()
+    percentage = fields.Float()
+    date_start = fields.Date()
+    date_end = fields.Date()
+    company_id = fields.Many2one('res.company')
+
+    # Unique constraint
+    _code_unique = models.Constraint(
+        'UNIQUE(code)',
+        'Code must be unique.',
+    )
+
+    # Unique per company
+    _code_company_unique = models.Constraint(
+        'UNIQUE(code, company_id)',
+        'Code must be unique per company.',
+    )
+
+    # Check constraint
+    _amount_positive = models.Constraint(
+        'CHECK(amount >= 0)',
+        'Amount must be positive.',
+    )
+
+    # Range constraint
+    _percentage_range = models.Constraint(
+        'CHECK(percentage >= 0 AND percentage <= 100)',
+        'Percentage must be between 0 and 100.',
+    )
+
+    # Date constraint
+    _dates_check = models.Constraint(
+        'CHECK(date_end >= date_start)',
+        'End date must be after start date.',
+    )
+
+    # Not null with condition
+    _code_required_if_active = models.Constraint(
+        'CHECK(active = false OR code IS NOT NULL)',
+        'Code is required for active records.',
+    )
+```
+
+### Odoo 18 and Earlier: _sql_constraints List (DEPRECATED in v19)
 ```python
 from odoo import models, fields
 
@@ -64,67 +118,81 @@ class MyModel(models.Model):
     ]
 ```
 
-### Common SQL Constraint Patterns
+### Common SQL Constraint Patterns (Odoo 19 Syntax)
 
 #### Uniqueness
 ```python
-_sql_constraints = [
-    # Simple unique
-    ('name_unique', 'UNIQUE(name)', 'Name must be unique.'),
+# Simple unique
+_name_unique = models.Constraint(
+    'UNIQUE(name)',
+    'Name must be unique.',
+)
 
-    # Unique combination
-    ('name_date_unique', 'UNIQUE(name, date)',
-     'Name must be unique per date.'),
+# Unique combination
+_name_date_unique = models.Constraint(
+    'UNIQUE(name, date)',
+    'Name must be unique per date.',
+)
 
-    # Unique per parent
-    ('name_parent_unique', 'UNIQUE(name, parent_id)',
-     'Name must be unique within parent.'),
+# Unique per parent
+_name_parent_unique = models.Constraint(
+    'UNIQUE(name, parent_id)',
+    'Name must be unique within parent.',
+)
 
-    # Unique per company (common pattern)
-    ('reference_company_unique', 'UNIQUE(reference, company_id)',
-     'Reference must be unique per company.'),
-]
+# Unique per company (common pattern)
+_reference_company_unique = models.Constraint(
+    'UNIQUE(reference, company_id)',
+    'Reference must be unique per company.',
+)
 ```
 
 #### Value Checks
 ```python
-_sql_constraints = [
-    # Positive value
-    ('quantity_positive', 'CHECK(quantity > 0)',
-     'Quantity must be greater than zero.'),
+# Positive value
+_quantity_positive = models.Constraint(
+    'CHECK(quantity > 0)',
+    'Quantity must be greater than zero.',
+)
 
-    # Non-negative
-    ('balance_non_negative', 'CHECK(balance >= 0)',
-     'Balance cannot be negative.'),
+# Non-negative
+_balance_non_negative = models.Constraint(
+    'CHECK(balance >= 0)',
+    'Balance cannot be negative.',
+)
 
-    # Range
-    ('discount_range', 'CHECK(discount >= 0 AND discount <= 100)',
-     'Discount must be between 0% and 100%.'),
+# Range
+_discount_range = models.Constraint(
+    'CHECK(discount >= 0 AND discount <= 100)',
+    'Discount must be between 0% and 100%.',
+)
 
-    # Not equal
-    ('not_self_parent', 'CHECK(id != parent_id)',
-     'Record cannot be its own parent.'),
-]
+# Not equal
+_not_self_parent = models.Constraint(
+    'CHECK(id != parent_id)',
+    'Record cannot be its own parent.',
+)
 ```
 
 #### Conditional Checks
 ```python
-_sql_constraints = [
-    # Required if condition
-    ('email_required_for_customers',
-     'CHECK(is_customer = false OR email IS NOT NULL)',
-     'Email is required for customers.'),
+# Required if condition
+_email_required_for_customers = models.Constraint(
+    'CHECK(is_customer = false OR email IS NOT NULL)',
+    'Email is required for customers.',
+)
 
-    # Either/or
-    ('product_or_description',
-     'CHECK(product_id IS NOT NULL OR description IS NOT NULL)',
-     'Either product or description is required.'),
+# Either/or
+_product_or_description = models.Constraint(
+    'CHECK(product_id IS NOT NULL OR description IS NOT NULL)',
+    'Either product or description is required.',
+)
 
-    # Mutually exclusive
-    ('exclusive_type',
-     'CHECK((type_a = true AND type_b = false) OR (type_a = false AND type_b = true) OR (type_a = false AND type_b = false))',
-     'Cannot be both type A and type B.'),
-]
+# Mutually exclusive
+_exclusive_type = models.Constraint(
+    'CHECK((type_a = true AND type_b = false) OR (type_a = false AND type_b = true) OR (type_a = false AND type_b = false))',
+    'Cannot be both type A and type B.',
+)
 ```
 
 ---
