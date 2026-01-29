@@ -534,6 +534,109 @@ The `string` attribute should not be used as a selector in view inheritance beca
 
 Always prefer `name` attributes which are stable technical identifiers.
 
+### 7. Always Verify XML IDs and Views Before Extension
+```python
+# Bad - trusting memory or assumptions about XML IDs
+view_id = self.env.ref('base.view_partner_form')  # May not exist!
+
+# Good - verify existence before using
+try:
+    view_id = self.env.ref('base.view_partner_form', raise_if_not_found=False)
+    if not view_id:
+        raise ValueError("View not found")
+except ValueError:
+    # Handle missing view
+    pass
+```
+
+```xml
+<!-- Bad - assuming XML ID exists without verification -->
+<record id="view_partner_form_inherit" model="ir.ui.view">
+    <field name="name">res.partner.form.inherit.my_module</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <!-- This will fail if base.view_partner_form doesn't exist -->
+</record>
+
+<!-- Good - verify XML ID exists first using Odoo code/indexer -->
+<!-- Before writing this inheritance, verify the XML ID exists:
+     1. Use grep/search to find the view definition in Odoo source
+     2. Check ir.ui.view records in database
+     3. Use Odoo indexer/IDE tools to look up the XML ID
+-->
+<record id="view_partner_form_inherit" model="ir.ui.view">
+    <field name="name">res.partner.form.inherit.my_module</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <!-- Verified that base.view_partner_form exists -->
+</record>
+```
+
+**Critical Rule:** Do not trust your memory or make assumptions about XML IDs, views, records, or any other Odoo identifiers. Your memory is flawed by design. Always use the Odoo indexer or search tools to look them up.
+
+Why this matters:
+- XML IDs can change between Odoo versions
+- Views may be renamed, removed, or restructured
+- Some models may only have certain view types (e.g., only kanban, no form/tree)
+- Not all standard models have all view types defined
+- Runtime errors occur when referencing non-existent XML IDs
+- Memory of Odoo's structure is unreliable and prone to errors
+
+**Real-world example:**
+In Odoo 19, the `res.users.api.keys` model only has a kanban view - no form or tree view exists. Attempting to extend a non-existent form view will cause runtime errors. Always verify what views actually exist before attempting to extend them.
+
+```python
+# Example: Check what views exist for a model
+def check_available_views(self, model_name):
+    """Check what view types exist for a model."""
+    views = self.env['ir.ui.view'].search([
+        ('model', '=', model_name),
+        ('type', '!=', False)
+    ])
+    return {view.type for view in views}
+
+# Before extending: check if the view type exists
+# available_views = check_available_views('res.users.api.keys')
+# Result might be: {'kanban'}  # Only kanban, no form or tree!
+```
+
+**Always verify XML IDs and view existence before use:**
+1. Use grep/ripgrep to search Odoo source code for the exact XML ID
+2. Check the database `ir.model.data` table for the record
+3. Use Odoo indexer or IDE integration tools to look up identifiers
+4. Read the actual Odoo source code when in doubt - never rely on memory
+5. Verify which view types exist for a model before extending them
+6. Check the specific Odoo version's codebase (views differ between versions)
+
+```python
+# Example: Verifying a view exists before inheritance
+def _check_view_exists(self, xml_id):
+    """Check if XML ID exists before using it."""
+    try:
+        return self.env.ref(xml_id, raise_if_not_found=False)
+    except ValueError:
+        return False
+
+# Check if specific view type exists for a model
+def _check_view_type_exists(self, model_name, view_type):
+    """Check if a specific view type exists for a model."""
+    return self.env['ir.ui.view'].search([
+        ('model', '=', model_name),
+        ('type', '=', view_type)
+    ], limit=1)
+
+# In data files, you can use noupdate="1" with error handling
+# Or use module dependencies to ensure base modules are loaded
+```
+
+**Workflow when extending views:**
+1. Identify the model you want to extend
+2. Search Odoo source code to find available views for that model
+3. Verify the view type exists (form, tree, kanban, etc.)
+4. Look up the exact XML ID using search/indexer
+5. Only then write your view inheritance
+6. Never assume or guess - always verify
+
 ---
 
 ## Common Inheritance Patterns
