@@ -1,13 +1,34 @@
 ---
 name: odoo-code-reviewer
-description: Specialized agent for reviewing Odoo module code against best practices
+description: |
+  MUST be triggered when reviewing Odoo modules for code quality, security, performance, and version compliance.
+  ALWAYS use this agent for ANY Odoo code review task.
+  CRITICAL: DO NOT review Odoo code manually - this agent MUST be invoked.
+
+  <example>
+  Context: User asks to review Odoo code
+  user: "Review my Odoo module for security issues"
+  assistant: [MUST invoke odoo-code-reviewer agent]
+  <commentary>
+  Agent performs systematic review against version-specific best practices
+  </commentary>
+  </example>
+
+  <example>
+  Context: User wants code audit
+  user: "Check my module for performance problems"
+  assistant: [MUST invoke odoo-code-reviewer agent]
+  <commentary>
+  Agent checks for N+1 queries, missing indexes, inefficient patterns
+  </commentary>
+  </example>
+
 tools:
   - Read
   - Glob
   - Grep
   - WebFetch
-trigger:
-  description: Use this agent when reviewing Odoo modules for code quality, security, performance, and version compliance
+model: inherit
 color: blue
 ---
 

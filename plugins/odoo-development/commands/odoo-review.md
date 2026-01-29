@@ -1,6 +1,9 @@
 ---
 name: odoo-review
-description: Review an Odoo module for best practices, security issues, and performance. Use when user asks to "review odoo module", "audit module", "check security", "analyze code quality".
+description: |
+  MUST be invoked when user asks to "review odoo module", "audit module", "check security", "analyze code quality".
+  CRITICAL: This command MUST invoke the odoo-code-reviewer agent for systematic review.
+  DO NOT perform manual reviews - ALWAYS use the specialized agent.
 arguments:
   - name: path
     description: Path to the module to review
@@ -30,6 +33,20 @@ Review an Odoo module for best practices, security vulnerabilities, performance 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  Review criteria depend on the target Odoo version.                          ║
 ║  You MUST determine the version before reviewing.                            ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
+## CRITICAL: MANDATORY AGENT INVOCATION
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  You MUST invoke the odoo-code-reviewer agent to perform the review.         ║
+║  DO NOT perform manual code reviews - the agent has systematic checklists.   ║
+║                                                                              ║
+║  Invoke: Task tool with subagent_type="odoo-development:odoo-code-reviewer"  ║
+║  Prompt: "Review module at [path] for version [version]"                     ║
+║                                                                              ║
+║  NEVER skip this step. Agent-based review is MANDATORY.                      ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -176,8 +193,11 @@ Review the module against these categories:
 ## AI Agent Instructions
 
 1. **IDENTIFY**: Determine module path and target version
-2. **LOAD**: Version-specific review criteria
-3. **SCAN**: All module files systematically
-4. **CATEGORIZE**: Issues by severity and type
-5. **REPORT**: Structured review with actionable recommendations
-6. **PRIORITIZE**: Critical security issues first
+2. **MANDATORY**: Invoke `odoo-development:odoo-code-reviewer` agent
+3. **LOAD**: Version-specific review criteria (done by agent)
+4. **SCAN**: All module files systematically (done by agent)
+5. **CATEGORIZE**: Issues by severity and type (done by agent)
+6. **REPORT**: Structured review with actionable recommendations
+7. **PRIORITIZE**: Critical security issues first
+
+**CRITICAL**: Step 2 is MANDATORY. NEVER perform manual reviews without the agent.
