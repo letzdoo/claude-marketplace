@@ -1,7 +1,7 @@
 {
   "name": "odoo-doodba-dev",
-  "description": "Professional Odoo development toolkit for Doodba containers with intelligent workflows, fast code indexing, and deep integration",
-  "version": "2.0.0",
+  "description": "Doodba-specific tooling for Odoo development - fast code indexing (<100ms), environment setup, and test execution",
+  "version": "3.0.0",
   "author": {
     "name": "Letzdoo Team",
     "email": "contact@letzdoo.com"
