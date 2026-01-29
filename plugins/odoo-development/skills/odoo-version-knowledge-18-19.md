@@ -13,6 +13,7 @@
 |----------|--------|--------|
 | SQL | `SQL()` builder **REQUIRED** | **CRITICAL** - All raw SQL |
 | Type Hints | **REQUIRED** for methods | High - Update all methods |
+| res.users | `groups_id` cannot be set in create() | High - User creation code |
 | OWL | OWL 3.x replaces 2.x | High - Component rewrite |
 | Multi-Company | `_check_company_auto` required | High - All multi-company models |
 | Python | Python 3.12+ required | Medium - Check compatibility |
@@ -86,6 +87,40 @@ class MyModel(models.Model):
         # Invalidate ORM cache
         self.browse(updated_ids).invalidate_recordset()
         return len(updated_ids)
+```
+
+## res.users: groups_id Cannot Be Set in create()
+
+In Odoo 19, `groups_id` is ignored during `res.users.create()` due to security hardening.
+
+### Before (v18) - Worked
+```python
+user = self.env['res.users'].create({
+    'name': 'Portal User',
+    'login': 'portal@example.com',
+    'groups_id': [(6, 0, [self.env.ref('base.group_portal').id])],
+})
+```
+
+### After (v19) - Must Add Group Separately
+```python
+# Create user first
+user = self.env['res.users'].create({
+    'name': 'Portal User',
+    'login': 'portal@example.com',
+})
+
+# Then add to group via group's users field
+portal_group = self.env.ref('base.group_portal')
+portal_group.write({'users': [(4, user.id)]})
+```
+
+### Migration Pattern
+```python
+def migrate(cr, version):
+    """Update user creation code for v19 compatibility."""
+    # Find all user creation patterns and update them
+    # groups_id must be set after create() via group.write()
 ```
 
 ## Type Hints Required

@@ -21,6 +21,19 @@
 
 ## BREAKING Changes from v18
 
+### res.users.create() Cannot Set groups_id
+```python
+# BROKEN - groups_id ignored during create
+user = self.env['res.users'].create({
+    'login': 'user@example.com',
+    'groups_id': [(6, 0, [group.id])],  # IGNORED!
+})
+
+# CORRECT - Add to group after creation
+user = self.env['res.users'].create({'login': 'user@example.com'})
+group.write({'users': [(4, user.id)]})
+```
+
 ### Type Hints MANDATORY
 ```python
 # DEPRECATED in v19
@@ -522,3 +535,26 @@ this.state.selectedIds = new Set(this.state.selectedIds);
 // v19 - Direct mutation works
 this.state.selectedIds.add(id);
 ```
+
+### groups_id Cannot Be Set During res.users.create()
+
+In Odoo 19, `groups_id` cannot be set directly during `res.users.create()`.
+
+```python
+# BROKEN in v19
+user = self.env['res.users'].create({
+    'name': 'Portal User',
+    'login': 'portal@example.com',
+    'groups_id': [(6, 0, [portal_group.id])],  # This will NOT work
+})
+
+# CORRECT in v19 - Create user first, then add to group
+user = self.env['res.users'].create({
+    'name': 'Portal User',
+    'login': 'portal@example.com',
+})
+portal_group = self.env.ref('base.group_portal')
+portal_group.write({'users': [(4, user.id)]})
+```
+
+**Why**: Security hardening prevents group assignment during user creation to avoid privilege escalation.
