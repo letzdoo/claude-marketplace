@@ -1,9 +1,37 @@
 ---
 name: odoo-development
-description: This skill should be used when the user asks to "create an Odoo module", "generate Odoo code", "review Odoo module", "upgrade Odoo version", "Odoo best practices", "Odoo ORM patterns", "Odoo security", "Odoo views", "OWL components". Use for any Odoo 14-19 development tasks.
+description: |
+  MUST be loaded when ANY Odoo development task is detected.
+  CRITICAL: Claude MUST use this skill for ALL tasks involving:
+  - "odoo", "module", "model", "view", "field", "OWL", "manifest"
+  - ANY mention of Odoo versions (14, 15, 16, 17, 18, 19)
+  - "create odoo module", "generate odoo code", "review odoo module"
+  - "upgrade odoo", "odoo best practices", "odoo security"
+
+  ALWAYS trigger the odoo-context-gatherer agent BEFORE writing ANY Odoo code.
 ---
 
 # Odoo Development Skill Index
+
+> **CRITICAL**: Before writing ANY Odoo code, Claude MUST invoke the
+> `odoo-context-gatherer` agent to compile relevant patterns for the task.
+>
+> **MANDATORY WORKFLOW**:
+> 1. Detect/confirm Odoo version (NEVER skip)
+> 2. Invoke `odoo-development:odoo-context-gatherer` agent with task description
+> 3. Use returned context patterns for code generation
+> 4. NEVER skip step 2 - context gathering is REQUIRED
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BEFORE generating Odoo code, you MUST:                                      ║
+║  1. Determine the target Odoo version                                        ║
+║  2. Invoke odoo-context-gatherer agent with task description                 ║
+║  3. Use the patterns returned by the agent                                   ║
+║                                                                              ║
+║  DO NOT generate Odoo code without context from the agent.                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
 
 > **Usage**: This is a lightweight discovery index. DO NOT read full skill files unless needed.
 > Use `Read` tool on specific file paths only when you need the detailed pattern.

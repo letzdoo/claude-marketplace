@@ -1,6 +1,8 @@
 ---
 name: odoo-module
-description: Generate a new Odoo module with interactive configuration. Use when user asks to "create odoo module", "generate module", "scaffold odoo", "new odoo app".
+description: |
+  MUST be invoked when user asks to "create odoo module", "generate module", "scaffold odoo", "new odoo app".
+  CRITICAL: This command MUST invoke the odoo-context-gatherer agent before generating any code.
 arguments:
   - name: version
     description: Target Odoo version (14.0, 15.0, 16.0, 17.0, 18.0, 19.0)
@@ -31,6 +33,20 @@ Generate a production-ready Odoo module following version-specific best practice
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  Before generating any code, you MUST determine the target Odoo version.     ║
 ║  Then load the version-specific skill file.                                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
+## CRITICAL: MANDATORY AGENT INVOCATION
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  You MUST invoke the odoo-context-gatherer agent BEFORE generating code.     ║
+║  DO NOT proceed to code generation without context from this agent.          ║
+║                                                                              ║
+║  Invoke: Task tool with subagent_type="odoo-development:odoo-context-gatherer"║
+║  Prompt: "[User's task description]" + "version: [detected version]"         ║
+║                                                                              ║
+║  NEVER skip this step. Context gathering is MANDATORY.                       ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -156,8 +172,11 @@ Generate files in the current working directory:
 ## AI Agent Instructions
 
 1. **FIRST**: Determine Odoo version (ask if not provided)
-2. **THEN**: Load the version-specific module generator skill
-3. **GATHER**: Required information from user
-4. **GENERATE**: Version-appropriate code
-5. **VERIFY**: Code follows version-specific patterns
-6. **OUTPUT**: Complete module structure
+2. **MANDATORY**: Invoke `odoo-development:odoo-context-gatherer` agent with task description
+3. **THEN**: Load the version-specific module generator skill
+4. **GATHER**: Required information from user
+5. **GENERATE**: Version-appropriate code using patterns from context gatherer
+6. **VERIFY**: Code follows version-specific patterns
+7. **OUTPUT**: Complete module structure
+
+**CRITICAL**: Step 2 is MANDATORY. NEVER skip the context gatherer agent invocation.
