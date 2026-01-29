@@ -564,3 +564,72 @@
 | Required | `attrs="{'required': [...]}"` | `required="expr"` |
 | Column hide | N/A | `column_invisible="True"` |
 | Optional cols | Limited | `optional="show/hide"` |
+
+---
+
+## Best Practices for View Development
+
+### Always Verify View Existence Before Extension
+
+**Critical Rule:** Never trust your memory about which views exist for a model. Always verify using search tools and the Odoo indexer before attempting to extend or reference views.
+
+```bash
+# Search for available views for a model in Odoo source
+grep -r "model.*res.users.api.keys" odoo/addons/*/views/*.xml
+grep -r "<tree\|<form\|<kanban" odoo/addons/*/views/res_users_apikeys_views.xml
+```
+
+**Real-world example:**
+In Odoo 19, `res.users.api.keys` only has a kanban view - attempting to extend a non-existent form or tree view will cause runtime errors.
+
+```xml
+<!-- Bad - assuming a form view exists without checking -->
+<record id="view_users_apikeys_form_inherit" model="ir.ui.view">
+    <field name="name">res.users.api.keys.form.inherit</field>
+    <field name="model">res.users.api.keys</field>
+    <field name="inherit_id" ref="base.view_users_apikeys_form"/>
+    <!-- ERROR: This view doesn't exist in Odoo 19! -->
+</record>
+
+<!-- Good - verified that only kanban view exists -->
+<record id="view_users_apikeys_kanban_inherit" model="ir.ui.view">
+    <field name="name">res.users.api.keys.kanban.inherit</field>
+    <field name="model">res.users.api.keys</field>
+    <field name="inherit_id" ref="base.view_users_apikeys_kanban"/>
+    <!-- Verified this view exists before extending -->
+</record>
+```
+
+**Verification workflow:**
+1. Identify the model you need to extend
+2. Search Odoo source code for views of that model
+3. Check which view types exist (form, tree, kanban, etc.)
+4. Look up exact XML IDs using grep/indexer
+5. Verify the view exists in your target Odoo version
+6. Only then write your view inheritance
+
+```python
+# Python code to check available views for a model
+views = self.env['ir.ui.view'].search([
+    ('model', '=', 'res.users.api.keys'),
+    ('type', '!=', False)
+])
+for view in views:
+    print(f"Type: {view.type}, XML ID: {view.xml_id}")
+# Example output for Odoo 19:
+# Type: kanban, XML ID: base.view_users_apikeys_kanban
+```
+
+### Use the Odoo Indexer, Not Memory
+
+Your memory about Odoo's structure is flawed by design. Always:
+- Use grep/ripgrep to search for XML IDs
+- Check `ir.model.data` and `ir.ui.view` tables
+- Read the actual Odoo source code when in doubt
+- Never assume or guess view names or existence
+
+**Why this matters:**
+- Views change between Odoo versions
+- Not all models have all view types
+- XML IDs can be renamed or removed
+- Memory is unreliable for hundreds of models and thousands of views

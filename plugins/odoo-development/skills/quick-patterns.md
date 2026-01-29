@@ -153,5 +153,17 @@ access_my_model_manager,my.model.manager,model_my_module_model,my_module.group_m
 <!-- v14-16: attrs --> <field name="x" attrs="{'invisible': [('state', '!=', 'draft')]}"/>
 ```
 
+## Critical Best Practice
+
+**Always verify XML IDs and views exist before using them!**
+
+Never trust your memory - use grep/indexer to look up XML IDs and verify view existence:
+```bash
+# Check what views exist for a model
+grep -r "model.*my.model" odoo/addons/*/views/*.xml
+```
+
+Not all models have all view types. Example: In Odoo 19, `res.users.api.keys` only has a kanban view, no form/tree. Always verify before extending!
+
 ---
 **Need more?** Read specific skill file from `SKILL.md`
