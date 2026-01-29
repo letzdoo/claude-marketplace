@@ -437,6 +437,54 @@
 | `replace` | Replace entire element |
 | `attributes` | Modify attributes only |
 
+### CRITICAL: Always Verify XPath Expressions
+
+**ALWAYS read the parent view structure before writing inheritance code.** XPath expressions must match the ACTUAL view structure, not assumptions.
+
+#### Common Mistakes
+```xml
+<!-- ❌ WRONG: Assuming structure without verification -->
+<xpath expr="//div[hasclass('flex-row')]" position="inside">
+    <field name="x_custom_field"/>
+</xpath>
+
+<!-- The actual view might use QWeb templates: -->
+<!-- <t t-name="card"><div><div class="flex-row">... -->
+```
+
+#### Correct Workflow
+```python
+# 1. FIRST: Read the parent view to understand structure
+# Read base.res_users_apikeys_view_kanban
+
+# 2. THEN: Write correct xpath based on actual structure
+```
+
+```xml
+<!-- ✅ CORRECT: Verified against actual view structure -->
+<record id="res_users_apikeys_view_kanban_inherit" model="ir.ui.view">
+    <field name="name">res.users.apikeys.kanban.inherit</field>
+    <field name="model">res.users.apikeys</field>
+    <field name="inherit_id" ref="base.res_users_apikeys_view_kanban"/>
+    <field name="arch" type="xml">
+        <!-- Correct xpath after reading actual view structure -->
+        <xpath expr="//t[@t-name='card']/div/div" position="inside">
+            <span t-if="record.is_readonly.raw_value"
+                  class="badge text-bg-warning ms-2"
+                  title="This API key can only perform read operations"/>
+        </xpath>
+    </field>
+</record>
+```
+
+#### Best Practice Checklist
+- ✅ Read parent view XML file first
+- ✅ Identify exact element structure (div, t, group, etc.)
+- ✅ Note QWeb templates (t-name, t-if, etc.)
+- ✅ Verify class names and attributes
+- ✅ Test xpath matches target element
+- ❌ Never assume structure based on common patterns
+
 ---
 
 ## Actions and Menus
