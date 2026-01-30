@@ -535,6 +535,9 @@ The `string` attribute should not be used as a selector in view inheritance beca
 Always prefer `name` attributes which are stable technical identifiers.
 
 ### 7. Always Verify XML IDs and Views Before Extension
+
+**⚠️ CRITICAL RULE:** Do not trust your memory or make assumptions about XML IDs, views, records, or any other Odoo identifiers. Your memory is flawed by design. Always use the Odoo indexer or search tools to look them up. **Always read the actual Odoo source code** when in doubt.
+
 ```python
 # Bad - trusting memory or assumptions about XML IDs
 view_id = self.env.ref('base.view_partner_form')  # May not exist!
@@ -563,16 +566,15 @@ except ValueError:
      1. Use grep/search to find the view definition in Odoo source
      2. Check ir.ui.view records in database
      3. Use Odoo indexer/IDE tools to look up the XML ID
+     4. READ THE ACTUAL ODOO SOURCE CODE - never rely on memory
 -->
 <record id="view_partner_form_inherit" model="ir.ui.view">
     <field name="name">res.partner.form.inherit.my_module</field>
     <field name="model">res.partner</field>
     <field name="inherit_id" ref="base.view_partner_form"/>
-    <!-- Verified that base.view_partner_form exists -->
+    <!-- Verified that base.view_partner_form exists by reading Odoo source -->
 </record>
 ```
-
-**Critical Rule:** Do not trust your memory or make assumptions about XML IDs, views, records, or any other Odoo identifiers. Your memory is flawed by design. Always use the Odoo indexer or search tools to look them up.
 
 Why this matters:
 - XML IDs can change between Odoo versions
@@ -601,12 +603,13 @@ def check_available_views(self, model_name):
 ```
 
 **Always verify XML IDs and view existence before use:**
-1. Use grep/ripgrep to search Odoo source code for the exact XML ID
-2. Check the database `ir.model.data` table for the record
-3. Use Odoo indexer or IDE integration tools to look up identifiers
-4. Read the actual Odoo source code when in doubt - never rely on memory
+1. **READ THE ACTUAL ODOO SOURCE CODE** - this is the primary method, never rely on memory
+2. Use grep/ripgrep to search Odoo source code for the exact XML ID
+3. Check the database `ir.model.data` table for the record
+4. Use Odoo indexer or IDE integration tools to look up identifiers
 5. Verify which view types exist for a model before extending them
 6. Check the specific Odoo version's codebase (views differ between versions)
+7. Never assume an XML ID exists - always look it up using the tools above
 
 ```python
 # Example: Verifying a view exists before inheritance
@@ -634,8 +637,91 @@ def _check_view_type_exists(self, model_name, view_type):
 2. Search Odoo source code to find available views for that model
 3. Verify the view type exists (form, tree, kanban, etc.)
 4. Look up the exact XML ID using search/indexer
-5. Only then write your view inheritance
-6. Never assume or guess - always verify
+5. Read the actual view structure to understand the elements
+6. Test your XPath expressions against the actual view structure
+7. Only then write your view inheritance
+8. Never assume or guess - always verify
+
+### 8. Always Test XPath Expressions Before Use
+
+**⚠️ CRITICAL RULE:** After looking up the XML ID and before writing view inheritance, **read the actual view structure** and verify that your XPath expressions will match the correct elements. XPath errors are a common source of view inheritance failures.
+
+```xml
+<!-- Bad - assuming structure without verification -->
+<record id="view_apikeys_kanban_inherit" model="ir.ui.view">
+    <field name="name">res.users.apikeys.kanban.inherit</field>
+    <field name="model">res.users.apikeys</field>
+    <field name="inherit_id" ref="base.res_users_apikeys_view_kanban"/>
+    <field name="arch" type="xml">
+        <!-- Wrong XPath - this doesn't match actual structure! -->
+        <xpath expr="//div[hasclass('flex-row')]" position="inside">
+            <span>My content</span>
+        </xpath>
+    </field>
+</record>
+```
+
+**Correct workflow:**
+1. **Read the actual view** to understand its structure
+2. **Verify the XPath** matches the actual elements
+3. Write the correct inheritance
+
+```xml
+<!-- Good - verified XPath matches actual structure -->
+<record id="view_apikeys_kanban_inherit" model="ir.ui.view">
+    <field name="name">res.users.apikeys.kanban.inherit</field>
+    <field name="model">res.users.apikeys</field>
+    <field name="inherit_id" ref="base.res_users_apikeys_view_kanban"/>
+    <field name="arch" type="xml">
+        <!-- Correct XPath after reading the view structure:
+             The view has <t t-name="card"> not a div with flex-row class -->
+        <xpath expr="//t[@t-name='card']/div/div" position="inside">
+            <span>My content</span>
+        </xpath>
+    </field>
+</record>
+```
+
+**Real-world example from Odoo 19:**
+When extending `res.users.apikeys` kanban view, developers might assume there's a `div` with `flex-row` class. However, reading the actual view reveals it uses `<t t-name="card">` structure instead. Using the wrong XPath will cause runtime errors.
+
+**How to test XPath expressions:**
+1. Read the source XML view file from Odoo codebase
+2. Identify the exact element structure and attributes
+3. Write your XPath to match the actual structure
+4. Test by upgrading your module and checking for errors
+5. If errors occur, re-read the view and adjust XPath
+
+```python
+# Example: Read a view to understand its structure
+def read_view_structure(self, xml_id):
+    """Read view arch to understand structure before inheritance."""
+    view = self.env.ref(xml_id, raise_if_not_found=False)
+    if view:
+        # Print or log the arch to see actual structure
+        print(view.arch)
+        return view.arch
+    return None
+
+# Before writing inheritance:
+# read_view_structure('base.res_users_apikeys_view_kanban')
+# Examine output to understand structure and write correct XPath
+```
+
+**Common XPath mistakes:**
+- Assuming class names that don't exist
+- Using wrong element names (div vs t vs field)
+- Not checking for QWeb template structures (t-name, t-if, etc.)
+- Copying XPath from different Odoo versions
+- Not accounting for nested structures
+
+**Best practices for XPath:**
+1. Always read the actual view first
+2. Use specific, precise selectors (element name + attributes)
+3. Prefer `name` attributes over classes or string values
+4. Test XPath against the actual structure
+5. Document why you chose that specific XPath
+6. Never copy-paste XPath without verification
 
 ### 8. Always Test XPath Expressions Before Use
 
