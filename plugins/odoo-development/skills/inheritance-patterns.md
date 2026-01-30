@@ -637,6 +637,74 @@ def _check_view_type_exists(self, model_name, view_type):
 5. Only then write your view inheritance
 6. Never assume or guess - always verify
 
+### 8. Always Test XPath Expressions Before Use
+
+When inheriting views, incorrect XPath expressions are a common source of errors. Always verify your XPath expressions match the actual view structure by reading the base view first.
+
+```xml
+<!-- Bad - guessing the XPath without reading the view -->
+<record id="view_apikeys_kanban_inherit" model="ir.ui.view">
+    <field name="name">res.users.apikeys.kanban.inherit</field>
+    <field name="model">res.users.apikeys</field>
+    <field name="inherit_id" ref="base.res_users_apikeys_view_kanban"/>
+    <field name="arch" type="xml">
+        <!-- This XPath is incorrect - assuming structure without verification -->
+        <xpath expr="//div[hasclass('flex-row')]" position="inside">
+            <span t-if="record.is_readonly.raw_value"
+                  class="badge text-bg-warning ms-2">
+                Read-Only
+            </span>
+        </xpath>
+    </field>
+</record>
+
+<!-- Good - verified XPath by reading the actual view structure -->
+<record id="view_apikeys_kanban_inherit" model="ir.ui.view">
+    <field name="name">res.users.apikeys.kanban.inherit</field>
+    <field name="model">res.users.apikeys</field>
+    <field name="inherit_id" ref="base.res_users_apikeys_view_kanban"/>
+    <field name="arch" type="xml">
+        <!-- Correct XPath after reading the view and finding <t t-name="card"> -->
+        <xpath expr="//t[@t-name='card']/div/div" position="inside">
+            <span t-if="record.is_readonly.raw_value"
+                  class="badge text-bg-warning ms-2">
+                Read-Only
+            </span>
+        </xpath>
+    </field>
+</record>
+```
+
+**Best Practice Workflow for XPath Expressions:**
+
+1. **Read the base view first** - Never write XPath expressions from memory
+2. **Identify the exact element** - Find the precise structure in the view
+3. **Write the XPath expression** - Use the actual element names and attributes
+4. **Test the inheritance** - Verify the view renders correctly
+5. **Debug if needed** - If it fails, re-read the view and correct the XPath
+
+**Common XPath mistakes:**
+- Using `hasclass()` with incorrect class names
+- Assuming div structure without checking actual elements (could be `<t>`, `<span>`, etc.)
+- Not accounting for QWeb-specific elements like `<t t-name="...">`
+- Guessing element hierarchy instead of reading the actual view
+
+**Real-world example from Odoo 19:**
+
+The `res.users.apikeys` kanban view uses `<t t-name="card">` for the card template, not a simple `<div>`. An incorrect XPath like `//div[hasclass('flex-row')]` will fail, while the correct XPath `//t[@t-name='card']/div/div` works because it matches the actual structure.
+
+**How to verify XPath expressions:**
+```python
+# Read the view to check structure
+view = self.env.ref('base.res_users_apikeys_view_kanban')
+print(view.arch)  # Examine the XML structure
+
+# Or use grep/search in Odoo source code
+# grep -r "res_users_apikeys_view_kanban" odoo/addons/base/
+```
+
+Always read first, then write. Never trust your memory about view structures - they change between Odoo versions and even within the same version as views are refactored.
+
 ---
 
 ## Common Inheritance Patterns
