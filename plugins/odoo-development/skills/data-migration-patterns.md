@@ -561,6 +561,38 @@ for i, record in enumerate(records):
 # Check performance with realistic data volumes
 ```
 
+### 7. Installing Modules During Migration
+```python
+# Good - use button_install() during migration
+def migrate(cr, version):
+    """Install dependency module during migration."""
+    env = api.Environment(cr, SUPERUSER_ID, {})
+
+    module = env['ir.module.module'].search([
+        ('name', '=', 'required_module'),
+        ('state', '!=', 'installed'),
+    ])
+
+    if module:
+        module.button_install()
+        _logger.info("Queued installation of %s", module.name)
+
+# Bad - causes UserError during migration
+def migrate(cr, version):
+    env = api.Environment(cr, SUPERUSER_ID, {})
+    module = env['ir.module.module'].search([
+        ('name', '=', 'required_module'),
+    ])
+    module._button_immediate_install()  # ERROR: Cannot be called on non-loaded registries
+```
+
+**Why**: During migration, the registry is not fully loaded. The `_button_immediate_install()` method requires a complete registry and will raise:
+```
+odoo.exceptions.UserError: The method _button_immediate_install cannot be called on init or non loaded registries. Please use button_install instead.
+```
+
+Use `button_install()` which queues the installation to happen after the registry is properly initialized.
+
 ---
 
 ## Version-Specific Notes
