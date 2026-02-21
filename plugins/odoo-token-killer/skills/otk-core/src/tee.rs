@@ -10,7 +10,7 @@
 use std::path::{Path, PathBuf};
 
 const MIN_TEE_SIZE: usize = 500;
-const DEFAULT_MAX_FILES: usize = 20;
+const DEFAULT_MAX_FILES: usize = 200;
 const DEFAULT_MAX_FILE_SIZE: usize = 1_048_576; // 1MB
 
 fn sanitize_slug(slug: &str) -> String {
