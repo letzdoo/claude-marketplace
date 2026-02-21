@@ -1,0 +1,22 @@
+[project]
+name = "odoo-token-killer"
+version = "1.0.0"
+description = "Token-optimized CLI proxy for Odoo development with Claude Code. Inspired by RTK (rtk-ai/rtk)."
+readme = "SKILL.md"
+requires-python = ">=3.10"
+license = {text = "LGPL-3.0"}
+authors = [
+    {name = "Letzdoo (Jerome Sonnet)"}
+]
+
+dependencies = []
+
+[project.scripts]
+otk = "scripts.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["scripts"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

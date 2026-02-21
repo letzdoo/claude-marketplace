@@ -1,0 +1,12 @@
+{
+  "name": "odoo-token-killer",
+  "description": "Odoo Token Killer - Reduce Claude Code token consumption by 60-90% on Odoo development operations. Inspired by RTK (Rust Token Killer) by rtk-ai.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Letzdoo Team",
+    "email": "contact@letzdoo.com"
+  },
+  "homepage": "https://github.com/letzdoo/claude-marketplace",
+  "repository": "https://github.com/letzdoo/claude-marketplace",
+  "license": "LGPL-3.0"
+}

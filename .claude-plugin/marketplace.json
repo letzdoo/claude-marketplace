@@ -56,6 +56,22 @@
       "keywords": ["odoo", "xmlrpc", "query", "api", "investigation", "debugging"],
       "category": "development",
       "tags": ["odoo", "xmlrpc", "api", "readonly"]
+    },
+    {
+      "name": "odoo-token-killer",
+      "source": "./plugins/odoo-token-killer",
+      "description": "Odoo Token Killer - Reduce Claude Code token consumption by 60-90% on Odoo development. Transparent CLI proxy with PreToolUse hook. Inspired by RTK (rtk-ai/rtk).",
+      "version": "1.0.0",
+      "author": {
+        "name": "Letzdoo Team",
+        "email": "contact@letzdoo.com"
+      },
+      "homepage": "https://github.com/letzdoo/claude-marketplace",
+      "repository": "https://github.com/letzdoo/claude-marketplace",
+      "license": "LGPL-3.0",
+      "keywords": ["odoo", "token-optimization", "cli-proxy", "rtk", "filters", "analytics"],
+      "category": "development",
+      "tags": ["odoo", "tokens", "optimization", "rtk-inspired"]
     }
   ]
 }
