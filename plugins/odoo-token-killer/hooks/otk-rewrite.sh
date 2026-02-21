@@ -47,11 +47,13 @@ fi
 OTK_CMD=""
 if command -v otk &>/dev/null; then
     OTK_CMD="otk"
+elif [ -x "$HOME/.cargo/bin/otk" ]; then
+    OTK_CMD="$HOME/.cargo/bin/otk"
 else
-    # Try plugin-local installation via uv
+    # Try plugin-local release binary
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../skills/otk-core" 2>/dev/null && pwd)"
-    if [ -n "$SCRIPT_DIR" ] && [ -d "$SCRIPT_DIR" ]; then
-        OTK_CMD="cd $SCRIPT_DIR && uv run otk"
+    if [ -n "$SCRIPT_DIR" ] && [ -x "$SCRIPT_DIR/target/release/otk" ]; then
+        OTK_CMD="$SCRIPT_DIR/target/release/otk"
     else
         exit 0  # No otk available, skip silently
     fi

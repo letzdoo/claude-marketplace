@@ -2,21 +2,23 @@
 
 ## Overview
 
-OTK is a token-optimized CLI proxy for Odoo development with Claude Code.
+OTK is a high-performance Rust CLI proxy for Odoo development with Claude Code.
 Inspired by RTK (rtk-ai/rtk). Reduces token consumption by 60-90%.
+
+Written in Rust for <10ms startup, 4.2MB binary, <5MB memory.
 
 ## Architecture
 
 ```
 hooks/otk-rewrite.sh        PreToolUse hook (transparent command rewriting)
 skills/otk-core/
-  scripts/
-    cli.py                   CLI entry point (otk command + gain dashboard)
-    filters.py               12 filter strategies (test, log, python, xml, git, etc.)
-    tracking.py              SQLite token tracking (record, query, aggregate)
-  tools/
-    otk.sh                   Shell wrapper for uv run otk
-    otk-gain.sh              Shell wrapper for gain command
+  Cargo.toml                 Rust project manifest
+  src/
+    main.rs                  CLI entry point (clap derive) + command routing
+    filters.rs               12 filter strategies (test, log, python, xml, git, etc.)
+    tracking.rs              SQLite token tracking (TimedExecution, Tracker)
+    tee.rs                   Full output recovery (save raw, print hint)
+    gain.rs                  Analytics dashboard (summary, daily, JSON export)
 commands/
   otk-setup.md              /otk-setup command
   otk-gain.md               /otk-gain command
@@ -27,35 +29,39 @@ agents/
 ## Development Commands
 
 ```bash
-# Install/sync dependencies
-cd plugins/odoo-token-killer/skills/otk-core && uv sync
+cd plugins/odoo-token-killer/skills/otk-core
 
-# Run otk directly
-cd plugins/odoo-token-killer/skills/otk-core && uv run otk --version
+# Build
+cargo build --release
 
-# Test a filter manually
-cd plugins/odoo-token-killer/skills/otk-core && echo "test output" | uv run python -c "
-from scripts.filters import test_filter
-import sys
-print(test_filter(sys.stdin.read()))
-"
+# Test
+cargo test
 
-# Check tracking database
-cd plugins/odoo-token-killer/skills/otk-core && uv run otk gain --json
+# Install globally
+cargo install --path .
+
+# Check binary size
+ls -lh target/release/otk    # Should be <5MB
+
+# Benchmark
+hyperfine 'otk git status' 'git status' --warmup 3
 ```
 
 ## Adding a New Filter
 
-1. Add the filter function in `scripts/filters.py`
-2. Add the command pattern to `FILTER_MAP` dict
-3. Add the pattern to `hooks/otk-rewrite.sh` case statement
-4. Update the README.md filter table
-5. Test with real Odoo output
+1. Add a `pub fn my_filter(output: &str) -> String` in `src/filters.rs`
+2. Add `lazy_static!` regex patterns at the top of the file
+3. Add a new `Commands` variant in `src/main.rs`
+4. Wire it in the `match` statement in `main()`
+5. Add the command pattern to `hooks/otk-rewrite.sh`
+6. Add unit tests in `#[cfg(test)] mod tests`
+7. Update README.md filter table
 
-## Design Principles
+## Design Principles (from RTK)
 
-- Pure Python stdlib: no runtime dependencies beyond Python 3.10+
-- Graceful degradation: never break the underlying command
-- Exit code preservation: critical for CI/CD
-- Lazy patterns: compile regex once, reuse
-- Measurable: track every command in SQLite
+- **<10ms startup**: No async runtime, lazy regex, minimal allocations
+- **Graceful degradation**: Falls back to raw output if filter fails
+- **Exit code preservation**: Critical for CI/CD
+- **Tee recovery**: Full output saved to disk, hint printed for LLM re-read
+- **Measurable**: SQLite tracking + `otk gain` proves the value
+- **Zero context overhead**: Hook-based rewriting is invisible to Claude

@@ -98,24 +98,41 @@ Claude Code runs a command
          |
     OTK CLI (scripts/cli.py)
          |
-    Route to filter (scripts/filters.py)
+    Route to filter (src/filters.rs)
          |
     Execute command → capture raw output
          |
     Apply filter strategy → compressed output
          |
-    Track metrics (scripts/tracking.py → SQLite)
+    Save full output to tee file (src/tee.rs)
          |
-    Return filtered output to Claude
+    Track metrics (src/tracking.rs → SQLite)
+         |
+    Return filtered output + [full output: ~/.local/share/otk/tee/...] hint
 ```
+
+## Full Output Recovery (Tee)
+
+When OTK filters output, the complete raw version is saved to disk.
+The filtered output includes a hint line that Claude can use to access the full content:
+
+```
+Tests: 142 passed, 1 failed
+FAILED test_sale_discount: AssertionError: expected 10.0, got 9.5
+[full output: ~/.local/share/otk/tee/1234567890_invoke_test.log]
+```
+
+If the agent needs the full unfiltered output, it reads the tee file.
+Tee modes: `failures` (default), `always`, `never` — via `OTK_TEE_MODE` env var.
 
 ## Key Design Principles (Learned from RTK)
 
-1. **Transparent**: Hook-based rewriting means zero context overhead
-2. **Measurable**: SQLite tracking + `/otk-gain` proves the value
-3. **Graceful**: Falls back to raw output if filter fails
-4. **Preserves exit codes**: Critical for CI/CD and test workflows
-5. **Zero dependencies at runtime**: Pure Python stdlib (no pip installs needed)
+1. **Rust**: <10ms startup, 4.2MB binary, same language as RTK
+2. **Transparent**: Hook-based rewriting means zero context overhead
+3. **Measurable**: SQLite tracking + `/otk-gain` proves the value
+4. **Recoverable**: Tee system saves full output for when the agent needs it
+5. **Graceful**: Falls back to raw output if filter fails
+6. **Preserves exit codes**: Critical for CI/CD and test workflows
 
 ## Compatibility
 
@@ -138,8 +155,9 @@ RTK demonstrated that:
 - **Data-driven analytics** (`rtk gain`) make savings visible and compelling
 - **Graceful degradation** ensures reliability in production workflows
 
-OTK adapts these insights for the Odoo ecosystem, with Python-based filters tuned
-for Odoo's specific output patterns (test runners, ORM logs, XML views, Docker containers).
+OTK adapts these insights for the Odoo ecosystem, written in Rust like RTK,
+with filters tuned for Odoo's specific output patterns (test runners, ORM logs,
+XML views, Docker containers) and a tee system for full output recovery.
 
 ## License
 
