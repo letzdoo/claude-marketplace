@@ -39,7 +39,30 @@ lazy_static! {
     static ref RE_DOCKER_PROGRESS: Regex = Regex::new(r"^(Pulling|Extracting|Downloading|Waiting|Verifying)").unwrap();
     static ref RE_SQL_BORDER: Regex = Regex::new(r"^[-+]+$").unwrap();
     static ref RE_BLANK_LINES: Regex = Regex::new(r"\n{3,}").unwrap();
-    static ref RE_LONG_CONTENT: Regex = Regex::new(r">((?:(?!<).){80,})<").unwrap();
+    static ref RE_LONG_CONTENT: Regex = Regex::new(r">([^<]{80,})<").unwrap();
+
+    // Odoo XML patterns
+    static ref RE_ODOO_ROOT: Regex = Regex::new(r"<odoo\b").unwrap();
+    static ref RE_ODOO_DATA: Regex = Regex::new(r#"<data\b([^>]*)"#).unwrap();
+    static ref RE_NOUPDATE: Regex = Regex::new(r#"noupdate\s*=\s*"([^"]*)""#).unwrap();
+    static ref RE_RECORD: Regex = Regex::new(r#"<record\b([^>]*)"#).unwrap();
+    static ref RE_RECORD_ID: Regex = Regex::new(r#"\bid\s*=\s*"([^"]*)""#).unwrap();
+    static ref RE_RECORD_MODEL: Regex = Regex::new(r#"\bmodel\s*=\s*"([^"]*)""#).unwrap();
+    static ref RE_FIELD_TAG: Regex = Regex::new(r#"<field\b([^>]*?)(/?)>"#).unwrap();
+    static ref RE_FIELD_NAME: Regex = Regex::new(r#"\bname\s*=\s*"([^"]*)""#).unwrap();
+    static ref RE_FIELD_REF: Regex = Regex::new(r#"\bref\s*=\s*"([^"]*)""#).unwrap();
+    static ref RE_MENUITEM: Regex = Regex::new(r#"<menuitem\b([^>]*)"#).unwrap();
+    static ref RE_ATTR_ID: Regex = Regex::new(r#"\bid\s*=\s*"([^"]*)""#).unwrap();
+    static ref RE_ATTR_NAME: Regex = Regex::new(r#"\bname\s*=\s*"([^"]*)""#).unwrap();
+    static ref RE_ATTR_GROUPS: Regex = Regex::new(r#"\bgroups\s*=\s*"([^"]*)""#).unwrap();
+    static ref RE_ATTR_PARENT: Regex = Regex::new(r#"\bparent\s*=\s*"([^"]*)""#).unwrap();
+    static ref RE_ATTR_ACTION: Regex = Regex::new(r#"\baction\s*=\s*"([^"]*)""#).unwrap();
+    static ref RE_INHERIT_ID: Regex = Regex::new(r#"inherit_id\b[^"]*"([^"]*)""#).unwrap();
+    static ref RE_XPATH: Regex = Regex::new(r#"<xpath\b([^>]*)"#).unwrap();
+    static ref RE_XPATH_EXPR: Regex = Regex::new(r#"\bexpr\s*=\s*"([^"]*)""#).unwrap();
+    static ref RE_XPATH_POSITION: Regex = Regex::new(r#"\bposition\s*=\s*"([^"]*)""#).unwrap();
+    static ref RE_TEMPLATE: Regex = Regex::new(r#"<template\b([^>]*)"#).unwrap();
+    static ref RE_ACT_WINDOW: Regex = Regex::new(r#"model\s*=\s*"ir\.actions\.act_window""#).unwrap();
 }
 
 fn strip_ansi(text: &str) -> String {
@@ -335,15 +358,21 @@ pub fn python_filter_aggressive(output: &str) -> String {
 // =============================================================================
 // 4. XML FILTER (Odoo views, data files)
 // Target: 60-80% reduction
+// Dispatches to odoo_xml_filter when <odoo> root is detected.
 // =============================================================================
 
 pub fn xml_filter(output: &str) -> String {
+    // Detect Odoo XML content
+    if RE_ODOO_ROOT.is_match(output) {
+        return odoo_xml_filter(output);
+    }
+
+    // Generic XML filter for non-Odoo content
     let mut result: Vec<String> = Vec::new();
 
     for line in output.lines() {
         let trimmed = line.trim();
 
-        // Skip XML comments
         if RE_XML_COMMENT.is_match(trimmed) || trimmed.starts_with("<!--") || trimmed.ends_with("-->") {
             continue;
         }
@@ -352,7 +381,6 @@ pub fn xml_filter(output: &str) -> String {
             continue;
         }
 
-        // Truncate long inline content between tags
         if trimmed.contains('<') {
             let truncated = RE_LONG_CONTENT.replace_all(trimmed, |caps: &regex::Captures| {
                 format!(">[...{} chars]<", caps[1].len())
@@ -371,6 +399,346 @@ pub fn xml_filter(output: &str) -> String {
     }
 
     result.join("\n")
+}
+
+/// Join multi-line XML tags into single lines.
+/// Handles cases like:
+/// ```xml
+/// <menuitem id="foo"
+///           name="bar"
+///           groups="baz"/>
+/// ```
+/// → `<menuitem id="foo" name="bar" groups="baz"/>`
+fn join_multiline_tags(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let mut pending_tag = String::new();
+    let mut in_open_tag = false;
+
+    for line in input.lines() {
+        let trimmed = line.trim();
+
+        if in_open_tag {
+            // Continuation of a multi-line tag
+            pending_tag.push(' ');
+            pending_tag.push_str(trimmed);
+
+            if trimmed.contains('>') {
+                result.push_str(&pending_tag);
+                result.push('\n');
+                pending_tag.clear();
+                in_open_tag = false;
+            }
+            continue;
+        }
+
+        // Detect start of a tag that doesn't close on this line
+        if trimmed.starts_with('<')
+            && !trimmed.starts_with("</")
+            && !trimmed.starts_with("<?")
+            && !trimmed.starts_with("<!--")
+            && !trimmed.contains('>')
+        {
+            let indent = &line[..line.len() - line.trim_start().len()];
+            pending_tag = format!("{}{}", indent, trimmed);
+            in_open_tag = true;
+            continue;
+        }
+
+        result.push_str(line);
+        result.push('\n');
+    }
+
+    // Flush any remaining pending tag
+    if !pending_tag.is_empty() {
+        result.push_str(&pending_tag);
+        result.push('\n');
+    }
+
+    result
+}
+
+/// Odoo-specific XML filter.
+///
+/// Extracts the structural skeleton that matters for Odoo development:
+/// - <data noupdate="1"> blocks (noupdate flag)
+/// - <record id="..." model="..."> with inherit_id detection
+/// - <field name="..." ref="..."> (ref fields kept, long values truncated)
+/// - <menuitem id="..." name="..." groups="..." parent="..." action="...">
+/// - <xpath expr="..." position="..."> expressions
+/// - <template id="..." inherit_id="...">
+/// - XML declaration and <odoo> open/close tags
+///
+/// Aggressively compresses field values (HTML, arch XML, long text) while
+/// preserving the structural metadata the agent needs for code navigation.
+fn odoo_xml_filter(output: &str) -> String {
+    let mut result: Vec<String> = Vec::new();
+    let mut _current_noupdate: Option<&str> = None;
+    let mut in_field_block = false;
+    let mut field_block_name = String::new();
+    let mut field_block_chars: usize = 0;
+    let mut field_block_indent = String::new();
+    let mut record_count: u32 = 0;
+    let mut menuitem_count: u32 = 0;
+    let mut xpath_count: u32 = 0;
+
+    // Pre-process: join multi-line tags into single lines
+    // This handles <menuitem id="..." \n name="..." \n groups="..."/>
+    let joined = join_multiline_tags(output);
+
+    for line in joined.lines() {
+        let trimmed = line.trim();
+        let indent = &line[..line.len() - line.trim_start().len()];
+
+        // Skip comments and blank lines
+        if trimmed.is_empty() {
+            continue;
+        }
+        if RE_XML_COMMENT.is_match(trimmed)
+            || trimmed.starts_with("<!--")
+            || trimmed.ends_with("-->")
+        {
+            continue;
+        }
+
+        // XML declaration, <?xml ...>
+        if trimmed.starts_with("<?xml") {
+            result.push(line.to_string());
+            continue;
+        }
+
+        // <odoo> / </odoo> tags
+        if trimmed.starts_with("<odoo") || trimmed == "</odoo>" {
+            result.push(line.to_string());
+            continue;
+        }
+
+        // <data noupdate="...">
+        if let Some(caps) = RE_ODOO_DATA.captures(trimmed) {
+            let attrs = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+            if let Some(nu_caps) = RE_NOUPDATE.captures(attrs) {
+                _current_noupdate = Some(if nu_caps.get(1).map(|m| m.as_str()) == Some("1") {
+                    "1"
+                } else {
+                    "0"
+                });
+                result.push(format!("{}<data noupdate=\"{}\">", indent, _current_noupdate.unwrap()));
+            } else {
+                result.push(line.to_string());
+            }
+            continue;
+        }
+        if trimmed == "</data>" {
+            _current_noupdate = None;
+            result.push(line.to_string());
+            continue;
+        }
+
+        // <record id="..." model="...">
+        if let Some(caps) = RE_RECORD.captures(trimmed) {
+            record_count += 1;
+            let attrs = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+            let id = RE_RECORD_ID.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str()).unwrap_or("?");
+            let model = RE_RECORD_MODEL.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str()).unwrap_or("?");
+            result.push(format!("{}<record id=\"{}\" model=\"{}\">", indent, id, model));
+            continue;
+        }
+        if trimmed == "</record>" {
+            result.push(line.to_string());
+            continue;
+        }
+
+        // Handle multi-line field blocks (e.g., arch XML, HTML content)
+        // Extract xpath/record/field refs even from within arch blocks
+        if in_field_block {
+            if trimmed == "</field>" || trimmed.starts_with("</field>") {
+                result.push(format!(
+                    "{}<field name=\"{}\">[...{} chars]</field>",
+                    field_block_indent, field_block_name, field_block_chars
+                ));
+                in_field_block = false;
+                continue;
+            }
+            field_block_chars += line.len();
+
+            // Inside arch fields, extract structural Odoo elements
+            if field_block_name == "arch" || field_block_name == "arch_db" {
+                if let Some(caps) = RE_XPATH.captures(trimmed) {
+                    xpath_count += 1;
+                    let attrs = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+                    let expr = RE_XPATH_EXPR.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str()).unwrap_or("?");
+                    let pos = RE_XPATH_POSITION.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str()).unwrap_or("inside");
+                    result.push(format!("{}  <xpath expr=\"{}\" position=\"{}\">", field_block_indent, expr, pos));
+                }
+                if trimmed == "</xpath>" {
+                    result.push(format!("{}  </xpath>", field_block_indent));
+                }
+                // Extract field references within arch (e.g., <field name="custom_field"/>)
+                if trimmed.starts_with("<field ") && !trimmed.contains("</field>") && trimmed.ends_with("/>") {
+                    if let Some(f_caps) = RE_FIELD_TAG.captures(trimmed) {
+                        let f_attrs = f_caps.get(1).map(|m| m.as_str()).unwrap_or("");
+                        let f_name = RE_FIELD_NAME.captures(f_attrs).and_then(|c| c.get(1)).map(|m| m.as_str()).unwrap_or("?");
+                        result.push(format!("{}    <field name=\"{}\"/>", field_block_indent, f_name));
+                    }
+                }
+            }
+            continue;
+        }
+
+        // <field name="..." ref="..."/> or <field name="...">value</field>
+        if let Some(caps) = RE_FIELD_TAG.captures(trimmed) {
+            let attrs = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+            let name = RE_FIELD_NAME.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str()).unwrap_or("?");
+
+            // Self-closing field with ref
+            if let Some(ref_caps) = RE_FIELD_REF.captures(attrs) {
+                let ref_val = ref_caps.get(1).map(|m| m.as_str()).unwrap_or("");
+                result.push(format!("{}<field name=\"{}\" ref=\"{}\"/>", indent, name, ref_val));
+                continue;
+            }
+
+            // Self-closing field with eval or other attrs
+            if trimmed.ends_with("/>") {
+                // Keep short self-closing fields as-is
+                if trimmed.len() <= 120 {
+                    result.push(line.to_string());
+                } else {
+                    result.push(format!("{}<field name=\"{}\" .../>", indent, name));
+                }
+                continue;
+            }
+
+            // Inline <field name="...">short value</field>
+            if trimmed.contains("</field>") {
+                let value_start = trimmed.find('>').unwrap_or(0) + 1;
+                let value_end = trimmed.rfind("</field>").unwrap_or(trimmed.len());
+                let value = &trimmed[value_start..value_end];
+
+                // Key field names: keep value visible
+                let is_key_field = matches!(
+                    name,
+                    "name" | "model" | "res_model" | "view_mode" | "view_type"
+                        | "type" | "inherit_id" | "arch_db" | "domain" | "context"
+                        | "groups_id" | "model_id"
+                );
+
+                if name == "inherit_id" {
+                    // Always show inherit_id ref
+                    if let Some(ref_caps) = RE_FIELD_REF.captures(trimmed) {
+                        result.push(format!(
+                            "{}<field name=\"inherit_id\" ref=\"{}\"/>",
+                            indent,
+                            ref_caps.get(1).map(|m| m.as_str()).unwrap_or("")
+                        ));
+                    } else {
+                        result.push(line.to_string());
+                    }
+                } else if is_key_field || value.len() <= 80 {
+                    result.push(line.to_string());
+                } else {
+                    result.push(format!(
+                        "{}<field name=\"{}\">[...{} chars]</field>",
+                        indent, name, value.len()
+                    ));
+                }
+                continue;
+            }
+
+            // Multi-line field (e.g., arch XML, HTML content) - start block
+            in_field_block = true;
+            field_block_name = name.to_string();
+            field_block_chars = 0;
+            field_block_indent = indent.to_string();
+            continue;
+        }
+
+        // inherit_id field (alternate form: <field name="inherit_id" ref="..."/>)
+        if trimmed.contains("inherit_id") {
+            result.push(line.to_string());
+            continue;
+        }
+
+        // <xpath expr="..." position="...">
+        if let Some(caps) = RE_XPATH.captures(trimmed) {
+            xpath_count += 1;
+            let attrs = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+            let expr = RE_XPATH_EXPR.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str()).unwrap_or("?");
+            let pos = RE_XPATH_POSITION.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str()).unwrap_or("inside");
+            result.push(format!("{}<xpath expr=\"{}\" position=\"{}\">", indent, expr, pos));
+            continue;
+        }
+        if trimmed == "</xpath>" {
+            result.push(line.to_string());
+            continue;
+        }
+
+        // <menuitem id="..." name="..." groups="..." parent="..." action="..."/>
+        if let Some(caps) = RE_MENUITEM.captures(trimmed) {
+            menuitem_count += 1;
+            let attrs = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+            let id = RE_ATTR_ID.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str());
+            let name = RE_ATTR_NAME.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str());
+            let groups = RE_ATTR_GROUPS.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str());
+            let parent = RE_ATTR_PARENT.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str());
+            let action = RE_ATTR_ACTION.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str());
+
+            let mut parts = vec![format!("{}<menuitem", indent)];
+            if let Some(v) = id { parts.push(format!("id=\"{}\"", v)); }
+            if let Some(v) = name { parts.push(format!("name=\"{}\"", v)); }
+            if let Some(v) = parent { parts.push(format!("parent=\"{}\"", v)); }
+            if let Some(v) = action { parts.push(format!("action=\"{}\"", v)); }
+            if let Some(v) = groups { parts.push(format!("groups=\"{}\"", v)); }
+            result.push(format!("{}/>", parts.join(" ")));
+            continue;
+        }
+
+        // <template id="..." inherit_id="...">
+        if let Some(caps) = RE_TEMPLATE.captures(trimmed) {
+            let attrs = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+            let id = RE_ATTR_ID.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str()).unwrap_or("?");
+            let inherit = RE_INHERIT_ID.captures(attrs).and_then(|c| c.get(1)).map(|m| m.as_str());
+            if let Some(inh) = inherit {
+                result.push(format!("{}<template id=\"{}\" inherit_id=\"{}\">", indent, id, inh));
+            } else {
+                result.push(format!("{}<template id=\"{}\">", indent, id));
+            }
+            continue;
+        }
+        if trimmed == "</template>" {
+            result.push(line.to_string());
+            continue;
+        }
+
+        // <act_window> (ir.actions.act_window records inline)
+        if trimmed.starts_with("<act_window") {
+            // Keep the full tag - these are compact and important
+            result.push(line.to_string());
+            continue;
+        }
+
+        // Keep closing tags for structural elements
+        if trimmed.starts_with("</") {
+            result.push(line.to_string());
+            continue;
+        }
+
+        // Other tags: truncate long content
+        if trimmed.contains('<') && trimmed.len() > 120 {
+            result.push(format!("{}...[truncated]", &line[..120.min(line.len())]));
+        } else if trimmed.contains('<') {
+            result.push(line.to_string());
+        }
+        // Skip non-tag lines (raw text content inside fields)
+    }
+
+    // Add summary header
+    let header = format!(
+        "Odoo XML: {} records, {} menuitems, {} xpaths",
+        record_count, menuitem_count, xpath_count
+    );
+    if result.is_empty() {
+        return header;
+    }
+    format!("{}\n{}", header, result.join("\n"))
 }
 
 // =============================================================================
@@ -903,5 +1271,93 @@ mod tests {
         let output = error_filter(input);
         assert!(output.contains("ERROR: something broke"));
         assert!(!output.contains("line 1"));
+    }
+
+    #[test]
+    fn test_xml_filter_odoo_record() {
+        let input = r#"<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="view_sale_order_form_inherit" model="ir.ui.view">
+            <field name="name">sale.order.form.inherit</field>
+            <field name="model">sale.order</field>
+            <field name="inherit_id" ref="sale.view_order_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='partner_id']" position="after">
+                    <field name="custom_field"/>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>"#;
+        let output = xml_filter(input);
+        // Header present
+        assert!(output.contains("Odoo XML:"));
+        assert!(output.contains("1 records"));
+        // Key structural elements preserved
+        assert!(output.contains("noupdate=\"1\""));
+        assert!(output.contains("id=\"view_sale_order_form_inherit\""));
+        assert!(output.contains("model=\"ir.ui.view\""));
+        assert!(output.contains("inherit_id"));
+        assert!(output.contains("ref=\"sale.view_order_form\""));
+        assert!(output.contains("xpath"));
+        assert!(output.contains("expr=\"//field[@name='partner_id']\""));
+        assert!(output.contains("position=\"after\""));
+        // Arch field compressed (multi-line block)
+        assert!(output.contains("[..."));
+    }
+
+    #[test]
+    fn test_xml_filter_odoo_menuitem() {
+        let input = r#"<odoo>
+    <menuitem id="menu_sale_root" name="Sales" groups="sales_team.group_sale_salesman" parent="base.menu_root" action="action_sale_order"/>
+</odoo>"#;
+        let output = xml_filter(input);
+        assert!(output.contains("1 menuitems"));
+        assert!(output.contains("id=\"menu_sale_root\""));
+        assert!(output.contains("name=\"Sales\""));
+        assert!(output.contains("groups=\"sales_team.group_sale_salesman\""));
+        assert!(output.contains("parent=\"base.menu_root\""));
+        assert!(output.contains("action=\"action_sale_order\""));
+    }
+
+    #[test]
+    fn test_xml_filter_odoo_noupdate() {
+        let input = r#"<odoo>
+    <data noupdate="1">
+        <record id="rule_1" model="ir.rule">
+            <field name="name">Rule</field>
+        </record>
+    </data>
+    <data noupdate="0">
+        <record id="view_1" model="ir.ui.view">
+            <field name="name">View</field>
+        </record>
+    </data>
+</odoo>"#;
+        let output = xml_filter(input);
+        assert!(output.contains("noupdate=\"1\""));
+        assert!(output.contains("noupdate=\"0\""));
+    }
+
+    #[test]
+    fn test_xml_filter_non_odoo_passthrough() {
+        let input = "<html>\n<body>\n<p>Hello</p>\n</body>\n</html>";
+        let output = xml_filter(input);
+        // Non-odoo XML: generic filter, no Odoo header
+        assert!(!output.contains("Odoo XML:"));
+        assert!(output.contains("<html>"));
+    }
+
+    #[test]
+    fn test_xml_filter_odoo_long_field_truncated() {
+        let long_value = "x".repeat(200);
+        let input = format!(
+            "<odoo>\n    <record id=\"r1\" model=\"ir.ui.view\">\n        <field name=\"description\">{}</field>\n    </record>\n</odoo>",
+            long_value
+        );
+        let output = xml_filter(&input);
+        assert!(output.contains("[...200 chars]"));
+        assert!(!output.contains(&long_value));
     }
 }
