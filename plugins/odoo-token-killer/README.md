@@ -161,4 +161,4 @@ XML views, Docker containers) and a tee system for full output recovery.
 
 ## License
 
-LGPL-3.0 - Same as Odoo Community Edition.
+MIT

@@ -20,7 +20,7 @@
       },
       "homepage": "https://github.com/letzdoo/claude-marketplace",
       "repository": "https://github.com/letzdoo/claude-marketplace",
-      "license": "LGPL-3.0",
+      "license": "MIT",
       "keywords": ["odoo", "doodba", "docker", "erp", "python"],
       "category": "development",
       "tags": ["odoo", "doodba", "docker", "development"]
@@ -36,7 +36,7 @@
       },
       "homepage": "https://github.com/letzdoo/claude-marketplace",
       "repository": "https://github.com/letzdoo/claude-marketplace",
-      "license": "LGPL-3.0",
+      "license": "MIT",
       "keywords": ["odoo", "erp", "python", "owl", "module-development"],
       "category": "development",
       "tags": ["odoo", "erp", "python", "owl"]
@@ -52,7 +52,7 @@
       },
       "homepage": "https://github.com/letzdoo/claude-marketplace",
       "repository": "https://github.com/letzdoo/claude-marketplace",
-      "license": "LGPL-3.0",
+      "license": "MIT",
       "keywords": ["odoo", "xmlrpc", "query", "api", "investigation", "debugging"],
       "category": "development",
       "tags": ["odoo", "xmlrpc", "api", "readonly"]
@@ -68,7 +68,7 @@
       },
       "homepage": "https://github.com/letzdoo/claude-marketplace",
       "repository": "https://github.com/letzdoo/claude-marketplace",
-      "license": "LGPL-3.0",
+      "license": "MIT",
       "keywords": ["odoo", "token-optimization", "cli-proxy", "rtk", "filters", "analytics"],
       "category": "development",
       "tags": ["odoo", "tokens", "optimization", "rtk-inspired"]

@@ -201,7 +201,7 @@ claude plugin validate .
 
 ## License
 
-LGPL-3.0 — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
 
 ## Support
 

@@ -88,7 +88,7 @@ For complete Odoo development:
 
 - **Version**: 3.0.0
 - **Author**: Letzdoo Team
-- **License**: LGPL-3.0
+- **License**: MIT
 
 ## Support
 

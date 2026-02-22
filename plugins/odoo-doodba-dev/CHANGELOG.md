@@ -61,7 +61,7 @@ See git history for full v2.0.0 details.
 
 ## License
 
-LGPL-3.0
+MIT
 
 ## Authors
 
