@@ -2,6 +2,8 @@
 
 A curated collection of Claude Code plugins for professional Odoo ERP development — fast code indexing, intelligent patterns, token optimization, and live instance querying.
 
+> Part of the [Letzdoo AI Marketplace for Odoo](https://ai.letzdoo.com) — a full ecosystem of AI-powered tools for Odoo ERP implementation.
+
 ## Available Plugins
 
 | Plugin | Version | Description |
