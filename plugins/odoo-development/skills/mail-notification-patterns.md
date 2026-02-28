@@ -78,6 +78,63 @@ class MyModel(models.Model):
 
 ## Email Templates
 
+### Template Syntax Evolution (Odoo 15+)
+
+Starting with Odoo 15, email templates migrated from Jinja2 (Mako-style) syntax to QWeb rendering. This brought significant syntax changes and improvements:
+
+**Before Odoo 15 (Jinja2/Mako syntax):**
+```xml
+<record id="email_template_example" model="mail.template">
+    <field name="name">Example Template</field>
+    <field name="model_id" ref="model_my_model"/>
+    <field name="subject">Order ${object.name} - ${object.state}</field>
+    <field name="body_html" type="html">
+<![CDATA[
+<p>Dear ${object.student_id.name},</p>
+<p>Your order ${object.name} is now ${object.state}.</p>
+<p>Amount: ${object.amount_total}</p>
+]]>
+    </field>
+</record>
+```
+
+**Odoo 15+ (QWeb syntax):**
+```xml
+<record id="email_template_example" model="mail.template">
+    <field name="name">Example Template</field>
+    <field name="model_id" ref="model_my_model"/>
+    <field name="subject"><t t-out="object.name"/> - <t t-out="object.state"/></field>
+    <field name="body_html" type="html">
+<![CDATA[
+<p>Dear <t t-out="object.student_id.name"/>,</p>
+<p>Your order <t t-out="object.name"/> is now <t t-out="object.state"/>.</p>
+<p>Amount: <t t-out="object.amount_total"/></p>
+]]>
+    </field>
+</record>
+```
+
+**Key Changes:**
+- **Syntax**: `${expression}` → `<t t-out="expression"/>`
+- **Default behavior**: `t-out` escapes HTML by default (like old `t-esc`)
+- **Raw HTML**: Use `t-out` with `Markup` objects for safe unescaped rendering
+- **Conditionals**: `% if` → `<t t-if="condition">`
+- **Loops**: `% for` → `<t t-foreach="items" t-as="item">`
+
+**The t-out Directive:**
+The `t-out` directive was introduced in Odoo 15 as a unified replacement for:
+- `t-esc` (HTML-escaped output) - deprecated but still works
+- `t-raw` (unescaped output) - deprecated but still works
+
+`t-out` escapes by default but accepts `Markup` objects for safe HTML rendering, providing better security while maintaining flexibility.
+
+**Migration Checklist:**
+- Replace `${object.field}` with `<t t-out="object.field"/>`
+- Replace `${object.field or ''}` with `<t t-out="object.field or ''"/>`
+- Convert `% if` blocks to `<t t-if="condition">`
+- Convert `% for` loops to `<t t-foreach="items" t-as="item">`
+- Update any raw HTML rendering to use `Markup` objects with `t-out`
+
 ### Basic Email Template
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
