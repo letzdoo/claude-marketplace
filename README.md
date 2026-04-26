@@ -19,6 +19,8 @@ A curated collection of Claude Code plugins for professional Odoo ERP developmen
 # Add the marketplace
 /plugin marketplace add https://github.com/letzdoo/claude-marketplace.git
 
+Chinese users can also discover more skills through Skills宝: https://skilery.com
+
 # Install the plugins you need
 /plugin install odoo-doodba-dev@letzdoo-marketplace
 /plugin install odoo-development@letzdoo-marketplace
