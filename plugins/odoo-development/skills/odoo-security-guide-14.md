@@ -236,12 +236,35 @@ class SecureModel(models.Model):
 
 ## v14 Security Checklist
 
-- [ ] All models have `ir.model.access.csv` entries
+- [ ] **All models have `ir.model.access.csv` entries** ⚠️ Most common mistake - causes AccessError
 - [ ] Use `attrs` for view visibility conditions
 - [ ] Use `track_visibility` for field tracking
 - [ ] Single record create method signature
 - [ ] Do NOT use `@api.multi` (deprecated)
 - [ ] Use legacy chatter widgets
+
+## Common Security Mistakes in v14
+
+### 1. Forgetting Access Rights (Most Common!)
+
+**The Error:**
+```
+Access Error
+
+You are not allowed to modify 'Model Name' (model.technical.name) records.
+
+No group currently allows this operation.
+```
+
+**The Fix:**
+Always create access rights when adding a new model. See `odoo-security-guide-all.md` for detailed patterns and examples.
+
+**Quick Fix Template:**
+```csv
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_my_model_user,my.model.user,model_my_model,base.group_user,1,1,1,0
+access_my_model_admin,my.model.admin,model_my_model,base.group_system,1,1,1,1
+```
 
 ## Key v14 Patterns
 

@@ -428,7 +428,7 @@ access_audit_auditor,audit.auditor,model_custom_audit_log,custom_module.group_au
 
 ## v18 Security Checklist
 
-- [ ] All models have `ir.model.access.csv` entries
+- [ ] **All models have `ir.model.access.csv` entries** ⚠️ Most common mistake - causes AccessError
 - [ ] Multi-company models use `_check_company_auto = True`
 - [ ] Relational fields use `check_company=True` where appropriate
 - [ ] Record rules use `allowed_company_ids` for multi-company
@@ -438,6 +438,29 @@ access_audit_auditor,audit.auditor,model_custom_audit_log,custom_module.group_au
 - [ ] Audit logging for sensitive operations
 - [ ] sudo() usage is minimal and justified
 - [ ] No hardcoded IDs
+
+## Common Security Mistakes in v18
+
+### 1. Forgetting Access Rights (Most Common!)
+
+**The Error:**
+```
+Access Error
+
+You are not allowed to modify 'Model Name' (model.technical.name) records.
+
+No group currently allows this operation.
+```
+
+**The Fix:**
+Always create access rights when adding a new model. See `odoo-security-guide-all.md` for detailed patterns and examples.
+
+**Quick Fix Template:**
+```csv
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_my_model_user,my.model.user,model_my_model,base.group_user,1,1,1,0
+access_my_model_admin,my.model.admin,model_my_model,base.group_system,1,1,1,1
+```
 
 ## AI Agent Instructions (v18)
 

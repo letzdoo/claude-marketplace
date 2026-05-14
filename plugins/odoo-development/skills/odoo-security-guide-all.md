@@ -161,6 +161,65 @@ manager_group = self.env.ref('my_module.group_manager')
 manager_group = self.env['res.groups'].browse(7)
 ```
 
+## Common Security Mistakes
+
+### Forgetting Access Rights on New Models
+
+**⚠️ CRITICAL MISTAKE:** The most common security error in Odoo development is forgetting to grant access rights to newly created models. This results in `AccessError` exceptions.
+
+**The Error You'll See:**
+```
+Access Error
+
+You are not allowed to modify 'Model Name' (model.technical.name) records.
+
+No group currently allows this operation.
+
+Contact your administrator to request access if necessary.
+```
+
+**Why This Happens:**
+- Odoo follows "secure by default" principle
+- When you create a new model, NO user (not even admin) has access by default
+- You MUST explicitly grant access rights via `ir.model.access.csv`
+
+**The Fix:**
+Always create `security/ir.model.access.csv` when adding a new model:
+
+```csv
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_my_model_user,my.model.user,model_my_model,base.group_user,1,1,1,0
+access_my_model_manager,my.model.manager,model_my_model,base.group_system,1,1,1,1
+```
+
+**Best Practice Checklist:**
+```
+When creating a new model:
+1. [ ] Create the model class in models/
+2. [ ] Create security/ir.model.access.csv (if not exists)
+3. [ ] Add access rights for at least base.group_user
+4. [ ] Add access rights for base.group_system (admin)
+5. [ ] Register security file in __manifest__.py 'data' section
+6. [ ] Test with non-admin user to verify access works
+```
+
+**Common Access Patterns:**
+
+```csv
+# Pattern 1: User can read/write, Manager can delete
+access_model_user,model.user,model_my_model,base.group_user,1,1,1,0
+access_model_manager,model.manager,model_my_model,my_module.group_manager,1,1,1,1
+
+# Pattern 2: Portal user read-only access
+access_model_portal,model.portal,model_my_model,base.group_portal,1,0,0,0
+access_model_user,model.user,model_my_model,base.group_user,1,1,1,1
+
+# Pattern 3: Public website access (read-only)
+access_model_public,model.public,model_my_model,base.group_public,1,0,0,0
+```
+
+**⚠️ REMEMBER:** This is not a bug in Odoo - it's a security feature. Always define access rights explicitly for every model you create.
+
 ## Multi-Company Security
 
 Multi-company is a critical security concern in Odoo.
