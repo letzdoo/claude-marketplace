@@ -475,6 +475,199 @@ def test_check_company_auto(self):
         })
 ```
 
+## Common Testing Pitfalls and Best Practices
+
+### 1. Respect State Machine SQL Constraints
+
+State transitions must use proper workflow methods, not direct field assignments. SQL constraints enforce state coherence at the database level.
+
+```python
+# WRONG: Direct state assignment bypasses workflow and hits SQL constraints
+record.subscription_state = '3_progress'  # Raises IntegrityError
+
+# CORRECT: Use workflow methods
+record.action_confirm()  # Transition to active/progress
+record.set_close()       # Transition to churned/closed
+```
+
+**Why it matters**: Odoo enforces state machine constraints at the SQL level (CHECK constraints), so even tests that try to bypass Python logic will fail. Always use the proper action methods like `action_confirm()`, `action_cancel()`, `set_close()`, etc.
+
+### 2. cr.commit() is Forbidden in Tests
+
+Odoo monkey-patches `cr.commit()` during tests to raise `AssertionError`, protecting savepoint-based rollback.
+
+```python
+# WRONG: Direct commit raises AssertionError in tests
+self.env.cr.commit()
+
+# CORRECT: Wrap commits in cron methods with try/except
+def _batch_process(self):
+    """Process records in batches with commits"""
+    for batch in self._get_batches():
+        batch.process()
+        try:
+            self.env.cr.commit()
+        except AssertionError:
+            # Test environment - commit is mocked
+            pass
+```
+
+**Important notes**:
+- Neither `in_test_mode()` nor `_test_lock` checks work reliably because the patch happens after those flags are set
+- Tests use savepoints for isolation, and commits would break this mechanism
+- If your code needs to commit (e.g., cron jobs with batch processing), wrap in `try/except AssertionError`
+
+### 3. Module Dependencies are Enforced at Install Time
+
+Missing dependencies in `__manifest__.py` will crash during test initialization, even if fields aren't immediately used.
+
+```python
+# models/my_model.py
+class MyModel(models.Model):
+    _name = 'my.model'
+    _inherit = ['website.published.mixin']  # Adds is_published field
+
+    name = fields.Char()
+```
+
+```python
+# __manifest__.py
+# WRONG: Missing 'website' dependency
+'depends': ['base', 'sale'],
+
+# CORRECT: Include all inherited module dependencies
+'depends': ['base', 'sale', 'website'],
+```
+
+**Why it matters**: The ORM recomputes all stored fields during `init_models()`, which happens before tests run. If you inherit from mixins like `website.published.mixin` without declaring the dependency, you'll get `AttributeError` during test initialization.
+
+### 4. Odoo 18 Breaking Changes
+
+#### ir.cron.numbercall Removed
+
+The `numbercall` field no longer exists in Odoo 18's `ir.cron` model.
+
+```xml
+<!-- WRONG: Odoo 18 raises "Invalid field numbercall" -->
+<record id="cron_cleanup" model="ir.cron">
+    <field name="name">Cleanup Job</field>
+    <field name="model_id" ref="model_my_model"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_cleanup()</field>
+    <field name="interval_number">1</field>
+    <field name="interval_type">days</field>
+    <field name="numbercall">-1</field>  <!-- Field removed in v18 -->
+</record>
+
+<!-- CORRECT: Omit numbercall in v18+ -->
+<record id="cron_cleanup" model="ir.cron">
+    <field name="name">Cleanup Job</field>
+    <field name="model_id" ref="model_my_model"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_cleanup()</field>
+    <field name="interval_number">1</field>
+    <field name="interval_type">days</field>
+</record>
+```
+
+### 5. Essential Test Setup Patterns
+
+#### Use Subscription Test Base Classes
+
+For subscription-related tests, extend the standard test common classes:
+
+```python
+from odoo.addons.sale_subscription.tests.common_sale_subscription import TestSubscriptionCommon
+
+@tagged('post_install', '-at_install')
+class TestMySubscription(TestSubscriptionCommon):
+    """Tests for subscription functionality"""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # TestSubscriptionCommon provides pre-configured subscription data
+        # cls.subscription, cls.subscription_tmpl, etc.
+```
+
+#### Disable Mail for Performance
+
+Use `context_no_mail` to speed up tests by preventing mail generation:
+
+```python
+@tagged('post_install', '-at_install')
+class TestMyModel(TestMyModuleCommon):
+    """Unit tests for my.model"""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # Disable mail tracking for faster tests
+        cls.env = cls.env(context=dict(
+            cls.env.context,
+            tracking_disable=True,
+            mail_create_nolog=True,
+            mail_create_nosubscribe=True,
+            mail_notrack=True,
+        ))
+```
+
+Or use the `no_tracking` context manager:
+
+```python
+def test_bulk_operations(self):
+    """Test bulk operations without mail overhead"""
+    with self.env.noreply():  # Available in some Odoo versions
+        records = self.env['my.model'].create([...])
+```
+
+#### Use Command Class for Relational Fields (v16+)
+
+```python
+from odoo.fields import Command
+
+def test_create_with_lines(self):
+    """Test creation with relational fields"""
+    record = self.env['my.model'].create({
+        'name': 'Test',
+        'line_ids': [
+            Command.create({'name': 'Line 1', 'qty': 1}),
+            Command.create({'name': 'Line 2', 'qty': 2}),
+        ],
+    })
+    self.assertEqual(len(record.line_ids), 2)
+```
+
+#### Invalidate Cache After Indirect Writes
+
+When records are modified through SQL, external methods, or sudo operations, invalidate the cache before assertions:
+
+```python
+def test_external_modification(self):
+    """Test record modified by external process"""
+    record = self.env['my.model'].create({'name': 'Test', 'value': 10})
+
+    # Simulate external modification (SQL, cron, etc.)
+    self.env.cr.execute(
+        "UPDATE my_model SET value = 20 WHERE id = %s",
+        (record.id,)
+    )
+
+    # WRONG: Cached value still shows 10
+    # self.assertEqual(record.value, 20)  # FAILS
+
+    # CORRECT: Invalidate cache first
+    record.invalidate_recordset(['value'])
+    self.assertEqual(record.value, 20)  # PASSES
+```
+
+Common scenarios requiring invalidation:
+- After SQL writes via `cr.execute()`
+- After operations in `sudo()` context
+- After trigger/computed field updates
+- After cron job modifications
+- After external API calls that modify data
+
 ## Running Tests
 
 ```bash
@@ -496,10 +689,20 @@ For each model, generate tests for:
 - [ ] Basic CRUD operations (create, read, update, delete)
 - [ ] All computed fields
 - [ ] All constraints (Python and SQL)
-- [ ] State workflow transitions
+- [ ] State workflow transitions (use action methods, not direct state assignment)
 - [ ] Access rights by user group
 - [ ] Record rules (multi-company, ownership)
 - [ ] Onchange methods
 - [ ] Action methods (buttons)
 - [ ] Copy behavior
 - [ ] Batch operations
+
+**Setup checklist**:
+- [ ] Use `@tagged('post_install', '-at_install')` on test classes
+- [ ] Extend appropriate base classes (e.g., `TestSubscriptionCommon` for subscriptions)
+- [ ] Use `Command.create()` for relational fields (v16+)
+- [ ] Add `context_no_mail` for performance when mail tracking not needed
+- [ ] Call `invalidate_recordset()` after indirect/SQL modifications before assertions
+- [ ] Never use `cr.commit()` in tests (wrap in try/except if in cron methods)
+- [ ] Ensure all inherited mixins are in `depends` list in `__manifest__.py`
+- [ ] Remove `numbercall` from cron definitions in v18+
