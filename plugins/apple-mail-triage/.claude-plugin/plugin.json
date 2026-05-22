@@ -1,0 +1,13 @@
+{
+  "name": "apple-mail-triage",
+  "description": "Read Apple Mail inboxes (macOS), categorize messages, and propose concrete actions to take. Supports all Apple Mail accounts; optional Zoho IMAP for extra accounts.",
+  "version": "1.0.0",
+  "author": {
+    "name": "btcp-srl",
+    "email": "btcpsn@gmail.com"
+  },
+  "license": "MIT",
+  "keywords": ["mail", "email", "apple-mail", "triage", "inbox", "applescript", "zoho", "imap"],
+  "category": "productivity",
+  "tags": ["mail", "macos", "triage", "automation"]
+}

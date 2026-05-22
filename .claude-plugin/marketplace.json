@@ -72,6 +72,20 @@
       "keywords": ["odoo", "token-optimization", "cli-proxy", "rtk", "filters", "analytics"],
       "category": "development",
       "tags": ["odoo", "tokens", "optimization", "rtk-inspired"]
+    },
+    {
+      "name": "apple-mail-triage",
+      "source": "./plugins/apple-mail-triage",
+      "description": "Read Apple Mail inboxes (macOS), categorize messages, and propose concrete actions. Supports all Apple Mail accounts plus optional Zoho IMAP.",
+      "version": "1.0.0",
+      "author": {
+        "name": "btcp-srl",
+        "email": "btcpsn@gmail.com"
+      },
+      "license": "MIT",
+      "keywords": ["mail", "email", "apple-mail", "triage", "inbox", "applescript", "zoho", "imap"],
+      "category": "productivity",
+      "tags": ["mail", "macos", "triage", "automation"]
     }
   ]
 }
