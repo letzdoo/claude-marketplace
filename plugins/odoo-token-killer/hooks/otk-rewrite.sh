@@ -59,74 +59,42 @@ else
     fi
 fi
 
-# Pattern matching: command → otk rewrite
+# Pattern matching: command → otk rewrite.
+#
+# OTK only rewrites commands that are specifically Odoo-, doodba- or
+# Odoo-DB-centric. Generic dev commands (git, grep, find, ls, cat, pytest,
+# pip, plain docker logs / ps / images) are intentionally left untouched —
+# they are handled by general-purpose token-savers like RTK (rtk-ai/rtk),
+# and rewriting them here caused two real-world problems:
+#
+#   1. Stacked PreToolUse hooks (OTK + RTK both enabled) made OTK rewrite
+#      first → RTK then sees `otk git status` (not `git status`), doesn't
+#      match, output stays uncompressed. Net negative.
+#   2. When Claude was working on a non-Odoo Python project, OTK still
+#      rewrote pytest / pip / find / grep / cat etc. — the otk filters
+#      produced output the LLM couldn't interpret in that non-Odoo context,
+#      so Claude resorted to creative workarounds that burned more tokens
+#      than the filter ever saved.
+#
+# Recommended usage: install OTK *alongside* RTK. RTK handles the generic
+# dev firehose; OTK handles the Odoo-specific verbose offenders below.
 REWRITTEN=""
 
 case "$FIRST_CMD" in
-    # -- Odoo Tests --
+    # -- Odoo test runners --
     "invoke test"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
-        ;;
-    pytest*|"python -m pytest"*)
         REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
         ;;
     *"odoo-bin --test"*|*"odoo-bin -t"*)
         REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
         ;;
 
-    # -- Docker/Logs --
+    # -- Doodba / Odoo Docker stack (large structured log volume) --
     "docker compose logs"*|"docker-compose logs"*)
         REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
         ;;
-    "docker logs"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
-        ;;
-    "docker ps"*|"docker images"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
-        ;;
 
-    # -- Git --
-    "git status"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
-        ;;
-    "git diff"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
-        ;;
-    "git log"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
-        ;;
-    "git add"*|"git commit"*|"git push"*|"git pull"*|"git fetch"*|"git stash"*|"git checkout"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
-        ;;
-
-    # -- File Reading (Python/XML) --
-    "cat "*.py|"cat "*.xml|"cat "*.csv)
-        FILE=$(echo "$FIRST_CMD" | awk '{print $NF}')
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} read ${FILE}"
-        ;;
-
-    # -- Search --
-    "grep "*|"rg "*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
-        ;;
-
-    # -- Directory Listing --
-    "ls "*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
-        ;;
-    "tree "*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
-        ;;
-    "find "*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
-        ;;
-
-    # -- Python Packages --
-    "pip list"*|"pip install"*|"pip freeze"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
-        ;;
-
-    # -- SQL --
+    # -- Odoo Database queries (psql often dumps wide ir_*/mail_*/stock_* rows) --
     "psql "*)
         REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
         ;;
