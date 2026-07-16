@@ -198,7 +198,16 @@ fn run_filtered(
     verbose: u8,
     filter_fn: fn(&str) -> String,
 ) -> Result<()> {
-    let command = args.join(" ");
+    // clap consumes the subcommand name, so for real programs (ls, grep, docker, …)
+    // it must be re-prepended before execution — same as run_git does. Label-style
+    // subcommands (test, logs, err) already carry the full command in args.
+    let command = match cmd_name {
+        "test" | "logs" | "err" => args.join(" "),
+        _ => std::iter::once(cmd_name.to_string())
+            .chain(args.iter().cloned())
+            .collect::<Vec<_>>()
+            .join(" "),
+    };
     let timer = tracking::TimedExecution::start();
 
     if verbose > 0 {

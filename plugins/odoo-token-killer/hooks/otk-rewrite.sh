@@ -29,13 +29,21 @@ if [ -z "$CMD" ]; then
     exit 0
 fi
 
-# Skip heredocs and multi-line commands
+# Skip heredocs and multi-line commands. Multi-line input would break the
+# FIRST_CMD/REST reconstruction below, and substring patterns like
+# *"odoo-bin --test"* would match text inside strings (e.g. commit messages).
 if echo "$CMD" | grep -q '<<'; then
     exit 0
 fi
+case "$CMD" in
+    *$'\n'*) exit 0 ;;
+esac
 
 # Extract first command (before pipes/&&)
-FIRST_CMD=$(echo "$CMD" | sed 's/[|&;].*//' | sed 's/^\s*//' | sed 's/\s*$//')
+# POSIX character classes: BSD sed (macOS) treats \s as a literal "s",
+# silently truncating commands whose first segment ends in "s"
+# ("src/main.rs" -> "src/main.r"). [[:space:]] works on GNU and BSD sed.
+FIRST_CMD=$(echo "$CMD" | sed 's/[|&;].*//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
 
 # Preserve environment variable prefixes (e.g., ODOO_RC=/etc/odoo.conf invoke test)
 ENV_PREFIX=$(echo "$FIRST_CMD" | grep -oE '^([A-Za-z_][A-Za-z0-9_]*=[^ ]* +)+' || echo "")
@@ -63,23 +71,23 @@ fi
 REWRITTEN=""
 
 case "$FIRST_CMD" in
-    # -- Odoo Tests --
+    # -- Odoo Tests -- (otk subcommand "test" expects the full command in args)
     "invoke test"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
+        REWRITTEN="${ENV_PREFIX}${OTK_CMD} test ${FIRST_CMD}"
         ;;
     pytest*|"python -m pytest"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
+        REWRITTEN="${ENV_PREFIX}${OTK_CMD} test ${FIRST_CMD}"
         ;;
     *"odoo-bin --test"*|*"odoo-bin -t"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
+        REWRITTEN="${ENV_PREFIX}${OTK_CMD} test ${FIRST_CMD}"
         ;;
 
-    # -- Docker/Logs --
+    # -- Docker/Logs -- (otk subcommand "logs" expects the full command in args)
     "docker compose logs"*|"docker-compose logs"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
+        REWRITTEN="${ENV_PREFIX}${OTK_CMD} logs ${FIRST_CMD}"
         ;;
     "docker logs"*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
+        REWRITTEN="${ENV_PREFIX}${OTK_CMD} logs ${FIRST_CMD}"
         ;;
     "docker ps"*|"docker images"*)
         REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
@@ -105,8 +113,8 @@ case "$FIRST_CMD" in
         REWRITTEN="${ENV_PREFIX}${OTK_CMD} read ${FILE}"
         ;;
 
-    # -- Search --
-    "grep "*|"rg "*)
+    # -- Search -- (do not rewrite rg: otk has no rg subcommand)
+    "grep "*)
         REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
         ;;
 
@@ -126,9 +134,9 @@ case "$FIRST_CMD" in
         REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
         ;;
 
-    # -- SQL --
+    # -- SQL -- (the otk subcommand is named "sql", not "psql"; the binary re-prepends "psql")
     "psql "*)
-        REWRITTEN="${ENV_PREFIX}${OTK_CMD} ${FIRST_CMD}"
+        REWRITTEN="${ENV_PREFIX}${OTK_CMD} sql ${FIRST_CMD#psql }"
         ;;
 esac
 
