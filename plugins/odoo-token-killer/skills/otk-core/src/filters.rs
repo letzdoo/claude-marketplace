@@ -24,6 +24,9 @@ lazy_static! {
     static ref RE_ODOO_LOG_PREFIX: Regex = Regex::new(
         r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} \d+ (INFO|DEBUG|WARNING|ERROR|CRITICAL) "
     ).unwrap();
+    static ref RE_ODOO_LOG_RECORD: Regex = Regex::new(
+        r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} \d+ (INFO|DEBUG|WARNING|ERROR|CRITICAL) \S+ ([\w.]+): (.*)$"
+    ).unwrap();
     static ref RE_PYTEST_PASS: Regex = Regex::new(r"(?i)^(PASSED|.*\.\.\. PASSED|.*::.*PASSED)").unwrap();
     static ref RE_PYTEST_FAIL: Regex = Regex::new(r"(?i)(FAILED|ERROR|ERRORS|assert|AssertionError|Traceback)").unwrap();
     static ref RE_PYTEST_SUMMARY: Regex = Regex::new(r"(?i)^=+ .*(passed|failed|error|warning).* =+$").unwrap();
@@ -78,8 +81,56 @@ fn normalize_blanks(text: &str) -> String {
 // Target: 90-95% reduction
 // =============================================================================
 
+/// Odoo server log output (`--test-enable` / `--test-tags`): `<date> <time> <pid> <LEVEL> <db> <logger>: <msg>`.
+/// Keeps WARNING/ERROR/CRITICAL records with their traceback lines and the
+/// odoo.tests.result / odoo.tests.stats summary; INFO module-loading and
+/// "Starting Test..." chatter and caret-underline lines are dropped. Timestamp,
+/// pid and db are stripped from kept lines.
+fn odoo_test_filter(clean: &str) -> String {
+    let mut kept: Vec<String> = Vec::new();
+    let mut in_block = false; // continuation lines (tracebacks) of a kept record
+    let mut started: u32 = 0;
+    let mut result_line: Option<String> = None;
+
+    for line in clean.lines() {
+        if let Some(caps) = RE_ODOO_LOG_RECORD.captures(line) {
+            let (level, logger, msg) = (&caps[1], &caps[2], &caps[3]);
+            in_block = false;
+            if msg.starts_with("Starting ") && logger.contains(".tests.") {
+                started += 1;
+                continue;
+            }
+            let record = format!("{} {}: {}", level, logger, msg.trim_end());
+            match level {
+                _ if logger == "odoo.tests.result" => result_line = Some(msg.trim().to_string()),
+                _ if logger == "odoo.tests.stats" => kept.push(record),
+                "WARNING" | "ERROR" | "CRITICAL" => {
+                    in_block = true;
+                    kept.push(record);
+                }
+                _ => {}
+            }
+            continue;
+        }
+        let lower = line.to_lowercase();
+        let is_marker = line.trim().chars().all(|c| c == '^' || c == '~'); // Python 3.11+ caret underline, or blank
+        if (in_block || lower.contains("error") || lower.contains("traceback") || lower.contains("exception")) && !is_marker {
+            kept.push(line.trim_end().to_string());
+        }
+    }
+
+    let header = match &result_line {
+        Some(r) => format!("Odoo tests ({} started): {}", started, r),
+        None => format!("Odoo tests: {} started, no odoo.tests.result summary in output", started),
+    };
+    format!("{}\n{}", header, kept.join("\n")).trim_end().to_string()
+}
+
 pub fn test_filter(output: &str) -> String {
     let lines = strip_ansi(output);
+    if lines.lines().filter(|l| RE_ODOO_LOG_RECORD.is_match(l)).take(3).count() == 3 {
+        return odoo_test_filter(&lines);
+    }
     let mut result: Vec<&str> = Vec::new();
     let mut in_failure = false;
     let mut in_traceback = false;
@@ -909,13 +960,27 @@ pub fn git_log_filter(output: &str) -> String {
 // Target: 70-85% reduction
 // =============================================================================
 
+/// `grep -n FILE` prints `12:text` with no filename; every line (or `--` separator) starts with a line number.
+fn is_single_file_grep(text: &str) -> bool {
+    let numbered = |l: &str| l.split_once([':', '-']).is_some_and(|(n, _)| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
+    !text.trim().is_empty() && text.lines().all(|l| l == "--" || numbered(l))
+}
+
 pub fn grep_filter(output: &str) -> String {
     let clean = strip_ansi(output);
     let mut by_file: HashMap<String, Vec<String>> = HashMap::new();
     let total_matches = clean.lines().count();
+    let single_file = is_single_file_grep(&clean);
 
     for line in clean.lines() {
-        if let Some(pos) = line.find(':') {
+        if single_file {
+            if line != "--" {
+                by_file
+                    .entry("(single file)".to_string())
+                    .or_default()
+                    .push(if line.len() > 100 { line[..100].to_string() } else { line.to_string() });
+            }
+        } else if let Some(pos) = line.find(':') {
             let filename = &line[..pos];
             let rest = &line[pos + 1..];
             let content = if rest.len() > 100 { &rest[..100] } else { rest };
@@ -1359,5 +1424,69 @@ mod tests {
         let output = xml_filter(&input);
         assert!(output.contains("[...200 chars]"));
         assert!(!output.contains(&long_value));
+    }
+
+    #[test]
+    fn test_odoo_test_filter_keeps_failures_and_summary() {
+        let input = "\
+2026-10-17 20:46:29,732 1 INFO db odoo.tests.common: Importing test framework
+2026-10-17 20:46:36,294 1 INFO db odoo.modules.loading: Loading module base (1/1)
+2026-10-17 20:49:50,000 1 INFO db odoo.addons.m.tests.test_a: Starting TestA.test_ok ...
+2026-10-17 20:49:50,047 1 ERROR db odoo.addons.m.tests.test_a: ERROR: TestA.test_bad
+Traceback (most recent call last):
+  File \"/mnt/m/tests/test_a.py\", line 12, in test_bad
+    self.assertEqual(1, 2)
+AssertionError: 1 != 2
+2026-10-17 20:50:32,666 1 INFO db odoo.tests.stats: m: 2 tests 3.70s 10 queries
+2026-10-17 20:50:32,666 1 ERROR db odoo.tests.result: 0 failed, 1 error(s) of 2 tests when loading database 'db'
+";
+        let out = test_filter(input);
+        assert!(out.starts_with("Odoo tests (1 started): 0 failed, 1 error(s) of 2 tests"), "{out}");
+        assert!(out.contains("ERROR odoo.addons.m.tests.test_a: ERROR: TestA.test_bad"));
+        assert!(out.contains("File \"/mnt/m/tests/test_a.py\", line 12"));
+        assert!(out.contains("AssertionError: 1 != 2"));
+        assert!(out.contains("INFO odoo.tests.stats: m: 2 tests"));
+        assert!(!out.contains("Loading module base"));
+    }
+
+    #[test]
+    fn test_odoo_test_filter_passing_run_is_not_reported_as_failed() {
+        let input = "\
+2026-10-17 20:46:29,732 1 INFO db odoo.modules.loading: Loading module base (1/1)
+2026-10-17 20:49:50,000 1 INFO db odoo.addons.m.tests.test_a: Starting TestA.test_ok ...
+2026-10-17 20:50:32,666 1 INFO db odoo.tests.stats: m: 1 tests 0.10s 4 queries
+2026-10-17 20:50:32,666 1 INFO db odoo.tests.result: 0 failed, 0 error(s) of 1 tests when loading database 'db'
+";
+        let out = test_filter(input);
+        assert!(out.starts_with("Odoo tests (1 started): 0 failed, 0 error(s) of 1 tests"), "{out}");
+        assert!(!out.contains("Tests: 0 passed"), "{out}");
+        assert!(!out.contains("Loading module base"));
+    }
+
+    #[test]
+    fn test_odoo_test_filter_does_not_claim_success_without_summary() {
+        let input = "2026-10-17 20:46:29,732 1 INFO db odoo.a: x\n2026-10-17 20:46:29,733 1 INFO db odoo.b: y\n2026-10-17 20:46:29,734 1 INFO db odoo.c: z\n";
+        assert!(test_filter(input).contains("no odoo.tests.result summary"));
+    }
+
+    #[test]
+    fn test_grep_single_file_line_numbers_are_not_filenames() {
+        let input = "12:foo: bar\n40:baz\n";
+        let out = grep_filter(input);
+        assert!(out.starts_with("1 files, 2 matches"), "{out}");
+        assert!(out.contains("12:foo: bar") && out.contains("40:baz"), "{out}");
+    }
+
+    #[test]
+    fn test_grep_single_file_with_context_separators() {
+        let out = grep_filter("3:a\n4-b\n--\n9:c\n");
+        assert!(out.contains("(single file) (3 matches):"), "{out}");
+        assert!(!out.contains("--"), "{out}");
+    }
+
+    #[test]
+    fn test_grep_multi_file_output_still_groups_by_path() {
+        let out = grep_filter("a.py:10:x\nb.py:20:y\n");
+        assert!(out.contains("a.py (1 matches):") && out.contains("b.py (1 matches):"), "{out}");
     }
 }
