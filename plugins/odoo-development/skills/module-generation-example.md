@@ -564,7 +564,7 @@ class EquipmentAsset(models.Model):
         <field name="users" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
     </record>
 
-    <!-- Multi-Company Rule (v18: uses allowed_company_ids) -->
+    <!-- Multi-Company Rule (all versions: uses company_ids; allowed_company_ids is not available in rules) -->
     <record id="rule_equipment_asset_company" model="ir.rule">
         <field name="name">Equipment Asset: Multi-Company</field>
         <field name="model_id" ref="model_equipment_asset"/>
@@ -572,7 +572,7 @@ class EquipmentAsset(models.Model):
         <field name="domain_force">[
             '|',
             ('company_id', '=', False),
-            ('company_id', 'in', allowed_company_ids)
+            ('company_id', 'in', company_ids)
         ]</field>
     </record>
 </odoo>
@@ -735,7 +735,7 @@ class TestEquipmentAsset(TransactionCase):
       "SQL() builder for raw SQL",
       "Type hints on methods",
       "Direct invisible/readonly in views",
-      "allowed_company_ids in record rules",
+      "company_ids in record rules",
       "OWL 2.x components"
     ]
   },

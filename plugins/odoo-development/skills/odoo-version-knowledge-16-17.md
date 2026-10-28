@@ -11,8 +11,10 @@
 
 | Category | Change | Impact |
 |----------|--------|--------|
-| Views | `attrs=` REMOVED | **CRITICAL** - Must migrate |
-| ORM | `@api.model_create_multi` required | High - Update all create() |
+| Views | `attrs=` / `states=` (the 16.0 syntax; `invisible="expr"` on record fields does not work in 16.0) replaced by Python expressions; `attrs`/`states` no longer supported | **CRITICAL** - Must migrate |
+| ORM | single-dict `create` still works in 17.0 but logs a WARNING (same as 16.0) | Medium - use `@api.model_create_multi` |
+| SQL | `odoo.tools.SQL` builder introduced, `SQL.identifier` (16.0: none, `odoo.tools.SQL` = `psycopg2.sql.SQL`; `psycopg2.sql.Identifier`) | Medium - rewrite string SQL helpers |
+| JS | `patch(obj, ext)` + `super` (16.0: `patch(obj, name, ext)` + `this._super`) | High - every patch call changes |
 | Domain | New domain expression syntax | Medium - Learn new operators |
 | Security | Enhanced record rule validation | Medium - Review rules |
 | JS | ES6 modules fully enforced | Medium - Update imports |
@@ -83,7 +85,7 @@
 
 ## Create Method Migration
 
-### Before (v16) - Allowed
+### Before (v16) - works, but logs "not overriding the create method in batch"
 ```python
 @api.model
 def create(self, vals):
@@ -92,7 +94,7 @@ def create(self, vals):
     return super().create(vals)
 ```
 
-### After (v17) - Required
+### After (v17) - recommended (the single-dict form still only warns in 17.0)
 ```python
 @api.model_create_multi
 def create(self, vals_list):
@@ -217,10 +219,29 @@ https://raw.githubusercontent.com/odoo/odoo/17.0/addons/sale/models/sale_order.p
 https://raw.githubusercontent.com/odoo/odoo/17.0/odoo/osv/expression.py
 ```
 
+## Official guideline deltas 16.0 -> 17.0
+
+Only rules of the official Odoo guidelines (odoo/odoo `skills/`, verified per version) whose 16.0 and 17.0 forms differ:
+
+| Topic | 16.0 | 17.0 |
+|---|---|---|
+| `_search()` + custom SQL | `query.select('"t"."c"')` -> `(str, params)` | `query.select(SQL(...))` |
+| `_()` and Markup | no escaping of Markup args | escapes args when an argument is Markup; `tools.format_list` available |
+| `records.grouped()` | absent (`tools.groupby`) | exists |
+| Aggregation | `read_group(domain, fields, groupby, lazy)` / `_read_group` same signature -> dicts | `_read_group(domain, groupby, aggregates)` -> tuples (`read_group` still public) |
+| `<asset>` XML tag | absent (manifest `assets` only) | exists |
+| Python | 3.7 - 3.12 | 3.10+ |
+
+View modifiers, SQL builder and JS `patch`: see Breaking Changes Summary.
+
+Unchanged (16.0 = 17.0): default test tags `standard`+`at_install`, imported test classes and inherited `test_*` methods are collected, `BaseCommon`/`BaseUsersCommon`, `_sql_constraints`, field `index` values, no `base` injection in manifests, `t-lang` without `t-call` = SyntaxError, `@api.private`, route types http/json, auth user/public/none, restricted `tools.misc.pickle`, Owl 2 without `computed`.
+
 ## Migration Checklist
 
 - [ ] **CRITICAL**: Replace ALL `attrs=` with inline expressions
-- [ ] Update all `@api.model` create to `@api.model_create_multi`
+- [ ] Update all `@api.model` create to `@api.model_create_multi` (warning in both versions)
+- [ ] Convert JS `patch(obj, "name", {...})` + `this._super` to `patch(obj, {...})` + `super`
+- [ ] Optionally move `read_group` aggregation to `_read_group(domain, groupby, aggregates)`
 - [ ] Review record rules for stricter validation
 - [ ] Test all view visibility conditions
 - [ ] Verify JavaScript modules use ES6 imports
@@ -232,8 +253,8 @@ https://raw.githubusercontent.com/odoo/odoo/17.0/odoo/osv/expression.py
 ### Error: `ValueError: attrs attribute is no longer supported`
 **Fix**: Replace `attrs="{...}"` with inline `invisible=`, `readonly=`, `required=`
 
-### Error: `TypeError: create() takes 2 positional arguments but 3 were given`
-**Fix**: Change `@api.model def create(self, vals)` to `@api.model_create_multi def create(self, vals_list)`
+### Warning: `The model ... is not overriding the create method in batch`
+**Fix**: Change `@api.model def create(self, vals)` to `@api.model_create_multi def create(self, vals_list)` (already logged in 16.0)
 
 ### Error: `Invalid domain expression`
 **Fix**: Review domain syntax - v17 is stricter about field references

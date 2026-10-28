@@ -11,13 +11,13 @@
 
 | Pattern | v16 | v17 | Action |
 |---------|-----|-----|--------|
-| `@api.model_create_multi` | Recommended | **Mandatory** | Must add |
-| `attrs` in views | Deprecated | Removed | Must migrate |
-| `states` in views | Deprecated | Removed | Must migrate |
+| `@api.model_create_multi` | single-dict create logs a WARNING | same WARNING (not an error) | Should add |
+| `attrs` in views | The 16.0 syntax (domains) | Replaced by Python expressions | Must migrate |
+| `states` in views | The 16.0 shorthand | Replaced by `invisible="state not in (...)"` | Must migrate |
 
-## MANDATORY: @api.model_create_multi
+## Recommended: @api.model_create_multi
 
-### Before (v16)
+### Before (v16, logs "not overriding the create method in batch")
 ```python
 @api.model
 def create(self, vals):
@@ -59,9 +59,9 @@ def get_view_visibility(self):
     }
 ```
 
-## Command Class (Already Required in v16)
+## Command Class (available since 15.0, unchanged in 17.0)
 
-Ensure all x2many operations use Command class:
+Prefer the Command class for x2many operations (tuples still work in both versions):
 
 ```python
 from odoo import Command
@@ -82,7 +82,7 @@ self.write({
 
 ## Python Version Updates
 
-- v16: Python 3.8+
+- v16: Python 3.7+ (up to 3.12)
 - v17: Python 3.10+
 
 ### New Python Features Available
@@ -117,13 +117,30 @@ def process(self, data: list[dict]) -> bool:
 - [ ] Test all form views for visibility
 - [ ] Test all buttons for state visibility
 
+## Official guideline deltas 16.0 -> 17.0
+
+Only ORM rules of the official Odoo guidelines (odoo/odoo `skills/`, verified per version) whose 16.0 and 17.0 forms differ:
+
+| Topic | 16.0 | 17.0 |
+|---|---|---|
+| Aggregate per group | `read_group(domain, ['amount:sum'], ['partner_id'], lazy=False)` -> list of dicts (`_read_group` has the same signature) | `_read_group(domain, ['partner_id'], ['amount:sum'])` -> list of tuples |
+| `records.grouped(key)` | absent: `tools.groupby(records, key)` | exists |
+| Custom SQL over ORM rows | `query = M._search(dom)`; `sql, params = query.select('"t"."id"')` | `M._search(dom).select(SQL(...))` with `odoo.tools.SQL` |
+| Dynamic SQL identifiers | `psycopg2.sql.Identifier` | `SQL.identifier(name)` |
+| Translations | `_()` with `%` args, no Markup escaping | `_()` escapes args when one is Markup; `tools.format_list` |
+| `<asset>` XML records | absent | exists |
+
+View modifiers and the single-dict create WARNING: see Breaking Changes Summary.
+
+Unchanged (16.0 = 17.0): `_sql_constraints` (no `models.Constraint`), `index` values `btree`/`btree_not_null`/`trigram`, `osv.expression.AND/OR`, related through x2many truncates to the first record, `default_<field>` context leak, `t-lang` only with `t-call`, custom `_get_report_values` must return `docs`/`doc_ids`/`doc_model`, `cr.savepoint()`.
+
 ## Common Errors and Fixes
 
-### Error: create() expects vals_list
+### Warning: create() not batched
 ```
-TypeError: create() got an unexpected keyword argument 'vals'
+The model ... is not overriding the create method in batch
 ```
-**Fix**: Update method signature to accept `vals_list`.
+**Fix**: Use `@api.model_create_multi` and accept `vals_list` (logged in 16.0 and 17.0).
 
 ### Error: Missing return in create
 ```

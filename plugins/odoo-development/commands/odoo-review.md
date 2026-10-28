@@ -84,16 +84,17 @@ If not provided:
 2. Extract version from manifest's `version` field (e.g., `18.0.1.0.0`)
 3. If unclear, ask the user
 
-### Step 2: Load Version-Specific Knowledge
+### Step 2: Perform Review (official Odoo review process)
 
-```
-Read: odoo-development/skills/odoo-security-guide-{version}.md
-Read: odoo-development/skills/odoo-model-patterns-{version}.md
-```
+The agent follows Odoo's official `odoo-review` process (odoo/odoo `skills/`, branch 20.0), adapted to 14.0-19.0; full text in `agents/odoo-code-reviewer.md`:
 
-### Step 3: Perform Review
-
-Review the module against these categories:
+1. **Scope**: pin the reviewed commit and its base; read the diff, the manifests (`depends`), commit messages and PR description from that checkout only. Note whether the target is a released version. Review an Enterprise/Community other half together.
+2. **Map** every changed file to the plugin guideline files of the target version that apply (Python -> `odoo-model-patterns-{version}.md`, controllers/security/sudo/SQL -> `odoo-security-guide-{version}.md` + audit sweep, XML -> `xml-view-patterns.md`, `static/` -> OWL guide, `tests/` -> `odoo-test-patterns.md`, released target -> stable-branch policy).
+3. **Read** every mapped section before the first finding.
+4. **Rules pass** against the mapped sections and the Review Categories below, including code the diff never shows: overrides of changed methods, renamed names in Python/XML/JS (xpaths, domains, `patch()`), shared context keys and their JS twin, the Enterprise half.
+5. **Merits pass**: edge values, rounding, timezones, empty and multi-record `self`, concurrency, the second run, tests that would fail without the change, cost at scale.
+6. **Version traps**: confirm every API flagged or recommended exists in the target version (`odoo-version-knowledge-all.md` cross-version table); never recommend master/20.0-only APIs.
+7. **Report** each finding with file/line, defect, failure scenario, fix, and rule or *judgement*; end with a **Guidelines read:** line.
 
 ## Review Categories
 
@@ -154,15 +155,15 @@ Review the module against these categories:
 - **Overall Score**: X/10
 
 ### Critical Issues (Must Fix)
-1. [SECURITY] Description...
-2. [SECURITY] Description...
+1. [SECURITY] `file:line` - defect / failure scenario / fix / rule
+2. [SECURITY] ...
 
 ### Warnings (Should Fix)
-1. [PERFORMANCE] Description...
-2. [DEPRECATED] Description...
+1. [PERFORMANCE] `file:line` - defect / failure scenario / fix / rule
+2. [DEPRECATED] ...
 
 ### Suggestions (Nice to Have)
-1. [QUALITY] Description...
+1. [QUALITY] `file:line` - defect / failure scenario / fix / *judgement*
 
 ### Files Reviewed
 - models/model.py: X issues
@@ -172,35 +173,40 @@ Review the module against these categories:
 ### Version-Specific Notes
 - For v{version}, consider...
 - Deprecated pattern found: ...
+
+**Guidelines read:** <every guideline file/section opened>
 ```
 
 ## Version-Specific Checks
 
+Full list in `agents/odoo-code-reviewer.md`; cross-version API table in `skills/odoo-version-knowledge-all.md`.
+
+### All versions (14-19)
+- `@api.multi`/`@api.one` are removed; `track_visibility` only warns (use `tracking`)
+- `allowed_company_ids` is not available in record rules (use `company_ids`)
+- `_check_company_auto`/`check_company=True` exist in every version
+
 ### Odoo 14
-- Check for `@api.multi` (deprecated)
-- Check for `track_visibility` usage
+- No `Command` (tuples), no `t-out`, no manifest `assets` key
 
 ### Odoo 15
-- Ensure `@api.multi` is removed
-- Check `tracking` is used instead of `track_visibility`
+- `Command` available; prefer `t-out` (`t-raw` deprecated but still raw)
 
 ### Odoo 16
-- Check for `Command` class usage
-- Warn about `attrs` deprecation
+- `attrs`/`states` are still the correct view syntax
+- Owl 2 patterns
 
 ### Odoo 17
-- Error if `attrs` is used (removed)
-- Check `@api.model_create_multi` is used
+- Error if `attrs`/`states` are used (removed)
+- `_read_group` tuple API, `SQL` builder available
 
 ### Odoo 18
-- Check for `_check_company_auto`
-- Recommend type hints
-- Recommend `SQL()` builder
-- Check `allowed_company_ids` in rules
+- `<list>` instead of `<tree>`
+- `check_access()` instead of deprecated `check_access_rights`/`check_access_rule`
 
 ### Odoo 19
-- Error if no type hints
-- Error if raw SQL without `SQL()` builder
+- Error on `_sql_constraints` (silently ignored)
+- `group_ids` on users, `fields.Domain`; type hints and the `SQL` builder are not mandatory
 
 ## Example Usage
 

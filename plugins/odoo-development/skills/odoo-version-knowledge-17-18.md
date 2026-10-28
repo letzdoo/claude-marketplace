@@ -12,18 +12,19 @@
 | Category | Change | Impact |
 |----------|--------|--------|
 | Controllers | `request.not_found()` must be **raised**, not returned | **High** - Update all controllers |
-| Multi-Company | `_check_company_auto` recommended | High - Review all models |
-| Relations | `check_company=True` recommended | High - Update Many2one fields |
-| SQL | `SQL()` builder recommended | Medium - Update raw queries |
+| Multi-Company | `_check_company_auto` recommended (already available in v17, not new) | Low - optional clean-up |
+| Relations | `check_company=True` recommended (already available in v17) | Low - optional clean-up |
+| SQL | `SQL()` builder recommended (already available in v17) | Low - optional clean-up |
+| Access checks | `check_access_rights()`/`check_access_rule()` deprecated -> `check_access()`/`has_access()` | Medium |
 | Type Hints | Recommended for methods | Low - Add gradually |
 | Security | Enhanced company isolation | Medium - Review rules |
 
 ## Multi-Company Framework
 
-### The Big Change
-v18 introduces stricter multi-company validation with automatic checking.
+### Note
+`_check_company_auto` and `check_company=True` exist in both v17 and v18; replacing manual constraints is a clean-up you can do in either version.
 
-### Before (v17)
+### Before (manual constraint)
 ```python
 class MyModel(models.Model):
     _name = 'my.model'
@@ -31,16 +32,17 @@ class MyModel(models.Model):
     company_id = fields.Many2one('res.company')
     partner_id = fields.Many2one('res.partner')
 
-    # Manual company validation
+    # Manual company validation (do not name it _check_company:
+    # that would override BaseModel._check_company)
     @api.constrains('partner_id', 'company_id')
-    def _check_company(self):
+    def _check_partner_company(self):
         for record in self:
             if record.partner_id.company_id and \
                record.partner_id.company_id != record.company_id:
                 raise ValidationError("Partner company mismatch!")
 ```
 
-### After (v18)
+### After (automatic, v17 and v18)
 ```python
 class MyModel(models.Model):
     _name = 'my.model'
@@ -193,15 +195,17 @@ This change aligns with Python exception handling best practices:
 - Better error propagation through the request handling stack
 - Consistent with other Odoo exception patterns
 
-## Record Rules: allowed_company_ids
+## Record Rules: company_ids (unchanged)
 
-### v18 Record Rule Pattern
+The record rule eval context is the same in v17 and v18: `user`, `time`, `company_ids`, `company_id`. `allowed_company_ids` is NOT defined there; a rule using it fails validation.
+
+### v17 / v18 Record Rule Pattern
 ```xml
 <record id="rule_my_model_company" model="ir.rule">
     <field name="name">My Model: Multi-company</field>
     <field name="model_id" ref="model_my_model"/>
     <field name="domain_force">[
-        ('company_id', 'in', allowed_company_ids)
+        ('company_id', 'in', company_ids)
     ]</field>
 </record>
 ```
@@ -219,9 +223,9 @@ company_id = fields.Many2one(
 )
 ```
 
-## SQL() Builder Introduction
+## SQL() Builder (available since v17)
 
-### Before (v17)
+### Before (string SQL)
 ```python
 # String SQL - works but discouraged
 self.env.cr.execute("""
@@ -233,7 +237,7 @@ self.env.cr.execute("""
 """, ('confirmed', self.env.company.id, 100))
 ```
 
-### After (v18) - Recommended
+### After (v17 and v18) - Recommended
 ```python
 from odoo.tools import SQL
 
@@ -374,12 +378,30 @@ https://raw.githubusercontent.com/odoo/odoo/18.0/odoo/tools/sql.py
 https://raw.githubusercontent.com/odoo/odoo/18.0/addons/sale/models/sale_order.py
 ```
 
+## Official guideline deltas 17.0 -> 18.0
+
+Only the official-guideline rules (Odoo `skills/`, verified against both sources) that change between the two versions:
+
+| Topic | 17.0 | 18.0 |
+|-------|------|------|
+| Route `auth` values | `user`, `public`, `none` | adds `bearer` (no `bearer_scope`) |
+| Single-dict `@api.model` create | logs a WARNING | DeprecationWarning |
+| Translation API | `_()` frame-based, `_lt` | adds `self.env._` and `LazyTranslate` (`_`/`_lt` still work) |
+| Restricted `odoo.tools.misc.pickle` | exists | removed |
+| JS HTML helpers | `htmlEscape`/`markup` (`@odoo/owl`), `escape` (`@web/core/utils/strings`) | adds `@web/core/utils/html` (`htmlEscape`, `isHtmlEmpty`, `setElementContent`) |
+| Imported TestCase class in a test file | collected again (runs twice) | skipped |
+| Inherited `test_*` methods | collected | not collected unless `allow_inherited_tests_method = True` |
+| `SavepointCase` | removed (already gone in 17.0) | removed (use `TransactionCase`) |
+
+Unchanged (despite claims elsewhere; for rule eval context, `SQL` and `_check_company_auto`/`check_company` see the sections above): `_read_group(domain, groupby, aggregates)`, `_sql_constraints`, route types `http`/`json`, QWeb `t-out` (`t-esc` alias, `t-raw` deprecated), default test tags `{'standard', 'at_install'}`, Owl without `computed`, `patch(obj, ext)`.
+
 ## Migration Checklist
 
 - [ ] **CRITICAL**: Change all `return request.not_found()` to `raise request.not_found()`
-- [ ] Add `_check_company_auto = True` to multi-company models
-- [ ] Add `check_company=True` to relational fields
-- [ ] Update record rules to use `allowed_company_ids`
+- [ ] Add `_check_company_auto = True` to multi-company models (optional, already possible in v17)
+- [ ] Add `check_company=True` to relational fields (optional, already possible in v17)
+- [ ] Keep record rules on `company_ids` (do NOT use `allowed_company_ids`)
+- [ ] Replace `check_access_rights()`/`check_access_rule()` with `check_access()`/`has_access()`
 - [ ] Start migrating raw SQL to `SQL()` builder
 - [ ] Add type hints to new/modified methods
 - [ ] Review and test multi-company scenarios
@@ -408,7 +430,7 @@ if not record.exists():
 **Fix**: Migrate to `SQL()` builder: `from odoo.tools import SQL`
 
 ### Error: Company isolation violations
-**Fix**: Add proper `_check_company_auto` and update record rules
+**Fix**: Add proper `_check_company_auto` and check that record rules use `company_ids`
 
 ## Multi-Company Testing
 
@@ -439,23 +461,23 @@ def test_multi_company_isolation(self):
 ## Comparison: v17 vs v18 Model
 
 ```python
-# v17 Style
-class MyModelV17(models.Model):
+# Manual style (works in v17 and v18)
+class MyModelManual(models.Model):
     _name = 'my.model'
 
     company_id = fields.Many2one('res.company')
     partner_id = fields.Many2one('res.partner')
 
     @api.constrains('partner_id')
-    def _check_company(self):
+    def _check_partner_company(self):
         for record in self:
             if record.partner_id.company_id:
                 if record.partner_id.company_id != record.company_id:
                     raise ValidationError("Company mismatch")
 
 
-# v18 Style
-class MyModelV18(models.Model):
+# Automatic style (available in v17 and v18)
+class MyModelAuto(models.Model):
     _name = 'my.model'
     _check_company_auto = True
 

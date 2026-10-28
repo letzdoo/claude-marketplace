@@ -11,18 +11,19 @@
 
 | Component | v15 | v16 | Migration Required |
 |-----------|-----|-----|-------------------|
-| x2many operations | Tuple syntax | `Command` class | Recommended |
-| View visibility | `attrs` | `attrs` (deprecated) | Prepare for v17 |
+| x2many operations | `Command` class or tuples | `Command` class or tuples | No (Command exists since 15.0) |
+| View visibility | `attrs` | `attrs` (still the correct syntax; direct `invisible="expr"` is 17.0+) | No |
 | OWL | 1.x | 2.x | For OWL components |
-| @api.model_create_multi | Optional | Recommended | Recommended |
+| `create` override | `@api.model_create_multi` (single-dict `@api.model` silently wrapped) | `@api.model_create_multi` (`@api.model` logs a warning) | Recommended |
 
 ## Key Changes
 
 ### 1. Command Class for x2many Operations
 
-The `Command` class provides a cleaner API for x2many field operations with security implications.
+The `Command` class provides a cleaner API for x2many field operations. It already exists in 15.0
+(`from odoo import Command`); both forms below work in 15.0 and 16.0.
 
-**v15 (tuple syntax):**
+**Tuple syntax (15.0 and 16.0):**
 ```python
 def action_update_lines(self):
     self.write({
@@ -38,7 +39,7 @@ def action_update_lines(self):
     })
 ```
 
-**v16 (Command class):**
+**Command class (15.0 and 16.0, preferred):**
 ```python
 from odoo import Command
 
@@ -56,30 +57,22 @@ def action_update_lines(self):
     })
 ```
 
-### 2. Prepare for attrs Deprecation
+### 2. View visibility: keep `attrs` in 16.0
 
-While `attrs` still works in v16, it's deprecated. Start migrating to direct attributes.
+`attrs` remains the correct syntax in 15.0 and 16.0. A direct `invisible="state == 'draft'"` is NOT evaluated
+as a record condition in 16.0; direct expressions only work from 17.0.
 
-**v15/v16 (still works but deprecated):**
+**v15/v16:**
 ```xml
 <field name="notes" attrs="{'invisible': [('state', '=', 'draft')]}"/>
 ```
 
-**v16 (recommended, ready for v17):**
-```xml
-<field name="notes" invisible="state == 'draft'"/>
-```
+### 3. create() override
 
-### 3. @api.model_create_multi Recommendation
+In 15.0 the base `create` is already `@api.model_create_multi`; a single-dict `@api.model` override is silently
+wrapped in 15.0 and logs a warning in 16.0.
 
-**v15:**
-```python
-@api.model
-def create(self, vals):
-    return super().create(vals)
-```
-
-**v16 (recommended):**
+**v15 and v16:**
 ```python
 @api.model_create_multi
 def create(self, vals_list):
@@ -152,16 +145,17 @@ def action_create_secure_lines(self):
 
 **v15 (OWL 1.x):**
 ```javascript
-odoo.define('my_module.MyComponent', function (require) {
-    const { Component } = owl;
-    const { registry } = require('@web/core/registry');
+/** @odoo-module **/
 
-    class MyComponent extends Component {
-        // ...
-    }
+import { registry } from "@web/core/registry";
 
-    registry.category('actions').add('my_action', MyComponent);
-});
+const { Component } = owl;
+
+export class MyComponent extends Component {
+    // ...
+}
+
+registry.category('actions').add('my_action', MyComponent);
 ```
 
 **v16 (OWL 2.x):**
@@ -210,45 +204,38 @@ notes = fields.Text(groups='my_module.group_manager')
 
 ## Migration Checklist
 
-- [ ] Import `Command` from `odoo` and use for x2many operations
-- [ ] Start migrating `attrs` to direct attributes (preparation for v17)
+- [ ] Import `Command` from `odoo` and use for x2many operations (already possible in 15.0)
+- [ ] Keep `attrs` in 16.0 views (direct attributes only from 17.0)
 - [ ] Update to `@api.model_create_multi` for create methods
+- [ ] Replace `sudo(user)` by `with_user(user)` (16.0 accepts only a bool)
+- [ ] Move `t-lang` onto `t-call` nodes (16.0 raises at template compile)
+- [ ] Review the "Official guideline deltas" table below
 - [ ] Migrate OWL 1.x components to OWL 2.x
 - [ ] Test x2many operations with new Command syntax
 - [ ] Update JavaScript module syntax
 
 ## Dual Compatibility (v15/v16)
 
-If you need to support both versions:
+`from odoo import Command` works in both 15.0 and 16.0; no fallback is needed (a fallback is only
+required for 14.0, which has no `Command` class).
 
-```python
-try:
-    from odoo import Command
-except ImportError:
-    # Fallback for v15
-    class Command:
-        @staticmethod
-        def create(values):
-            return (0, 0, values)
-        @staticmethod
-        def update(id, values):
-            return (1, id, values)
-        @staticmethod
-        def delete(id):
-            return (2, id, 0)
-        @staticmethod
-        def unlink(id):
-            return (3, id, 0)
-        @staticmethod
-        def link(id):
-            return (4, id, 0)
-        @staticmethod
-        def clear():
-            return (5, 0, 0)
-        @staticmethod
-        def set(ids):
-            return (6, 0, ids)
-```
+## Official guideline deltas 15.0 -> 16.0
+
+| Topic | 15.0 | 16.0 |
+|---|---|---|
+| `sudo(user)` | deprecated, warns, delegates to `with_user` | removed: `sudo()` accepts only a bool |
+| RPC guard | `check_method_name`: blocks `_*` and `init` | `get_public_method`: also blocks `@api.private` methods and unsafe attributes |
+| `@api.private` | absent | available |
+| `odoo.tools.SQL` | absent | `tools.SQL` is psycopg2's `sql.SQL` (NOT the 17.0+ builder API); keep psycopg2 params / `sql.Identifier` |
+| route override without `@http.route` | URL silently dropped | auto-decorated, warning logged |
+| JS escaping | Owl 1.4: no `markup()`, no `escape` helper (use `t-esc`, `_.escape`) | Owl 2: `markup()`, `escape` in `@web/core/utils/strings` |
+| `t-lang` without `t-call` | silently ignored | SyntaxError at compile |
+| test fixtures | no `BaseCommon` / `BaseUsersCommon` | `BaseCommon`, `BaseUsersCommon` (`user_internal`, `user_portal`) available |
+
+Unchanged in both: `_allow_sudo_commands`, `related_sudo`, `Command`, `fields.NO_ACCESS`, `file_open`, restricted
+`odoo.tools.misc.pickle`, `consteq`, `ir.model.access` + `ir.rule` semantics and rule eval context, route
+`auth` (`user`/`public`/`none`) and `type` (`http`/`json`), CSRF behaviour, server QWeb `t-out`/`t-raw`, `_()` not
+escaping Markup arguments, `osv.expression` for domains.
 
 ## GitHub Reference
 

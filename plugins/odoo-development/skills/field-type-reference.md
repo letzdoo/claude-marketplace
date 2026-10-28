@@ -535,7 +535,7 @@ class MyModel(models.Model):
 
 ### v19+
 ```python
-# Type hints required
+# Type hints optional (nothing raises for missing annotations)
 class MyModel(models.Model):
     _name = 'my.model'
 

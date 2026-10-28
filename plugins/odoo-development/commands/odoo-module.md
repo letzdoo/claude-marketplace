@@ -188,9 +188,9 @@ Generate files in the current working directory:
 - `@api.model_create_multi` mandatory
 
 ### For Odoo 18
-- Add `_check_company_auto`
+- `_check_company_auto` + `check_company=True` are opt-in (available since 14.0)
 - Add type hints to fields
-- Use `allowed_company_ids` in rules
+- Use `company_ids` in record rules (`allowed_company_ids` is not available there)
 
 ### For Odoo 19
 - Full type annotations required

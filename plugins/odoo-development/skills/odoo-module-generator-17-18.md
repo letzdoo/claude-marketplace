@@ -11,16 +11,16 @@
 
 | Component | v17 Status | v18 Status | Action Required |
 |-----------|------------|------------|-----------------|
-| `_check_company_auto` | Optional | Recommended | Add to models |
-| `check_company` on fields | Optional | Recommended | Add to relations |
-| `SQL()` builder | New | Recommended | Use for raw SQL |
+| `_check_company_auto` | Available | Available | Optional clean-up (no version change) |
+| `check_company` on fields | Available | Available | Optional clean-up (no version change) |
+| `SQL()` builder | Available | Available | Use for raw SQL in both |
 | Type hints | Optional | Recommended | Add where possible |
 | Raw SQL strings | Allowed | Deprecated | Migrate to SQL() |
 | Python 3.10 | Required | 3.10+, 3.12 recommended | Verify compatibility |
 
-## NEW: Company Check Automation
+## Company Check Automation (available in v17 and v18)
 
-### Before (v17)
+### Before (manual check)
 ```python
 class MyModel(models.Model):
     _name = 'my.model'
@@ -37,23 +37,23 @@ class MyModel(models.Model):
         return super().write(vals)
 ```
 
-### After (v18)
+### After (automatic, v17 and v18)
 ```python
 class MyModel(models.Model):
     _name = 'my.model'
-    _check_company_auto = True  # v18: Enable automatic checks
+    _check_company_auto = True  # Enable automatic checks (v17 and v18)
 
     company_id = fields.Many2one('res.company', required=True)
     partner_id = fields.Many2one(
         'res.partner',
-        check_company=True,  # v18: Automatic company validation
+        check_company=True,  # Automatic company validation
     )
     # No manual validation needed - framework handles it
 ```
 
-## NEW: SQL Builder Pattern
+## SQL Builder Pattern (available in v17 and v18)
 
-### Before (v17 - Raw SQL)
+### Before (string interpolation - an injection risk in any version)
 ```python
 def _get_statistics(self):
     # Vulnerable to SQL injection if not careful
@@ -67,7 +67,7 @@ def _get_statistics(self):
     return self.env.cr.dictfetchall()
 ```
 
-### After (v18 - SQL Builder)
+### After (SQL builder, v17 and v18)
 ```python
 from odoo.tools import SQL
 
@@ -188,18 +188,18 @@ class MyModel(models.Model):
     )
 ```
 
-### Security Rule Update
+### Security Rule (unchanged)
 
 ```xml
-<!-- v18: Use allowed_company_ids -->
+<!-- v17 and v18: rule eval context has company_ids, NOT allowed_company_ids -->
 <record id="rule_my_model_company" model="ir.rule">
     <field name="name">My Model: Multi-Company</field>
     <field name="model_id" ref="model_my_model"/>
-    <field name="global" eval="True"/>
+    <!-- No groups => global rule ('global' is computed, do not set it) -->
     <field name="domain_force">[
         '|',
         ('company_id', '=', False),
-        ('company_id', 'in', allowed_company_ids)
+        ('company_id', 'in', company_ids)
     ]</field>
 </record>
 ```
@@ -240,6 +240,21 @@ const records = await this.orm.searchRead(
 'version': '18.0.1.0.0',
 ```
 
+## Official guideline deltas 17.0 -> 18.0
+
+Only the official-guideline rules relevant to generated modules (Odoo `skills/`, verified against both sources) that change between the two versions:
+
+| Topic | 17.0 | 18.0 |
+|-------|------|------|
+| Single-dict `@api.model` create | logs a WARNING | DeprecationWarning (always generate `@api.model_create_multi`) |
+| Translation API | `_("...%s", arg)`, `_lt` | adds `self.env._(...)` and `LazyTranslate` |
+| Access check API | `check_access_rights()` / `check_access_rule()` | deprecated -> `check_access()` / `has_access()` |
+| Imported TestCase class in a test file | collected again (runs twice) | skipped |
+| Inherited `test_*` methods | collected | not collected unless `allow_inherited_tests_method = True` |
+| `SavepointCase` | removed (already gone in 17.0; use `TransactionCase`) | removed |
+
+Unchanged in both: manifest (no automatic `base` dependency, `license` defaults to LGPL-3 with a warning, `auto_install` list, `assets` key), `security/ir.model.access.csv`, `_sql_constraints`, default test tags `{'standard', 'at_install'}` with `@tagged('post_install', '-at_install')` for post-install tests, `BaseCommon` / `BaseUsersCommon`, `--test-tags /module:Class`.
+
 ## Migration Checklist
 
 ### Models (Python)
@@ -256,7 +271,7 @@ const records = await this.orm.searchRead(
 - [ ] Verify field visibility with company rules
 
 ### Security (XML)
-- [ ] Update record rules to use `allowed_company_ids`
+- [ ] Keep record rules on `company_ids` (do NOT use `allowed_company_ids`)
 - [ ] Test multi-company access scenarios
 - [ ] Verify cross-company data isolation
 
@@ -315,22 +330,18 @@ The SQL() builder adds minimal overhead but provides:
 
 ### Keeping v17 Compatibility (Dual Version)
 ```python
-# Works in both v17 and v18
-try:
-    from odoo.tools import SQL
-    HAS_SQL_BUILDER = True
-except ImportError:
-    HAS_SQL_BUILDER = False
+# Works in both v17 and v18 - odoo.tools.SQL exists in both, no fallback needed
+from odoo.tools import SQL
 
-def _execute_query(self, ...):
-    if HAS_SQL_BUILDER:
-        query = SQL(...)
-    else:
-        query = "..." % (...)
-    self.env.cr.execute(query)
+def _execute_query(self):
+    self.env.cr.execute(SQL(
+        "SELECT id FROM %s WHERE company_id = %s",
+        SQL.identifier(self._table), self.env.company.id,
+    ))
+    return self.env.cr.fetchall()
 ```
 
-**Note**: This is only recommended for modules that must support multiple versions simultaneously.
+**Note**: Avoid APIs added in v18 (`self.env._`, `LazyTranslate`, `check_access()`/`has_access()`) in modules that must also run on v17.
 
 ## GitHub Reference
 

@@ -3,9 +3,9 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  ODOO 19.0 ORM PATTERNS                                                      ║
-║  Type hints mandatory, SQL() required, OWL 3.x                               ║
-║  WARNING: v19 is in development - patterns may change                        ║
-║  VERIFY: https://github.com/odoo/odoo/tree/master/odoo/models.py             ║
+║  models.Constraint, Domain objects, SQL() recommended                        ║
+║  Released (final) - verified against the 19.0 source                         ║
+║  VERIFY: https://github.com/odoo/odoo/tree/19.0/odoo/orm                     ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -14,38 +14,35 @@
 ### Key Characteristics
 | Feature | Odoo 19.0 Pattern |
 |---------|-------------------|
-| Type hints | **MANDATORY** for public methods |
-| Raw SQL | **SQL() required** - string queries deprecated |
+| Type hints | Optional (not enforced; welcome for readability) |
+| Raw SQL | `SQL()` recommended; string + params still accepted by `cr.execute` |
+| SQL constraints | `models.Constraint` / `models.Index` / `models.UniqueIndex` (`_sql_constraints` is ignored) |
+| Domains | `odoo.fields.Domain` (`osv.expression` deprecated) |
 | X2many commands | `Command` class |
-| Multi-company | `_check_company_auto` + `check_company=True` |
-| OWL | Version 3.x |
-| Python version | 3.12+ |
+| Multi-company | `_check_company_auto` (opt-in) + `check_company=True` |
+| Frontend | Owl 2.8.x |
+| Python version | 3.10 - 3.14 |
 
-## BREAKING: Type Hints Mandatory
+## Type Hints (optional)
 
 ```python
-# v18 (optional):
+# Both are valid in v19; annotations are not checked by the framework
 def action_confirm(self):
     pass
 
-# v19 (MANDATORY):
-def action_confirm(self) -> bool:
-    return True
-
-# Full type hints example
 def create_record(self, name: str, partner_id: int | None = None) -> 'MyModel':
     return self.create({'name': name, 'partner_id': partner_id})
 ```
 
-## BREAKING: SQL() Builder Required
+## SQL() Builder (recommended)
 
 ```python
 from odoo.tools import SQL
 
-# v18 (deprecated string queries):
+# Still valid in v19 (params passed separately, never formatted in):
 self.env.cr.execute("SELECT id FROM my_model WHERE state = %s", ['draft'])
 
-# v19 (REQUIRED SQL() builder):
+# Preferred in v19 (composable, SQL.identifier() for dynamic names):
 self.env.cr.execute(SQL(
     "SELECT id FROM my_model WHERE state = %s",
     'draft'
@@ -184,6 +181,10 @@ class MyModel(models.Model):
 
 ## CRUD Methods with Type Hints
 
+Always write the list form of `create` with `@api.model_create_multi`. A single dict is still
+silently wrapped into a list, and `@api.model` on `create` is converted automatically, but do not
+rely on it. Never call `create` once per record in a loop.
+
 ```python
 @api.model_create_multi
 def create(self, vals_list: list[dict]) -> 'MyModel':
@@ -221,7 +222,7 @@ def write(self, vals: dict) -> bool:
         for record in self:
             if not record.line_ids:
                 raise UserError(
-                    _("Record '%s' must have at least one line.") % record.name
+                    self.env._("Record '%s' must have at least one line.", record.name)
                 )
 
     return super().write(vals)
@@ -237,10 +238,10 @@ def unlink(self) -> bool:
     """
     for record in self:
         if record.state not in ('draft', 'cancelled'):
-            raise UserError(
-                _("Cannot delete '%s'. Only draft or cancelled records can be deleted.")
-                % record.name
-            )
+            raise UserError(self.env._(
+                "Cannot delete '%s'. Only draft or cancelled records can be deleted.",
+                record.name,
+            ))
     return super().unlink()
 
 def copy(self, default: dict | None = None) -> 'MyModel':
@@ -404,7 +405,7 @@ def action_confirm(self) -> bool:
     """
     for record in self.filtered(lambda r: r.state == 'draft'):
         if not record.line_ids:
-            raise UserError(_("Add at least one line to confirm '%s'.") % record.name)
+            raise UserError(self.env._("Add at least one line to confirm '%s'.", record.name))
 
     self.filtered(lambda r: r.state == 'draft').write({'state': 'confirmed'})
     return True
@@ -440,7 +441,7 @@ def action_view_lines(self) -> dict:
         'type': 'ir.actions.act_window',
         'name': _('Lines'),
         'res_model': 'my.model.line',
-        'view_mode': 'tree,form',
+        'view_mode': 'list,form',  # v19: view type is 'list', 'tree' no longer exists
         'domain': [('model_id', '=', self.id)],
         'context': {'default_model_id': self.id},
     }
@@ -448,13 +449,25 @@ def action_view_lines(self) -> dict:
 
 ## Constraints with Types
 
+Forms: `_x = models.Constraint("CHECK(...)", "message")`, `models.Index("(a, b) WHERE ...")`,
+`models.UniqueIndex("(a, b)", "message")`. Field-level `index=True` / `'btree'`,
+`'btree_not_null'` (mostly NULL columns), `'trigram'` (ilike search) - only on fields that are
+searched and selective. Business invariants: `@api.constrains` or SQL constraints, never
+`@api.onchange` (UI only).
+
 ```python
-_sql_constraints = [
-    ('code_company_uniq', 'unique(code, company_id)',
-     'Code must be unique per company!'),
-    ('positive_quantity', 'CHECK(quantity >= 0)',
-     'Quantity must be positive!'),
-]
+# v19: class attributes (name must start with '_'); a `_sql_constraints` list is
+# IGNORED with only a log warning, so the constraints would silently not exist.
+_code_company_uniq = models.Constraint(
+    'UNIQUE(code, company_id)',
+    'Code must be unique per company!',
+)
+_positive_quantity = models.Constraint(
+    'CHECK(quantity >= 0)',
+    'Quantity must be positive!',
+)
+# Indexes: models.Index('(state, date_deadline)'), unique partial index:
+# models.UniqueIndex('(code) WHERE active IS TRUE', 'Active codes must be unique!')
 
 @api.constrains('date', 'date_deadline')
 def _check_dates(self) -> None:
@@ -467,7 +480,7 @@ def _check_dates(self) -> None:
         if record.date and record.date_deadline:
             if record.date > record.date_deadline:
                 raise ValidationError(
-                    _("Deadline must be after start date for '%s'.") % record.name
+                    self.env._("Deadline must be after start date for '%s'.", record.name)
                 )
 
 @api.constrains('line_ids')
@@ -481,7 +494,7 @@ def _check_lines(self) -> None:
         for line in record.line_ids:
             if line.amount < 0:
                 raise ValidationError(
-                    _("Line '%s' cannot have negative amount.") % line.name
+                    self.env._("Line '%s' cannot have negative amount.", line.name)
                 )
 ```
 
@@ -534,11 +547,7 @@ def _check_lines(self) -> None:
                         </page>
                     </notebook>
                 </sheet>
-                <div class="oe_chatter">
-                    <field name="message_follower_ids"/>
-                    <field name="activity_ids"/>
-                    <field name="message_ids"/>
-                </div>
+                <chatter/>
             </form>
         </field>
     </record>
@@ -547,12 +556,100 @@ def _check_lines(self) -> None:
 
 ## v19 Best Practices
 
-1. **Type hints on all public methods** - Mandatory for code quality
-2. **Use SQL() builder** - Never use string SQL queries
-3. **_check_company_auto = True** - On multi-company models
+1. **models.Constraint / Index / UniqueIndex** - never `_sql_constraints` (ignored in 19.0)
+2. **Prefer the SQL() builder** for raw SQL; never interpolate values into the query string
+3. **_check_company_auto = True** - On multi-company models (opt-in, default False)
 4. **check_company=True** - On relational fields
-5. **Use OWL 3.x patterns** - For frontend components
-6. **from __future__ import annotations** - For forward references
+5. **Domain objects** - `odoo.fields.Domain` instead of `osv.expression`
+6. **Type hints** - optional; `from __future__ import annotations` if you use forward references
+
+## Additional Rules from Odoo's Official Guidelines (verified for 19.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were
+checked against the 19.0 source; master-only APIs are translated to the 19.0 equivalent or marked
+as not available.
+
+### Batching: one ORM call per collection
+No `search`, `search_count`, `_read_group`, `create` or `browse(id)` inside a loop over records.
+Aggregate with `_read_group(domain, groupby, aggregates)`, which returns a list of tuples
+(relational group values come back as recordsets). `read_group()` is deprecated in 19.0.
+```python
+# BAD: one query per partner
+for partner in partners:
+    partner.x_order_count = self.env['sale.order'].search_count([('partner_id', '=', partner.id)])
+
+# GOOD: one grouped query
+counts = dict(self.env['sale.order']._read_group(
+    [('partner_id', 'in', partners.ids)], ['partner_id'], ['__count'],
+))
+for partner in partners:
+    partner.x_order_count = counts.get(partner, 0)
+
+totals = dict(self.env['account.move']._read_group(domain, ['partner_id'], ['amount_total:sum']))
+```
+Put conditions in the domain rather than `search(...).filtered(...)`; iterate over recordsets (or
+`browse(ids)` once) so prefetching works.
+
+### Recordset helpers
+`filtered()` (callable, field name, dotted path or `Domain`), `mapped()`, `sorted(key=None, reverse=False)`,
+`grouped(key)` -> `{key: recordset}` (shares prefetching). Use `if records:` instead of `len()`;
+call `ensure_one()` before reading a single value (raises `ValueError: Expected singleton`).
+
+### Translations
+```python
+raise UserError(self.env._("Order %(name)s has no lines.", name=order.name))
+raise UserError(_("Missing partners: %s", partners.mapped('name')))  # lists formatted per language
+```
+- Pass interpolation args to `_()` / `self.env._()` (positional or keyword, not both); do not
+  format the string before the lookup.
+- Translate only static literals; never call `_()` at module/class level, use `_lt`
+  (`from odoo import _lt`) or `LazyTranslate(__name__)` there.
+- If any argument is `Markup`, the translation is escaped and the result is `Markup`.
+
+### Domains
+```python
+from odoo.fields import Domain
+
+domain = Domain(user_domain) & Domain('company_id', 'in', self.env.companies.ids)
+domain = Domain.OR([Domain('state', '=', 'draft'), Domain('user_id', '=', self.env.uid)])
+domain = ~Domain('active', '=', False)
+```
+Never concatenate a user-supplied list onto a security domain or hand-build prefix (`'&'`, `'|'`) lists.
+`odoo.osv.expression.AND/OR` still work but emit a DeprecationWarning in 19.0.
+
+### Context and defaults
+Use `with_context(...)` and prefix custom keys with the module name. A `default_<field>` key left
+in the context leaks into every `create()` downstream (and is access-checked there): strip it
+before creating other models.
+
+### Related fields
+- `related` is computed as superuser by default (`related_sudo=True`); set `related_sudo=False`
+  for sensitive chains.
+- Traversing an x2many in a related path silently takes the **first** record of each hop.
+- `_inherits` delegates fields only (as related fields with `related_sudo=False`), not methods.
+
+### Transactions
+- Never `cr.commit()` / `cr.rollback()` in business code (they raise in tests).
+- Catch specific exceptions and recover with `with self.env.cr.savepoint():`; avoid creating
+  dozens of savepoints in one transaction (PostgreSQL slows down past 64 subtransactions).
+
+### Reserved fields
+`active` (archive with `action_archive()` / `action_unarchive()`; `toggle_active()` is deprecated
+in 19.0), `state`, `parent_id` + `parent_path` with `_parent_store = True`, `company_id` with
+`_check_company_auto` / `check_company=True`. TransientModels must keep `_log_access`.
+Monetary fields use `currency_id` (or `x_currency_id`) unless `currency_field` is set.
+
+### View inheritance
+Anchor on names, never on position: `<field name="partner_id" position="after">`.
+A `<field>` spec matches the **first** field with that name at any depth; other tags match the
+first node having all given attributes; `xpath` uses the first hit. Use `mode="primary"` for
+a new standalone variant. Do not re-add fields that already exist.
+
+### QWeb / reports
+- `t-lang` is only allowed on a node with `t-call`; anywhere else it raises `SyntaxError` at compile.
+- A custom report model `report.<report_name>` with `_get_report_values()` replaces the default
+  values: it must return `doc_ids`, `doc_model` and `docs` itself.
+- Use `t-out`; `t-esc` and `t-raw` are deprecated (see security guide).
 
 ## Type Hint Reference
 

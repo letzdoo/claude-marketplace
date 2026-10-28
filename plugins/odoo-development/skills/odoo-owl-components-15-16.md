@@ -12,71 +12,68 @@
 
 | Feature | OWL 1.x (v15) | OWL 2.x (v16) |
 |---------|---------------|---------------|
-| Module system | `odoo.define()` | ES modules `/** @odoo-module **/` |
-| Imports | `require()` | `import` statements |
+| Module system | `/** @odoo-module **/` (new client) or legacy `odoo.define()` | `/** @odoo-module **/` |
+| Owl API | Owl 1.4, globals `owl` / `owl.hooks` | Owl 2.x, `import ... from "@odoo/owl"` |
 | Hooks location | `owl.hooks` | Direct from `@odoo/owl` |
 | Template declaration | Property on class | `static template` |
-| RPC | `require('web.rpc')` | `useService("orm")` |
-| Action registration | `core.action_registry` | `registry.category("actions")` |
+| RPC | `useService("orm")` (legacy code: `require('web.rpc')`) | `useService("orm")` |
+| Action registration | `registry.category("actions")` (legacy widgets: `core.action_registry`) | `registry.category("actions")` |
+| Templates in assets | `web.assets_qweb`, root needs `owl="1"` | JS bundle, no `owl="1"` |
 
 ## Complete Migration Example
 
 ### Before (OWL 1.x - v15)
 
 ```javascript
-odoo.define('my_module.MyComponent', function (require) {
-    "use strict";
+/** @odoo-module **/
 
-    const { Component, useState } = owl;
-    const { onWillStart, onMounted } = owl.hooks;
-    const AbstractAction = require('web.AbstractAction');
-    const core = require('web.core');
-    const rpc = require('web.rpc');
+import { registry } from "@web/core/registry";
+import { useService } from "@web/core/utils/hooks";
 
-    class MyComponent extends Component {
-        setup() {
-            this.state = useState({
-                records: [],
-                loading: true,
-            });
+const { Component } = owl;
+const { useState, onWillStart, onMounted } = owl.hooks;
 
-            onWillStart(async () => {
-                await this.loadRecords();
-            });
+export class MyComponent extends Component {
+    setup() {
+        this.orm = useService("orm");
+        this.action = useService("action");
+        this.state = useState({
+            records: [],
+            loading: true,
+        });
 
-            onMounted(() => {
-                console.log("Component mounted");
-            });
-        }
+        onWillStart(async () => {
+            await this.loadRecords();
+        });
 
-        async loadRecords() {
-            const records = await rpc.query({
-                model: 'my.model',
-                method: 'search_read',
-                args: [[], ['name', 'state']],
-            });
-            this.state.records = records;
-            this.state.loading = false;
-        }
-
-        async onRecordClick(id) {
-            await this.do_action({
-                type: 'ir.actions.act_window',
-                res_model: 'my.model',
-                res_id: id,
-                views: [[false, 'form']],
-                target: 'current',
-            });
-        }
+        onMounted(() => {
+            console.log("Component mounted");
+        });
     }
 
-    MyComponent.template = 'my_module.MyComponent';
+    async loadRecords() {
+        this.state.records = await this.orm.searchRead("my.model", [], ["name", "state"]);
+        this.state.loading = false;
+    }
 
-    core.action_registry.add('my_module.my_action', MyComponent);
+    async onRecordClick(id) {
+        await this.action.doAction({
+            type: "ir.actions.act_window",
+            res_model: "my.model",
+            res_id: id,
+            views: [[false, "form"]],
+            target: "current",
+        });
+    }
+}
 
-    return MyComponent;
-});
+MyComponent.template = "my_module.MyComponent";
+
+registry.category("actions").add("my_module.my_action", MyComponent);
 ```
+
+Legacy 15.0 code written with `odoo.define()`, `require('web.rpc')` and `core.action_registry` (legacy
+widgets) must be rewritten the same way when moving to 16.0.
 
 ### After (OWL 2.x - v16)
 
@@ -179,7 +176,7 @@ registry.category("actions").add("my_module.my_action", MyComponent);
 | OWL 1.x | OWL 2.x |
 |---------|---------|
 | `const { Component } = owl;` | `import { Component } from "@odoo/owl";` |
-| `const { useState } = owl;` | `import { useState } from "@odoo/owl";` |
+| `const { useState } = owl.hooks;` | `import { useState } from "@odoo/owl";` |
 | `const { onWillStart } = owl.hooks;` | `import { onWillStart } from "@odoo/owl";` |
 | `const rpc = require('web.rpc');` | `this.orm = useService("orm");` |
 | `const core = require('web.core');` | `import { registry } from "@web/core/registry";` |
@@ -212,8 +209,19 @@ registry.category("actions").add("my_module.my_action", MyComponent);
 - [ ] Replace `rpc.query()` with `useService("orm")` methods
 - [ ] Replace `core.action_registry` with `registry.category("actions")`
 - [ ] Remove `owl="1"` from templates
-- [ ] Update manifest assets to use glob patterns
+- [ ] Move XML templates from `web.assets_qweb` into the JS bundle
+- [ ] Update `patch()` calls only if needed (signature unchanged in 16.0)
 - [ ] Test all component functionality
+
+## Official guideline deltas 15.0 -> 16.0
+
+| Topic | 15.0 | 16.0 |
+|---|---|---|
+| Trusted HTML in templates | Owl 1 `t-raw` (raw sink), no `markup()` | `markup()` + `t-out` |
+| JS escape helper | none in `@web/core` (underscore `_.escape`) | `escape` in `@web/core/utils/strings` (Owl `htmlEscape` also available) |
+
+Unchanged: no Owl `computed`; `patch(obj, "patch_name", { ... })` with `this._super(...)` (mandatory patch name);
+organize code by feature; SCSS conventions (`o_<module>` classes, `$o-...` variables, 4 spaces).
 
 ## Common Migration Errors
 

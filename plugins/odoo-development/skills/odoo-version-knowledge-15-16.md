@@ -11,15 +11,17 @@
 
 | Category | Change | Impact |
 |----------|--------|--------|
-| ORM | `Command` class introduced | Medium - Recommended for x2many |
+| ORM | `Command` class (already in 15.0) | None - use it in both versions |
 | OWL | OWL 2.x replaces 1.x | High - Rewrite components |
-| Views | `attrs=` deprecated | Medium - Start migrating |
-| Assets | New asset bundling system | Medium - Update manifests |
-| Batch | `@api.model_create_multi` preferred | Medium - Update create() |
+| Views | `attrs=` still the correct syntax (direct `invisible="expr"` only from 17.0) | None |
+| Assets | `assets` manifest key unchanged (already in 15.0); `web.assets_qweb` XML moves into `web.assets_backend` | Low - move XML entries |
+| Batch | `@api.model` single-dict `create`: silently wrapped in 15.0, works but logs a warning in 16.0 | Medium - Update create() |
 
 ## ORM Command Class
 
-### Before (v15) - Tuple Syntax
+`Command` exists in 15.0 already (`from odoo import Command`); both styles work in 15.0 and 16.0.
+
+### Tuple Syntax (15.0 and 16.0)
 ```python
 # Create
 record.write({'line_ids': [(0, 0, {'name': 'Line 1'})]})
@@ -37,7 +39,7 @@ record.write({'tag_ids': [(4, tag_id, 0)]})
 record.write({'tag_ids': [(6, 0, [tag1_id, tag2_id])]})
 ```
 
-### After (v16) - Command Class
+### Command Class (15.0 and 16.0, preferred)
 ```python
 from odoo.fields import Command
 
@@ -123,27 +125,20 @@ class MyComponent extends Component {
 | Direct property `state = useState()` | `setup() { this.state = useState() }` |
 | `t-on-click` | `t-on-click` (same) |
 | `owl.hooks.useState` | `import { useState }` |
+| JS escaping: no `markup()`, no `escape` util (use `t-esc`, `_.escape`) | `markup()`, `escape` in `@web/core/utils/strings` |
 
-## View Attrs Deprecation
+## View Modifiers: keep `attrs` in 16.0
 
-### Before (v15)
 ```xml
+<!-- 15.0 and 16.0: attrs is the correct syntax -->
 <field name="partner_id"
        attrs="{'invisible': [('state', '=', 'draft')],
                'readonly': [('state', '!=', 'draft')],
                'required': [('type', '=', 'customer')]}"/>
 ```
 
-### After (v16) - Start Migration
-```xml
-<!-- v16 supports both, but start using new syntax -->
-<field name="partner_id"
-       invisible="state == 'draft'"
-       readonly="state != 'draft'"
-       required="type == 'customer'"/>
-```
-
-**Note**: `attrs=` still works in v16 but is deprecated. Full removal in v17.
+**Note**: In 16.0 a direct `invisible="state == 'draft'"` is NOT evaluated as a record condition. Direct
+Python-expression modifiers replace `attrs` only in 17.0.
 
 ## Batch Create Pattern
 
@@ -169,16 +164,19 @@ def create(self, vals_list):
 
 ## Asset System Changes
 
-### v15 Manifest
+### v15 Manifest (globs already supported; XML templates in web.assets_qweb)
 ```python
 'assets': {
     'web.assets_backend': [
-        'my_module/static/src/js/my_component.js',
+        'my_module/static/src/js/**/*',
+    ],
+    'web.assets_qweb': [
+        'my_module/static/src/xml/**/*',
     ],
 },
 ```
 
-### v16 Manifest - ES6 Modules
+### v16 Manifest (XML templates move into the JS bundle)
 ```python
 'assets': {
     'web.assets_backend': [
@@ -208,7 +206,7 @@ def create(self, vals_list):
 <header>
     <button name="action_confirm" type="object"
             string="Confirm"
-            invisible="state != 'draft'"
+            attrs="{'invisible': [('state', '!=', 'draft')]}"
             class="btn-primary"/>
 </header>
 ```
@@ -220,8 +218,8 @@ def create(self, vals_list):
 https://raw.githubusercontent.com/odoo/odoo/15.0/addons/web/static/src/core/
 https://raw.githubusercontent.com/odoo/odoo/16.0/addons/web/static/src/core/
 
-# Command class introduced
-https://raw.githubusercontent.com/odoo/odoo/16.0/odoo/fields.py
+# Command class (present in both)
+https://raw.githubusercontent.com/odoo/odoo/15.0/odoo/fields.py
 
 # View changes
 https://raw.githubusercontent.com/odoo/odoo/16.0/odoo/tools/view_validation.py
@@ -229,21 +227,39 @@ https://raw.githubusercontent.com/odoo/odoo/16.0/odoo/tools/view_validation.py
 
 ## Migration Checklist
 
-- [ ] Replace tuple x2many operations with Command class
+- [ ] (Optional) Replace tuple x2many operations with Command class (works in 15.0 too)
 - [ ] Migrate OWL 1.x components to OWL 2.x
-- [ ] Start replacing `attrs=` with inline expressions
+- [ ] Keep `attrs=` in 16.0 views (inline expressions are 17.0+)
 - [ ] Update `@api.model` create to `@api.model_create_multi`
-- [ ] Update asset declarations to use glob patterns
+- [ ] Move XML template entries from `web.assets_qweb` into the JS bundle
 - [ ] Test all OWL components for 2.x compatibility
-- [ ] Verify Command operations work correctly
+- [ ] Replace `sudo(user)` by `with_user(user)`; move `t-lang` onto `t-call`
 
 ## Common Migration Errors
 
 ### Error: `Command is not defined`
-**Fix**: Add `from odoo.fields import Command`
+**Fix**: Add `from odoo import Command` (available since 15.0)
 
 ### Error: OWL `useState` not found
 **Fix**: Update import: `import { useState } from "@odoo/owl"`
 
-### Warning: `attrs attribute is deprecated`
-**Fix**: Replace with inline expressions (recommended, required in v17)
+## Official guideline deltas 15.0 -> 16.0
+
+Only rows of the verified 14-19 matrix that change between 15.0 and 16.0 and are not covered above (`create` warning, assets XML and JS escaping are in the tables above):
+
+| Topic | 15.0 | 16.0 |
+|---|---|---|
+| `sudo(user)` | deprecated, warns, delegates to `with_user` | removed (`sudo()` asserts a bool) |
+| RPC guard | `check_method_name` (`_*`, `init`) | `get_public_method` (`_*`, `@api.private`, unsafe attributes) |
+| `@api.private` | absent | available |
+| `odoo.tools.SQL` | absent | name exists but is psycopg2 `sql.SQL` (not the 17.0+ builder) |
+| route override without `@http.route` | URL silently dropped | auto-decorated + warning |
+| `index=` values | bool only | `True`/`'btree'`/`'btree_not_null'`/`'trigram'` |
+| `t-lang` without `t-call` | silently ignored | SyntaxError |
+| `BaseCommon` / `BaseUsersCommon` test fixtures | absent | available (still SUPERUSER env) |
+| `patch` | `patch(obj, name, ext)` + `this._super` | same signature |
+
+Unchanged in 15.0 and 16.0: `Command`, `_allow_sudo_commands`, `related_sudo`, `osv.expression` domains,
+`read_group` (dict API), `_sql_constraints`, no `grouped()`, `_()`/`_lt` (no `env._`), no `base` injection in
+`depends`, `assets` key, no `<asset>` tag, `attrs` view modifiers, default test tags `standard` + `at_install`,
+test loader re-collecting imported classes and inherited `test_*` methods, min Python 3.7.

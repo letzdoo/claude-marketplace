@@ -603,4 +603,4 @@ Use `button_install()` which queues the installation to happen after the registr
 | 15→16 | OWL 2.x, `Command` class for x2many |
 | 16→17 | `attrs` removed, use inline expressions |
 | 17→18 | `_check_company_auto`, `SQL()` builder |
-| 18→19 | Type hints required, `SQL()` mandatory |
+| 18→19 | `_sql_constraints` ignored (use `models.Constraint` / `models.Index` / `models.UniqueIndex`), `res.users.groups_id` → `group_ids`; type hints and `SQL()` recommended, not required |

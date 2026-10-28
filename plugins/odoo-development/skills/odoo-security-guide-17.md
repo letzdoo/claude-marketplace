@@ -11,7 +11,7 @@
 ## Version 17.0 Requirements
 
 - **Python**: 3.10+ required
-- **Key Changes**: `attrs` removed from views, `@api.model_create_multi` mandatory
+- **Key Changes**: `attrs` removed from views, `@api.model_create_multi` expected (a single-dict `@api.model` create still works but logs a warning)
 
 ## Security Groups (v17 Syntax)
 
@@ -44,7 +44,15 @@ access_custom_model_user,custom.model.user,model_custom_model,custom_module.grou
 access_custom_model_manager,custom.model.manager,model_custom_model,custom_module.group_custom_manager,1,1,1,1
 ```
 
+- Access model in 17.0: `ir.model.access` (CSV) + `ir.rule`. There is no `ir.access` model in 17.0.
+- Default deny: a model without a matching access row is inaccessible (a warning is logged at module load).
+- An access row with an **empty `group_id`** applies to every user, including portal and public. There is no `base.group_everyone` in 17.0. Flag create/write/unlink granted to an empty group, `base.group_portal` or `base.group_public`.
+
 ## Record Rules (v17 Syntax)
+
+- Rule combination: global rules (no groups) are AND-ed; the rules of **all** the user's groups are OR-ed together and that result is AND-ed with the globals. Non-overlapping global rules lock everyone out.
+- `perm_read/perm_write/perm_create/perm_unlink` default to True; a rule restricted to some operations leaves the others unfiltered.
+- Rule eval context: `user`, `time`, `company_ids`, `company_id`. `allowed_company_ids` is NOT available in rule domains (the rule fails validation).
 
 ### Multi-Company Rule (v17)
 
@@ -53,7 +61,7 @@ access_custom_model_manager,custom.model.manager,model_custom_model,custom_modul
 <record id="rule_custom_model_company" model="ir.rule">
     <field name="name">Custom Model: Multi-Company</field>
     <field name="model_id" ref="model_custom_model"/>
-    <field name="global" eval="True"/>
+    <!-- No groups => global rule ('global' is computed from groups, do not set it) -->
     <field name="domain_force">[
         '|',
         ('company_id', '=', False),
@@ -111,7 +119,7 @@ class SecureModel(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # v17: @api.model_create_multi is mandatory
+        # v17: batch create; a single-dict @api.model create only logs a warning
         return super().create(vals_list)
 
     def action_sensitive_operation(self):
@@ -123,22 +131,29 @@ class SecureModel(models.Model):
 
 ### Secure SQL Queries (v17 - Parameterized)
 
+Prefer the ORM. Never build SQL with `+`, `%`, `.format()` or f-strings. 17.0 form: `from odoo.tools import SQL`; `SQL("... %s ...", value)`, `SQL.identifier(name)` for identifiers (validated by assert).
+
 ```python
+from odoo.tools import SQL
+
 def _get_secure_data(self):
     """Use parameterized queries (v17 pattern)."""
-    # SAFE: Parameterized query
-    self.env.cr.execute(
+    # SAFE: values as parameters, table name via SQL.identifier
+    self.env.cr.execute(SQL(
         """
         SELECT id, name, amount
         FROM %s
-        WHERE company_id = %%s
-          AND active = %%s
-          AND create_uid = %%s
-        """ % self._table,
-        [self.env.company.id, True, self.env.user.id]
-    )
+        WHERE company_id = %s
+          AND active = %s
+          AND create_uid = %s
+        """,
+        SQL.identifier(self._table),
+        self.env.company.id, True, self.env.user.id,
+    ))
     return self.env.cr.dictfetchall()
 ```
+
+For SQL over ORM-filtered rows: `query = self._search(domain)` (returns a `Query`) then `self.env.cr.execute(query.select(SQL(...)))`.
 
 ## View Security (v17 Syntax - NO attrs)
 
@@ -153,8 +168,9 @@ def _get_secure_data(self):
             <!-- v17: Direct invisible attribute (NOT attrs) -->
             <field name="internal_notes" groups="custom_module.group_custom_manager"/>
 
-            <!-- v17: Python expression in invisible -->
-            <field name="secret_field" invisible="not user_has_groups('custom_module.group_custom_manager')"/>
+            <!-- v17: group restriction uses the groups attribute; user_has_groups() is not
+                 available in view expressions (evaluated client-side) -->
+            <field name="secret_field" groups="custom_module.group_custom_manager"/>
 
             <!-- v17: Conditional based on field value -->
             <field name="manager_notes" invisible="state == 'draft'"/>
@@ -174,11 +190,11 @@ def _get_secure_data(self):
         invisible="state != 'pending'"
         class="btn-primary"/>
 
-<!-- v17: Group check in invisible -->
+<!-- v17: Group check via the groups attribute -->
 <button name="action_admin"
         string="Admin Action"
         type="object"
-        invisible="not user_has_groups('base.group_system')"/>
+        groups="base.group_system"/>
 ```
 
 ### Complete Form Example (v17)
@@ -252,6 +268,8 @@ class SecureModel(models.Model):
     )
 ```
 
+Field `groups` hides the field from `fields_get` and raises `AccessError` on explicit read/write/search. Secret fields (passwords/tokens) need `groups="base.group_system"` or `groups=fields.NO_ACCESS` (`'.'`).
+
 ## Complete Security Template (v17)
 
 ### security/custom_module_security.xml
@@ -280,7 +298,7 @@ class SecureModel(models.Model):
     <record id="rule_custom_model_company" model="ir.rule">
         <field name="name">Custom Model: Multi-Company</field>
         <field name="model_id" ref="model_custom_model"/>
-        <field name="global" eval="True"/>
+        <!-- No groups => global rule ('global' is computed, do not set it) -->
         <field name="domain_force">[
             '|',
             ('company_id', '=', False),
@@ -304,6 +322,35 @@ class SecureModel(models.Model):
 </odoo>
 ```
 
+## Additional Rules from Odoo's Official Guidelines (verified for 17.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 17.0 source; master-only APIs are translated to the 17.0 equivalent or marked as not available.
+
+### Audit sweep (pattern -> what makes it a finding)
+
+| Pattern | Finding when... (17.0 form) |
+|---------|-----------------------------|
+| `.sudo()` | Any attacker-controlled model, record id, field name, domain or vals reaches a read/search/create/write under sudo. Controllers: `record.sudo().write(post)` is always a finding; whitelist keys. `sudo(flag=True)` only takes a bool (`sudo(user)` does not exist; use `with_user(user)`). |
+| `with_user()` / `with_company()` | The switch is not intentional or widens access (`with_user` drops superuser mode). |
+| x2many vals under sudo | `Command`/tuple payloads on a sensitive comodel run with sudo unless the comodel sets `_allow_sudo_commands = False` (core does this on `ir.rule`, `ir.model.access`, ...). |
+| `related=` | Related fields are computed as superuser by default (`related_sudo=True`). A related chain onto `ir.attachment` or other sensitive data needs `related_sudo=False`. |
+| `cr.execute(...)` | String building with `+`, `%`, `.format()` or f-strings; see Secure SQL Queries. |
+| Domains | A user-supplied list concatenated onto a security domain. 17.0 has no `fields.Domain`; combine with `from odoo.osv import expression` -> `expression.AND([...])` / `expression.OR([...])`. |
+| Public model method | Any method without `_` is callable via RPC with attacker arguments. The 17.0 guard (`odoo.service.model.get_public_method`) blocks `_`-prefixed names and methods decorated with `@api.private`; it does NOT block classmethods/staticmethods. |
+| `@http.route` auth | `auth` must match exposure: `'user'`, `'public'` or `'none'` (no `bearer` in 17.0). |
+| `@http.route` type/CSRF | Route types are `'http'` and `'json'` only. `type='http'` checks the CSRF token for every method except GET/HEAD/OPTIONS/TRACE; `csrf=False` only for external webhooks. `type='json'` has no token check. A state change on GET is a finding. POST forms need `<input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>`. |
+| QWeb output | Use `t-out` (escapes; a `Markup` value passes through raw). In 17.0 `t-esc` still works as a deprecated alias of `t-out`; `t-raw` still works (deprecation warning) and outputs unescaped, so any `t-raw` on user data is a finding. |
+| Python HTML building | f-strings or `%` on plain `str` that is then wrapped in `Markup`. Use `Markup("<p>%s</p>") % value` or `Markup(...).format(...)`; `_("...%s", value)` escapes the translation when an argument is `Markup`. |
+| JS HTML sinks | `innerHTML`, `insertAdjacentHTML`, Owl `markup()` on non-literal values. 17.0 helpers: `htmlEscape` and `markup` from `@odoo/owl`, `escape` from `@web/core/utils/strings`. (`@web/core/utils/html` does not exist in 17.0.) |
+| `fields.Html` | Escaping is not sanitizing. Options: `sanitize`, `sanitize_overridable`, `sanitize_tags`, `sanitize_attributes`, `sanitize_style`, `sanitize_form`, `strip_style`, `strip_classes`. |
+| Secret fields | Passwords/tokens without `groups="base.group_system"` or `groups=fields.NO_ACCESS`; see Field-Level Security. |
+| `open()` | Builtin `open()` on an influenceable path. Use `odoo.tools.file_open(name, mode='r', filter_ext=None, env=None)`: confined to addons paths, the Odoo root and temp dirs from `file_open_temporary_directory(env)`; it never creates files but opens existing ones in any mode. |
+| `eval`/`exec` | Any use. Use `json.loads`/`ast.literal_eval`; at worst `odoo.tools.safe_eval.safe_eval` with a minimal namespace. safe_eval rejects every name containing `__`; public model methods returning rich objects are reachable from server actions. |
+| `getattr`/`setattr` on records | Dynamic field names; use `record[name]`. |
+| `pickle` | Stdlib pickle on untrusted data. 17.0 still ships a restricted `odoo.tools.misc.pickle` (whitelisted unpickler), but prefer JSON. |
+| Secret comparison | `==` on tokens. Use `odoo.tools.consteq` (= `hmac.compare_digest`), better: look the token up in the DB. |
+| Mutable defaults | `def m(self, vals={})` / `[]` defaults. |
+
 ## v17 Security Checklist
 
 - [ ] All models have `ir.model.access.csv` entries
@@ -319,7 +366,7 @@ class SecureModel(models.Model):
 | Feature | v16 | v17 |
 |---------|-----|-----|
 | View visibility | `attrs="{'invisible': [...]}"` | `invisible="expression"` |
-| Create method | `@api.model_create_multi` optional | `@api.model_create_multi` mandatory |
+| Create method | `@api.model` single-dict create works, logs a warning | same (still a warning); use `@api.model_create_multi` |
 | Domain syntax | Still supports `attrs` | `attrs` removed |
 
 ## AI Agent Instructions (v17)
@@ -329,7 +376,7 @@ When generating Odoo 17.0 security code:
 1. **Never use** `attrs` attribute in views (removed in v17)
 2. **Always use** direct `invisible`, `readonly`, `required` attributes
 3. **Use** Python expressions for visibility: `invisible="state != 'draft'"`
-4. **Use** `user_has_groups()` for group checks: `invisible="not user_has_groups('base.group_manager')"`
-5. **Use** `@api.model_create_multi` for create methods (mandatory)
+4. **Use** the `groups` attribute for group checks (`groups="base.group_system"`); `user_has_groups()` is not available in v17 view expressions
+5. **Use** `@api.model_create_multi` for create methods (single-dict `@api.model` create only warns, but do not generate it)
 6. **Use** parameterized SQL queries
 7. **Use** `company_ids` in multi-company record rules

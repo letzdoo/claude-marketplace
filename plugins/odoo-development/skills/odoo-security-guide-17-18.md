@@ -11,11 +11,12 @@
 
 | Component | v17 | v18 | Migration Required |
 |-----------|-----|-----|-------------------|
-| Multi-company | `company_ids` | `allowed_company_ids` | Recommended |
-| Company check | Manual domain | `_check_company_auto` | Recommended |
-| Field company | Manual validation | `check_company=True` | Recommended |
+| Multi-company rules | `company_ids` | `company_ids` (unchanged; `allowed_company_ids` is not in the rule eval context) | No |
+| Company check | `_check_company_auto` available | same | No (optional clean-up) |
+| Field company | `check_company=True` available | same | No (optional clean-up) |
+| Access check API | `check_access_rights()`/`check_access_rule()` | deprecated -> `check_access()`/`has_access()` | Recommended |
 | Type hints | Optional | Recommended | Optional |
-| SQL queries | Parameterized | `SQL()` builder | Recommended |
+| SQL queries | `SQL()` builder available | same | No (optional clean-up) |
 | View syntax | Direct attributes | Direct attributes | No change |
 
 ## Breaking Changes
@@ -26,14 +27,16 @@ The v17 to v18 migration for security is relatively smooth. Most changes are new
 
 ## Recommended Migrations
 
-### 1. Multi-Company Record Rules
+### 1. Multi-Company Record Rules (no change)
 
-**v17 Pattern:**
+The rule eval context is `user`, `time`, `company_ids`, `company_id` in both v17 and v18. Do NOT replace `company_ids` with `allowed_company_ids`: it is not defined in rule domains and the rule fails validation on install.
+
+**v17 and v18 Pattern:**
 ```xml
 <record id="rule_model_company" model="ir.rule">
     <field name="name">Model: Multi-Company</field>
     <field name="model_id" ref="model_custom_model"/>
-    <field name="global" eval="True"/>
+    <!-- No groups => global rule ('global' is computed, do not set it) -->
     <field name="domain_force">[
         '|',
         ('company_id', '=', False),
@@ -42,29 +45,11 @@ The v17 to v18 migration for security is relatively smooth. Most changes are new
 </record>
 ```
 
-**v18 Pattern:**
-```xml
-<record id="rule_model_company" model="ir.rule">
-    <field name="name">Model: Multi-Company</field>
-    <field name="model_id" ref="model_custom_model"/>
-    <field name="global" eval="True"/>
-    <field name="domain_force">[
-        '|',
-        ('company_id', '=', False),
-        ('company_id', 'in', allowed_company_ids)
-    ]</field>
-</record>
-```
+### 2. Model Company Validation (available in both versions)
 
-**Migration Script:**
-```python
-# Find and replace in XML files
-# company_ids → allowed_company_ids (in record rule domains)
-```
+`_check_company_auto` and `check_company=True` already exist in v17; this is an optional clean-up.
 
-### 2. Model Company Validation
-
-**v17 Pattern:**
+**Manual pattern:**
 ```python
 class MyModel(models.Model):
     _name = 'my.model'
@@ -80,19 +65,20 @@ class MyModel(models.Model):
         domain="[('company_id', 'in', [company_id, False])]",
     )
 
+    # Do not name it _check_company: that overrides BaseModel._check_company
     @api.constrains('partner_id', 'company_id')
-    def _check_company(self):
+    def _check_partner_company(self):
         for record in self:
             if record.partner_id.company_id and record.partner_id.company_id != record.company_id:
                 raise ValidationError(_("Partner company mismatch"))
 ```
 
-**v18 Pattern:**
+**Automatic pattern (v17 and v18):**
 ```python
 class MyModel(models.Model):
     _name = 'my.model'
     _description = 'My Model'
-    _check_company_auto = True  # NEW in v18
+    _check_company_auto = True  # available since before v17
 
     company_id = fields.Many2one(
         'res.company',
@@ -101,7 +87,7 @@ class MyModel(models.Model):
     )
     partner_id = fields.Many2one(
         'res.partner',
-        check_company=True,  # NEW in v18 - replaces manual constraint
+        check_company=True,  # replaces the manual constraint (v17 and v18)
     )
     # No need for manual _check_company constraint
 ```
@@ -109,7 +95,7 @@ class MyModel(models.Model):
 **Migration Steps:**
 1. Add `_check_company_auto = True` to model class
 2. Add `check_company=True` to relational fields
-3. Remove manual `_check_company` constraint methods
+3. Remove the manual company constraint methods
 4. Remove company domain filters (optional, `check_company` handles it)
 
 ### 3. Type Hints on Fields
@@ -142,9 +128,9 @@ class MyModel(models.Model):
 1. Add type hints to all relational fields: `partner_id: int = fields.Many2one(...)`
 2. Optionally add to scalar fields: `name: str = fields.Char(...)`
 
-### 4. SQL Builder for Raw Queries
+### 4. SQL Builder for Raw Queries (available in both versions)
 
-**v17 Pattern:**
+**Plain parameterized pattern (safe in v17 and v18):**
 ```python
 def _get_data(self):
     self.env.cr.execute(
@@ -157,7 +143,7 @@ def _get_data(self):
     return self.env.cr.dictfetchall()
 ```
 
-**v18 Pattern:**
+**SQL builder pattern (v17 and v18):**
 ```python
 from odoo.tools import SQL
 
@@ -203,7 +189,7 @@ access_model_user,model.user,model_my_model,my_module.group_user,1,1,1,0
 ### View Security Syntax
 ```xml
 <!-- Same syntax in v17 and v18 -->
-<field name="secret" invisible="not user_has_groups('my_module.group_manager')"/>
+<field name="secret" groups="my_module.group_manager"/>
 <button name="action" invisible="state != 'draft'" groups="my_module.group_manager"/>
 ```
 
@@ -213,9 +199,22 @@ access_model_user,model.user,model_my_model,my_module.group_user,1,1,1,0
 internal_notes = fields.Text(groups='my_module.group_manager')
 ```
 
+## Official guideline deltas 17.0 -> 18.0
+
+Only the official-guideline security rules (Odoo `skills/`, verified against both sources) that change between the two versions:
+
+| Topic | 17.0 | 18.0 |
+|-------|------|------|
+| Route `auth` values | `user`, `public`, `none` | adds `bearer` (no `bearer_scope`) |
+| Restricted `odoo.tools.misc.pickle` | exists (still prefer JSON) | removed |
+| JS HTML helpers | `htmlEscape`/`markup` from `@odoo/owl`, `escape` from `@web/core/utils/strings` | adds `@web/core/utils/html` (`htmlEscape`, `isHtmlEmpty`, `setElementContent`) |
+
+Unchanged in both: `sudo(flag)`/`with_user`, `_allow_sudo_commands`, `related_sudo=True` default, `odoo.osv.expression.AND/OR`, RPC guard (`_` prefix, `@api.private`), route types `http`/`json` and CSRF behaviour, QWeb `t-out` (`t-esc` alias, `t-raw` deprecated), `fields.NO_ACCESS`, `file_open` confinement, `consteq`, `ir.model.access` + `ir.rule` semantics, no `base.group_everyone`. (SQL builder and rule eval context: see Overview and section 1.)
+
 ## Migration Checklist
 
-- [ ] Update record rules: `company_ids` → `allowed_company_ids`
+- [ ] Keep record rules on `company_ids` (never `allowed_company_ids`)
+- [ ] Replace `check_access_rights()`/`check_access_rule()` with `check_access()`/`has_access()`
 - [ ] Add `_check_company_auto = True` to multi-company models
 - [ ] Add `check_company=True` to relational fields
 - [ ] Remove manual company validation constraints
@@ -256,22 +255,12 @@ If you need to support both v17 and v18:
 class MyModel(models.Model):
     _name = 'my.model'
 
-    # _check_company_auto is ignored in v17, works in v18
+    # _check_company_auto and check_company work the same in v17 and v18
     _check_company_auto = True
 
     company_id = fields.Many2one('res.company', required=True)
-
-    # check_company is ignored in v17, works in v18
     partner_id = fields.Many2one('res.partner', check_company=True)
-
-    # Keep manual constraint for v17 compatibility
-    @api.constrains('partner_id', 'company_id')
-    def _check_company_compat(self):
-        # This runs in both versions, but v18 also has automatic check
-        for record in self:
-            if record.partner_id.company_id:
-                if record.partner_id.company_id != record.company_id:
-                    raise ValidationError(_("Company mismatch"))
+    # No manual constraint needed for v17 compatibility
 ```
 
 ## GitHub Reference
@@ -281,4 +270,4 @@ Check these files in the Odoo repository for v18 patterns:
 - `odoo/models.py` - `_check_company_auto` implementation
 - `odoo/fields.py` - `check_company` parameter
 - `odoo/tools/sql.py` - `SQL` builder class
-- `addons/base/models/ir_rule.py` - `allowed_company_ids` usage
+- `odoo/addons/base/models/ir_rule.py` - `_eval_context()` (user, time, company_ids, company_id)

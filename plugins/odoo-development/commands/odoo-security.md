@@ -61,6 +61,8 @@ Review existing security configuration for:
 5. Hardcoded IDs
 6. Missing multi-company rules
 
+For the code sweep, follow the **Security Audit Sweep** table in `skills/odoo-security-guide-all.md`: sweep every pattern (sudo, SQL, domains, public methods, routes, XSS sinks, secrets, `open`, `eval`, `pickle`, `getattr`, token comparison, mutable defaults), judge each hit against its rule, and use the per-version form given there. The audit is complete when every pattern is swept and every hit judged.
+
 ## Execution Flow
 
 ### Step 1: Determine Action and Version
@@ -160,24 +162,15 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 
 ## Version-Specific Patterns
 
-### v14-16
+### All versions (14.0-19.0)
 ```xml
-<field name="domain_force">[('company_id', 'in', company_ids)]</field>
+<field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
 ```
 
-### v17
-```xml
-<field name="domain_force">[('company_id', 'in', company_ids)]</field>
-<!-- Same but no attrs in views -->
-```
-
-### v18+
-```xml
-<field name="domain_force">[('company_id', 'in', allowed_company_ids)]</field>
-```
+`allowed_company_ids` is **not** available in record-rule domains in any version (eval context: `user`, `company_ids`, `company_id`, plus `time` up to 18.0). Do not set `global` on `ir.rule` - it is computed from `groups`.
 
 ```python
-_check_company_auto = True
+_check_company_auto = True  # available in 14.0-19.0
 partner_id = fields.Many2one('res.partner', check_company=True)
 ```
 
@@ -203,6 +196,7 @@ partner_id = fields.Many2one('res.partner', check_company=True)
    - Apply security level patterns
    - Generate version-appropriate code
 4. **FOR AUDIT**:
+   - Run the audit sweep table from `odoo-security-guide-all.md`
    - Scan all security-related files
    - Check for vulnerabilities
    - Verify patterns match version

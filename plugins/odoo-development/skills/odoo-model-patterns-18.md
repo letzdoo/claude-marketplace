@@ -11,10 +11,10 @@
 ## Version 18.0 Requirements
 
 - **Python**: 3.10+ required, 3.12 recommended
-- **Type Hints**: Recommended (will be mandatory in v19)
-- **SQL Builder**: Use `SQL()` for raw SQL (mandatory in v19)
+- **Type Hints**: Optional (not enforced in v18 or v19)
+- **SQL Builder**: Use `SQL()` for raw SQL (plain `cr.execute(str, params)` still works)
 - **Company Check**: Use `_check_company_auto = True`
-- **Decorators**: `@api.model_create_multi` mandatory
+- **Decorators**: `@api.model_create_multi` + `def create(self, vals_list)` (`@api.model` on create still works but emits a DeprecationWarning); callers may still pass a single dict
 
 ## Model Definition (v18)
 
@@ -127,6 +127,8 @@ class MyModel(models.Model):
             record.display_name = f"[{record.sequence}] {record.name or ''}"
 
     # === CONSTRAINTS === #
+    # Invariants belong in @api.constrains or _sql_constraints; @api.onchange is UI-only.
+    # 18.0: models.Constraint does not exist, use _sql_constraints.
     @api.constrains('amount')
     def _check_amount(self) -> None:
         """Validate amount is positive."""
@@ -163,11 +165,19 @@ class MyModel(models.Model):
             raise UserError(_("Cannot delete confirmed records."))
         return super().unlink()
 
-    def copy(self, default: Optional[dict] = None) -> 'MyModel':
-        """Custom copy with name suffix."""
-        default = dict(default or {})
-        default.setdefault('name', _("%s (Copy)", self.name))
-        return super().copy(default)
+    def copy_data(self, default: Optional[dict] = None) -> list[dict]:
+        """Custom copy with name suffix.
+
+        v18: copy() works on multi-record sets and calls copy_data(), which
+        returns one vals dict per record - override copy_data, not copy.
+        """
+        vals_list = super().copy_data(default=default)
+        if default and 'name' in default:
+            return vals_list
+        return [
+            dict(vals, name=self.env._("%s (Copy)", record.name))
+            for record, vals in zip(self, vals_list)
+        ]
 
     # === x2many OPERATIONS - Use Command class === #
     def action_add_line(self) -> None:
@@ -210,20 +220,9 @@ class MyModel(models.Model):
         self.write({'state': 'draft'})
 
     # === SEARCH METHODS === #
-    @api.model
-    def _name_search(
-        self,
-        name: str = '',
-        domain: Optional[list] = None,
-        operator: str = 'ilike',
-        limit: int = 100,
-        order: Optional[str] = None,
-    ):
-        """Extended name search."""
-        domain = domain or []
-        if name:
-            domain = ['|', ('name', operator, name), ('sequence', operator, name)] + domain
-        return self._search(domain, limit=limit, order=order)
+    # v18: name_search() searches on display_name; customize the search with
+    # _rec_names_search or by overriding _search_display_name(operator, value).
+    _rec_names_search = ['name', 'description']
 
     # === SQL OPERATIONS (v18 pattern) === #
     def _get_report_data(self) -> list[dict]:
@@ -335,6 +334,8 @@ class ResPartner(models.Model):
 
 ### Delegation Inheritance
 
+`_inherits` delegates fields (as related fields), not methods.
+
 ```python
 class ExtendedModel(models.Model):
     _name = 'my_module.extended_model'
@@ -425,7 +426,7 @@ class MyWizard(models.TransientModel):
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'my_module.my_model',
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'domain': [('id', 'in', self.record_ids.ids)],
             'target': 'current',
         }
@@ -499,13 +500,80 @@ class MyModel(models.Model):
 | `@api.depends_context(*keys)` | Context-dependent compute |
 | `@api.autovacuum` | Scheduled cleanup |
 
+## Additional Rules from Odoo's Official Guidelines (verified for 18.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 18.0 source; master-only APIs are translated to their 18.0 equivalent or marked as not available.
+
+### Batching: one ORM call per collection
+
+No `search`, `search_count`, `_read_group`, `create` or `browse(id)` inside a loop over records. Aggregate with `_read_group(domain, groupby, aggregates)`, which returns a list of tuples (relational group keys come back as recordsets):
+
+```python
+# Totals per order in ONE query
+totals = dict(self.env['sale.order.line']._read_group(
+    [('order_id', 'in', orders.ids)],
+    groupby=['order_id'],
+    aggregates=['price_subtotal:sum'],
+))
+for order in orders:
+    total = totals.get(order, 0.0)  # keys are sale.order records
+
+# Count per partner
+counts = dict(self.env['my_module.my_model']._read_group(
+    [('partner_id', 'in', partners.ids)], ['partner_id'], ['__count'],
+))
+```
+
+`read_group(domain, fields, groupby, ...)` (list of dicts) still exists in 18 for the web client; use `_read_group` in Python code. Put conditions into the domain instead of `filtered()` on large sets, iterate whole recordsets (prefetch) instead of `browse(id)` one by one, and create records in batch: `Model.create([vals1, vals2])`.
+
+### ORM rules in 18.0
+
+| Rule | 18.0 form |
+|------|-----------|
+| Indexes | field `index=True` (`'btree'`), `'btree_not_null'` (mostly-NULL columns), `'trigram'` (ilike search); only on searched AND selective fields. Multi-column: override `init()` and call `odoo.tools.sql.create_index(self.env.cr, name, self._table, ['col_a', 'col_b'])` |
+| Translation | `self.env._("Order %s confirmed", order.name)` or `_("...", arg)`; pass arguments to `_()`, never format before/after the lookup; module level: `_lt = LazyTranslate(__name__)` then `LABEL = _lt("Label")`; lists are not formatted per language in 18 -> `odoo.tools.format_list(self.env, names)` |
+| Domains | `from odoo.osv import expression`; `expression.AND([d1, d2])`, `expression.OR([...])`; never hand-build prefix lists |
+| Grouping in memory | `records.grouped('partner_id')` -> `{partner: recordset}` (same prefetch set) |
+| Context | `with_context(key=...)` (frozendict); prefix custom keys with the module name; a stray `default_<field>` key in the context is applied by every `create` on any model that has that field |
+| Related through x2many | `related='line_ids.product_id'` follows only the FIRST line; use a compute for "all lines" |
+| Savepoints | `with self.env.cr.savepoint():` around code whose failure must not break the transaction; catch specific exceptions |
+| Commit | never `self.env.cr.commit()`/`rollback()` unless you opened the cursor yourself; tests forbid it |
+| Reserved fields | `active` (archive with `action_archive()`/`action_unarchive()`), `state`, `parent_id` + `parent_path` (indexed) with `_parent_store = True`, `company_id` with `_check_company_auto` + `check_company=True`; keep `_log_access` on TransientModel |
+| `request` in models | do not use `odoo.http.request` in model code (unbound in crons, RPC, tests, shell) |
+| Public methods | prefix internal methods with `_` or decorate with `@api.private`; classmethods are RPC-callable in 18 unless prefixed with `_` |
+
+### Views, reports, QWeb
+
+- Inheritance anchors on names, never on position: `<field name="partner_id" position="after">` matches the first `field` with that name at any depth; other tags match the first node carrying all the given attributes; use `xpath` when that is ambiguous.
+- Inheriting view: same xml id prefix, name `<model>.view.<type>.inherit.<detail>`; `mode="primary"` for a separate variant; do not re-add fields that the parent already shows.
+- `t-lang` is only valid on a node with `t-call`; anywhere else the template compile raises `SyntaxError`.
+- A custom report model `report.<report_name>` must return `doc_ids`, `doc_model` and `docs` itself from `_get_report_values(docids, data)`; the defaults are only added when no such model exists:
+
+```python
+class ReportMyModel(models.AbstractModel):
+    _name = 'report.my_module.report_my_model'
+    _description = 'My Model Report'
+
+    @api.model
+    def _get_report_values(self, docids, data=None):
+        docs = self.env['my_module.my_model'].browse(docids)
+        return {
+            'doc_ids': docids,
+            'doc_model': 'my_module.my_model',
+            'docs': docs,
+            'totals': dict(self.env['my_module.my_model.line']._read_group(
+                [('parent_id', 'in', docs.ids)], ['parent_id'], ['amount:sum'],
+            )),
+        }
+```
+
 ## v18 Checklist
 
 - [ ] Use `_check_company_auto = True` for multi-company models
 - [ ] Add `check_company=True` to relational fields
 - [ ] Use `@api.model_create_multi` for create methods
 - [ ] Use `SQL()` builder for raw SQL queries
-- [ ] Add type hints (recommended, mandatory in v19)
+- [ ] No ORM calls inside loops (`_read_group` for aggregates)
 - [ ] Use `Command` class for x2many operations
 - [ ] Use direct `invisible`/`readonly` in views (not `attrs`)
 
@@ -516,7 +584,7 @@ When generating Odoo 18.0 models:
 1. **ALWAYS** use `_check_company_auto = True` for multi-company
 2. **ALWAYS** use `@api.model_create_multi` for create
 3. **USE** `check_company=True` on relational fields
-4. **USE** `SQL()` builder for raw SQL (prepare for v19)
-5. **ADD** type hints where appropriate (prepare for v19)
+4. **USE** `SQL()` builder for raw SQL
+5. **ADD** type hints where they help readability (optional)
 6. **USE** `Command` class for x2many operations
 7. **USE** `tracking=True` for audited fields

@@ -3,19 +3,19 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  MODEL PATTERNS MIGRATION: 14.0 → 15.0                                       ║
-║  @api.multi REMOVED, tracking=True standardized                              ║
+║  Command class, t-out, TransactionCase fixtures (no @api.multi in either)    ║
 ║  VERIFY: https://github.com/odoo/odoo/tree/15.0/odoo/models.py               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
-## Breaking Changes
+## Legacy Clean-up (already required in 14.0)
 
-### 1. @api.multi REMOVED
+### 1. @api.multi (removed in 13.0)
 
-This is the **most critical** breaking change. All methods using `@api.multi` will fail in v15.
+`@api.multi` does not exist in 14.0 either: code carrying it fails at import in both versions. This only concerns code ported from 12.0 or older.
 
 ```python
-# v14 (BREAKS IN v15):
+# <= 12.0 (FAILS in 14.0 and 15.0):
 from odoo import models, api
 
 class MyModel(models.Model):
@@ -31,7 +31,7 @@ class MyModel(models.Model):
     def action_cancel(self):
         self.write({'state': 'cancelled'})
 
-# v15 (REQUIRED - remove @api.multi):
+# 14.0 and 15.0 (no decorator):
 from odoo import models
 
 class MyModel(models.Model):
@@ -49,11 +49,11 @@ class MyModel(models.Model):
 ### 2. track_visibility → tracking
 
 ```python
-# v14 (deprecated, still works):
+# Legacy (still tracked in 14.0 and 15.0, but logs "unknown parameter"):
 name = fields.Char(track_visibility='always')
 state = fields.Selection([...], track_visibility='onchange')
 
-# v15 (RECOMMENDED):
+# 14.0 and 15.0 (the valid parameter on mail.thread models):
 name = fields.Char(tracking=True)
 state = fields.Selection([...], tracking=True)
 ```
@@ -72,14 +72,14 @@ return super().create(vals)
 
 ### Tracking Fields
 
-| v14 Syntax | v15 Syntax |
-|------------|------------|
+| Legacy syntax (warns in 14 and 15) | 14.0 / 15.0 syntax |
+|------------------------------------|--------------------|
 | `track_visibility='always'` | `tracking=True` |
 | `track_visibility='onchange'` | `tracking=True` |
 | `track_visibility=True` | `tracking=True` |
 
 ```python
-# v14:
+# Legacy:
 class MyModel(models.Model):
     _inherit = 'mail.thread'
 
@@ -91,7 +91,7 @@ class MyModel(models.Model):
     partner_id = fields.Many2one('res.partner', track_visibility='onchange')
     amount = fields.Float(track_visibility='always')
 
-# v15:
+# 14.0 and 15.0:
 class MyModel(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin']
 
@@ -109,21 +109,15 @@ class MyModel(models.Model):
 ### Create Method
 
 ```python
-# v14:
-@api.model
-def create(self, vals):
-    if not vals.get('code'):
-        vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
-    return super(MyModel, self).create(vals)
-
-# v15 (single record - still valid):
+# Legacy single-dict override (14.0 and 15.0: wrapped silently, no warning,
+# creates records one at a time):
 @api.model
 def create(self, vals):
     if not vals.get('code'):
         vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
     return super().create(vals)
 
-# v15 (batch - RECOMMENDED for performance):
+# 14.0 and 15.0 (batch - RECOMMENDED; BaseModel.create is model_create_multi in both):
 @api.model_create_multi
 def create(self, vals_list):
     for vals in vals_list:
@@ -135,7 +129,7 @@ def create(self, vals_list):
 ### Write Method
 
 ```python
-# v14:
+# <= 12.0 (fails in 14.0 and 15.0):
 @api.multi
 def write(self, vals):
     if 'state' in vals and vals['state'] == 'done':
@@ -144,7 +138,7 @@ def write(self, vals):
                 raise UserError(_("Add at least one line."))
     return super(MyModel, self).write(vals)
 
-# v15:
+# 14.0 and 15.0:
 def write(self, vals):
     if 'state' in vals and vals['state'] == 'done':
         for record in self:
@@ -156,7 +150,7 @@ def write(self, vals):
 ### Unlink Method
 
 ```python
-# v14:
+# <= 12.0 (fails in 14.0 and 15.0):
 @api.multi
 def unlink(self):
     for record in self:
@@ -164,7 +158,7 @@ def unlink(self):
             raise UserError(_("Cannot delete done records."))
     return super(MyModel, self).unlink()
 
-# v15:
+# 14.0 and 15.0:
 def unlink(self):
     for record in self:
         if record.state == 'done':
@@ -175,7 +169,7 @@ def unlink(self):
 ### Copy Method
 
 ```python
-# v14:
+# <= 12.0 (fails in 14.0 and 15.0):
 @api.multi
 def copy(self, default=None):
     self.ensure_one()
@@ -183,7 +177,7 @@ def copy(self, default=None):
     default['name'] = _("%s (copy)") % self.name
     return super(MyModel, self).copy(default)
 
-# v15:
+# 14.0 and 15.0:
 def copy(self, default=None):
     self.ensure_one()
     default = dict(default or {})
@@ -194,7 +188,7 @@ def copy(self, default=None):
 ## Action Methods Migration
 
 ```python
-# v14:
+# <= 12.0 (fails in 14.0 and 15.0):
 @api.multi
 def action_confirm(self):
     for record in self:
@@ -214,7 +208,7 @@ def action_view_partner(self):
         'view_mode': 'form',
     }
 
-# v15:
+# 14.0 and 15.0:
 def action_confirm(self):
     for record in self:
         if record.state != 'draft':
@@ -289,10 +283,22 @@ grep -rn "super(.*self)" --include="*.py"
 | `track_visibility=True` | `tracking=True` |
 | `super(ClassName, self)` | `super()` |
 
+## Official guideline deltas 14.0 -> 15.0
+
+Only the ORM/model rows of the verified official-guideline matrix that change between 14.0 and 15.0:
+
+| Topic | 14.0 | 15.0 |
+|-------|------|------|
+| x2many commands | tuples `(0, 0, vals)`, `(4, id)`, `(6, 0, ids)`... | `from odoo import Command` (`Command.create(vals)`, `Command.link(id)`, `Command.set(ids)`...); tuples still work |
+| report/website QWeb output | `t-esc` (escapes), `t-raw` (raw); no `t-out` | `t-out`; `t-esc` alias; `t-raw` deprecated |
+| class-level test fixtures | `SavepointCase` | `TransactionCase` with `setUpClass` (`SavepointCase` deprecated alias) |
+
+Unchanged in both (create override: see Create Method): no `grouped()` (use `odoo.tools.groupby`), `_sql_constraints` + boolean `index`, `_()`/`_lt` with `%` args (no `self.env._`), `read_group(domain, fields, groupby)` returning dicts, `odoo.osv.expression.AND/OR`, related through x2many truncates to the first record, `t-lang` without `t-call` silently ignored, `_check_company_auto`, `action_archive`.
+
 ## Migration Checklist
 
-- [ ] Remove ALL `@api.multi` decorators
-- [ ] Replace ALL `track_visibility` with `tracking=True`
+- [ ] Remove leftover `@api.multi` (only in code ported from <= 12.0; fails in 14.0 too)
+- [ ] Replace ALL `track_visibility` with `tracking=True` (valid since 14.0)
 - [ ] Update `super()` calls to Python 3 style
 - [ ] Add `mail.activity.mixin` where appropriate
 - [ ] Consider `@api.model_create_multi` for batch creates
@@ -302,12 +308,12 @@ grep -rn "super(.*self)" --include="*.py"
 
 ## Common Errors After Migration
 
-### AttributeError: 'api' object has no attribute 'multi'
-**Cause**: @api.multi still in code
+### AttributeError: module 'odoo.api' has no attribute 'multi'
+**Cause**: @api.multi still in code (fails in 14.0 already)
 **Solution**: Remove the decorator, keep the method
 
-### DeprecationWarning: track_visibility is deprecated
-**Cause**: track_visibility used
+### Warning: Field ...: unknown parameter 'track_visibility'
+**Cause**: track_visibility used (same warning in 14.0)
 **Solution**: Replace with tracking=True
 
 ### TypeError: create() got multiple values for argument 'vals'

@@ -11,20 +11,21 @@
 
 | Pattern | v14 | v15 | v16 | v17 | v18 | v19 |
 |---------|-----|-----|-----|-----|-----|-----|
-| `@api.multi` | ⚠️ DEP | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `@api.multi` | ❌ (removed in 14.0) | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `track_visibility` | ⚠️ DEP | ⚠️ DEP | ❌ | ❌ | ❌ | ❌ |
 | `tracking=True` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `attrs=` in views | ✅ | ✅ | ⚠️ DEP | ❌ | ❌ | ❌ |
-| `invisible=` expr | ❌ | ❌ | ✅ | ✅ REQ | ✅ REQ | ✅ REQ |
+| `attrs=` in views | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `invisible=` expr | ❌ | ❌ | ❌ (not a record condition in 16) | ✅ REQ | ✅ REQ | ✅ REQ |
 | Tuple x2many | ✅ | ✅ | ⚠️ | ⚠️ | ⚠️ | ⚠️ |
-| `Command` class | ❌ | ❌ | ✅ REC | ✅ REC | ✅ REC | ✅ REC |
-| `@api.model` create | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
-| `@api.model_create_multi` | ❌ | ✅ OPT | ✅ REC | ✅ REQ | ✅ REQ | ✅ REQ |
-| `_check_company_auto` | ❌ | ❌ | ❌ | ❌ | ✅ REC | ✅ REQ |
-| `check_company=True` | ❌ | ❌ | ❌ | ❌ | ✅ REC | ✅ REQ |
-| `SQL()` builder | ❌ | ❌ | ❌ | ❌ | ✅ REC | ✅ REQ |
-| Type hints | ❌ | ❌ | ❌ | ❌ | ✅ REC | ✅ REQ |
-| OWL version | ❌ | 1.x | 2.x | 2.x | 2.x | 3.x |
+| `Command` class | ❌ | ✅ REC | ✅ REC | ✅ REC | ✅ REC | ✅ REC |
+| `@api.model` create | ⚠️ | ⚠️ | ⚠️ (warns) | ⚠️ (warns) | ⚠️ (warns) | ⚠️ |
+| `@api.model_create_multi` | ✅ REC | ✅ REC | ✅ REC | ✅ REC | ✅ REC | ✅ REC |
+| `_check_company_auto` (opt-in) | ✅ OPT | ✅ OPT | ✅ OPT | ✅ OPT | ✅ OPT | ✅ OPT |
+| `check_company=True` (opt-in) | ✅ OPT | ✅ OPT | ✅ OPT | ✅ OPT | ✅ OPT | ✅ OPT |
+| `company_ids` in record rules | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `SQL()` builder | ❌ | ❌ | ❌ | ✅ REC | ✅ REC | ✅ REC |
+| Type hints | ❌ | ❌ | ❌ | ❌ | ⚠️ optional | ⚠️ optional |
+| OWL version | 1.x (legacy widgets) | 1.x | 2.x | 2.x | 2.x | 2.8.x |
 
 **Legend**: ✅ = Use, ❌ = Don't use, ⚠️ DEP = Deprecated, REQ = Required, REC = Recommended, OPT = Optional
 
@@ -106,7 +107,7 @@ def create(self, vals_list):
        invisible="state == 'draft'"/>
 ```
 
-### v18+ Multi-Company Model
+### v14+ Multi-Company Model (opt-in)
 ```python
 class MyModel(models.Model):
     _name = 'my.model'
@@ -116,16 +117,17 @@ class MyModel(models.Model):
     partner_id = fields.Many2one('res.partner', check_company=True)
 ```
 
-### v18+ Record Rule
+### v14+ Multi-Company Record Rule
 ```xml
 <record id="rule_my_model_company" model="ir.rule">
     <field name="name">My Model: Multi-company</field>
     <field name="model_id" ref="model_my_model"/>
     <field name="domain_force">[
-        ('company_id', 'in', allowed_company_ids)
+        ('company_id', 'in', company_ids)
     ]</field>
 </record>
 ```
+Rule domain variables are `user`, `time`, `company_ids`, `company_id` (19.0: no `time`). `allowed_company_ids` is a context key, not available in rules.
 
 ### v19+ Method with Type Hints
 ```python

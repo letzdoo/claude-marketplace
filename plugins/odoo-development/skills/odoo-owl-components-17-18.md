@@ -16,7 +16,7 @@ The OWL framework in Odoo 18.0 is the same version (2.x) as in Odoo 17.0, with m
 
 | Feature | v17 | v18 |
 |---------|-----|-----|
-| OWL Version | 2.x | 2.x (enhanced) |
+| OWL Version | 2.x, no `computed` (use getters / `useState`) | 2.x (enhanced), still no `computed` |
 | Services | Standard | Additional services |
 | Props validation | Recommended | Recommended |
 | Type hints (JSDoc) | Optional | Recommended |
@@ -144,6 +144,16 @@ setup() {
     });
 }
 ```
+
+## Official guideline deltas 17.0 -> 18.0
+
+Only the official-guideline web rules (Odoo `skills/`, verified against both sources) that change between the two versions:
+
+| Topic | 17.0 | 18.0 |
+|-------|------|------|
+| HTML helpers | `htmlEscape`/`markup` from `@odoo/owl`, `escape` from `@web/core/utils/strings`; no `@web/core/utils/html` | adds `@web/core/utils/html`: `htmlEscape` (keeps `Markup` values), `isHtmlEmpty`, `setElementContent` (sets `innerHTML` only for `markup()` values, otherwise `textContent`) |
+
+Unchanged in both: `patch(target, extension)` with `super`, organize code by feature, SCSS `o_<module>` classes and assets via the manifest `assets` key.
 
 ## Migration Checklist
 

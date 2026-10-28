@@ -16,7 +16,7 @@
 | `attrs attribute is no longer supported` | Using attrs= | v17+ | Use invisible= |
 | `create() takes 2 positional arguments` | Single create() | v17+ | Use @api.model_create_multi |
 | `check_company failed` | Cross-company relation | v18+ | Add check_company=True |
-| `SQL string query deprecated` | String SQL | v19 | Use SQL() builder |
+| `'_sql_constraints' is no longer supported` | `_sql_constraints` ignored | v19 | Use `models.Constraint` |
 | `External ID not found` | Missing XML reference | All | Check file order in manifest |
 | `Access Denied` | Missing security rules | All | Add ir.model.access.csv |
 | `KeyError: 'field_name'` | Field not in vals | All | Use .get() or check field |
@@ -145,44 +145,24 @@ class MyModel(models.Model):
 
 ### v19 Errors
 
-#### Error: `DeprecationWarning: SQL string queries are deprecated`
+#### Warning: `Model attribute '_sql_constraints' is no longer supported, please define models.Constraint on the model.`
 
-**Cause**: Using string SQL instead of SQL() builder
+**Cause**: `_sql_constraints` is ignored in v19 (only this log warning) - the constraint is silently missing
 
-**Wrong (v14-v18)**:
+**Wrong (v14-v18 style)**:
 ```python
-self.env.cr.execute("""
-    SELECT id FROM my_model WHERE state = %s
-""", ('draft',))
+_sql_constraints = [
+    ('name_uniq', 'UNIQUE(name)', 'Name must be unique'),
+]
 ```
 
 **Correct (v19)**:
 ```python
-from odoo.tools import SQL
-
-self.env.cr.execute(SQL(
-    "SELECT id FROM my_model WHERE state = %s",
-    'draft'
-))
+_name_uniq = models.Constraint('UNIQUE(name)', 'Name must be unique')
 ```
 
----
-
-#### Error: Type hint related warnings
-
-**Cause**: Missing type hints (recommended in v18, required in v19)
-
-**Add type hints**:
-```python
-def action_confirm(self) -> bool:
-    for record in self:
-        record.state = 'confirmed'
-    return True
-
-@api.model_create_multi
-def create(self, vals_list: list[dict]) -> 'MyModel':
-    return super().create(vals_list)
-```
+Note: plain string SQL (`self.env.cr.execute("... %s", params)`) still works in v19 without warnings;
+`odoo.tools.SQL` is recommended, not required. Type hints are optional; nothing warns about missing ones.
 
 ---
 
@@ -531,9 +511,9 @@ import { registry } from "@web/core/registry";
 registry.category("actions").add("my_action", MyComponent);
 ```
 
-### v19 OWL 3.x Errors
+### v16-v19 OWL 2.x Errors (19.0 ships Owl 2.8.x)
 
-#### Error: `Invalid hook call`
+#### Error: `No active component (a hook function should only be called in 'setup')`
 
 **Cause**: Using hooks outside setup()
 

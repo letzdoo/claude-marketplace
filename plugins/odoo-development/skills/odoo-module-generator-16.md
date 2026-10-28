@@ -10,18 +10,19 @@
 
 ## Version 16.0 Requirements
 
-- **Python**: 3.8+ required
-- **Key Features**: `Command` class introduced, `attrs` deprecated, OWL 2.x
-- **View syntax**: `attrs` still works but deprecated, prefer direct attributes
+- **Python**: 3.7 - 3.12
+- **Key Features**: `Command` class (since 15.0), `attrs`/`states` view modifiers, OWL 2.x
+- **View syntax**: `attrs="{'invisible': [...]}"` / `states="..."` for record-dependent modifiers
 
-## IMPORTANT: Transition Version
+## IMPORTANT: View modifiers in 16.0
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  v16 is a TRANSITION version:                                                ║
-║  - `attrs` works but is DEPRECATED                                           ║
-║  - `@api.model_create_multi` recommended but not mandatory                   ║
-║  - Start using direct invisible/readonly for v17 compatibility               ║
+║  v16 view modifiers:                                                         ║
+║  - record-dependent invisible/readonly/required: attrs (domains) or states   ║
+║  - invisible="state == 'draft'" does NOT work in 16.0 (evaluated with only   ║
+║    `context`); Python expressions are 17.0+                                  ║
+║  - @api.model_create_multi: always (single-dict create logs a WARNING)       ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -33,6 +34,8 @@
 ║  A resource can ONLY be referenced AFTER it has been defined.                ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
+
+`data` loads in list order (groups before ACL CSV before views before menus); `demo` is loaded as noupdate.
 
 ## __manifest__.py Template (v16)
 
@@ -70,6 +73,13 @@
     'auto_install': False,
 }
 ```
+
+Manifest facts (16.0, `odoo/modules/module.py`):
+- `depends`: list direct dependencies only. 16.0 does NOT inject `base` for an empty list - write `'depends': ['base']` when there is no other dependency.
+- `license`: if missing, defaults to `LGPL-3` with a WARNING - always set it.
+- `auto_install`: `True` (all `depends`) or a list that must be a subset of `depends` (asserted).
+- `assets`: the manifest key exists (`'web.assets_backend'`, `'web.assets_frontend'`, ...); there is no `<asset>` XML tag in 16.0.
+- `external_dependencies`: `{'python': [...], 'bin': [...]}`; `application: True` only for full apps.
 
 ## Model Template (v16)
 
@@ -191,9 +201,9 @@ class {ModelName}(models.Model):
         self.write({'state': 'cancelled'})
 ```
 
-## View Templates (v16 - attrs deprecated, prefer direct)
+## View Templates (v16 - attrs / states)
 
-### Recommended Pattern (v17-ready)
+### Recommended Pattern
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -204,21 +214,20 @@ class {ModelName}(models.Model):
         <field name="arch" type="xml">
             <form string="{Model Title}">
                 <header>
-                    <!-- v16: PREFER direct invisible (v17-ready) -->
+                    <!-- v16: states= shorthand or attrs with a domain -->
                     <button name="action_confirm" string="Confirm" type="object"
-                            class="btn-primary"
-                            invisible="state != 'draft'"/>
+                            class="btn-primary" states="draft"/>
                     <button name="action_done" string="Done" type="object"
-                            invisible="state != 'confirmed'"/>
+                            states="confirmed"/>
                     <button name="action_cancel" string="Cancel" type="object"
-                            invisible="state in ('done', 'cancelled')"/>
+                            attrs="{'invisible': [('state', 'in', ('done', 'cancelled'))]}"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,confirmed,done"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box"/>
                     <widget name="web_ribbon" title="Archived" bg_color="bg-danger"
-                            invisible="active"/>
+                            attrs="{'invisible': [('active', '=', True)]}"/>
                     <div class="oe_title">
                         <h1><field name="name" placeholder="Name..."/></h1>
                     </div>
@@ -257,14 +266,14 @@ class {ModelName}(models.Model):
 </odoo>
 ```
 
-### Legacy Pattern (still works in v16, will break in v17)
+### 16.0 vs 17.0 (one view file cannot serve both)
 
 ```xml
-<!-- DEPRECATED: Will break in v17 -->
+<!-- 16.0 (correct here; converted to expressions when migrating to 17.0) -->
 <button name="action_confirm" string="Confirm"
         attrs="{'invisible': [('state', '!=', 'draft')]}"/>
 
-<!-- PREFER THIS INSTEAD (works in v16 AND v17) -->
+<!-- 17.0+ only - in 16.0 this is evaluated with just `context` and fails -->
 <button name="action_confirm" string="Confirm"
         invisible="state != 'draft'"/>
 ```
@@ -313,6 +322,8 @@ registry.category("actions").add("{module_name}.{component_name}", {ComponentNam
 
 ## Security Templates (v16)
 
+Files: `security/ir.model.access.csv` (the CSV file name selects the model; there is no `ir.access.csv` in 16.0) and `security/<module>_security.xml` (groups, rules).
+
 ### ir.model.access.csv
 
 ```csv
@@ -341,11 +352,10 @@ access_{model_name}_manager,{model_name}.manager,model_{module_name}_{model_name
         <field name="implied_ids" eval="[(4, ref('group_{module_name}_user'))]"/>
     </record>
 
-    <!-- Multi-Company Rule -->
+    <!-- Multi-Company Rule (global = no groups; `global` is computed, never set it) -->
     <record id="rule_{model_name}_company" model="ir.rule">
         <field name="name">{Model Name}: Multi-Company</field>
         <field name="model_id" ref="model_{module_name}_{model_name}"/>
-        <field name="global" eval="True"/>
         <field name="domain_force">[
             '|',
             ('company_id', '=', False),
@@ -355,26 +365,74 @@ access_{model_name}_manager,{model_name}.manager,model_{module_name}_{model_name
 </odoo>
 ```
 
+## Additional Rules from Odoo's Official Guidelines (verified for 16.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 16.0 source; master-only APIs are translated to the 16.0 equivalent or marked as not available.
+
+### Structure and naming
+- One model per file named after the model (`models/sale_order.py`); views `views/<model>_views.xml`, `views/<module>_menus.xml`, QWeb `views/<model>_templates.xml`, data `data/<module>_data.xml`, demo `demo/<module>_demo.xml`. Security files: see Security Templates.
+- Controllers: `controllers/<feature>.py` or `controllers/<inherited_module>.py` (`main.py` is legacy). Reports: SQL-view model `report/<model>_report.py`; printable reports `report/<model>_reports.xml` + `report/<model>_templates.xml`.
+- Optional `populate/` directory for the 16.0 populate framework.
+- XML ids: `<model>_view_form|tree|search`, `<model>_action`, `<model>_menu`, `<module>_group_<name>`, `<model>_rule_<group>`; in `<record>` put `id` before `model`; `name` first among the fields. `<data noupdate="1">` or `<odoo noupdate="1">` for data the user may edit. `active="False"` on `<template>` is applied on install only.
+- CSS classes prefixed `o_<module>_...`; no styling by id.
+
+### Python conventions
+- `_name` dotted, module-prefixed, singular (`my_module.order`); wizards `<base_model>.<action>`; SQL reports `<base_model>.report.<action>`.
+- Imports: stdlib / third-party / `odoo` / `odoo.addons`; `from odoo import Command, api, fields, models, _`.
+- Method prefixes: `_compute_`, `_search_`, `_default_`, `_selection_`, `_onchange_`, `_check_`, `action_*` (starting with `self.ensure_one()` if it handles one record); everything not meant for RPC starts with `_` (or `@api.private`).
+- Class body order: private attributes (`_name`, `_description`, `_inherit`, `_order`, `_sql_constraints`) -> default methods -> fields -> compute/inverse/search -> selection -> constrains/onchange -> CRUD overrides -> actions -> business methods.
+- Variables: model classes PascalCase (`Partner = self.env['res.partner']`); `*_id`/`*_ids` variables hold ids, not records.
+
+### Tests for generated modules
+```python
+# tests/__init__.py  -> from . import test_my_model   (files MUST be named test_*.py AND imported)
+from odoo import Command
+from odoo.tests import tagged
+from odoo.addons.base.tests.common import BaseCommon   # 16.0: USD, mail-disabled ctx, cls.partner, still superuser
+
+
+@tagged('post_install', '-at_install')
+class TestMyModel(BaseCommon):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = cls.env['res.users'].create({
+            'name': 'Test User', 'login': 'test_user_my_model',
+            'groups_id': [Command.set([cls.env.ref('base.group_user').id])],
+        })
+
+    def test_create(self):
+        record = self.env['my_module.my_model'].with_user(self.user).create({'name': 'X'})
+        self.assertEqual(record.state, 'draft')
+```
+- Default tags in 16.0 are `standard` + `at_install`. `@tagged('post_install')` alone keeps `at_install` too (warning, test runs twice); always write `@tagged('post_install', '-at_install')`. Tours/`HttpCase` must be post-install.
+- `BaseUsersCommon` (adds `user_internal`, `user_portal`), `TransactionCaseWithUserDemo`, `HttpCaseWithUserDemo` and `new_test_user(env, login=..., groups=...)` are available.
+- Do not import test classes into other test files (they are collected again) and keep shared helpers in non-`test_` mixins: inherited `test_*` methods are collected in 16.0.
+- Wrap expected error logs in `with mute_logger('odoo.sql_db'):` (`from odoo.tools import mute_logger`). `assertQueryCount` only in dedicated performance tests with `@warmup`/`@users`.
+- Run a single class: `--test-tags /my_module:TestMyModel`.
+
 ## v16 Checklist
 
 When generating a v16 module:
 
 - [ ] Use `Command` class for x2many operations
-- [ ] Prefer direct `invisible`/`readonly` over `attrs` (v17 preparation)
-- [ ] Use `@api.model_create_multi` for create methods (recommended)
+- [ ] Record-dependent view modifiers via `attrs` / `states` (never `invisible="expr"`)
+- [ ] Use `@api.model_create_multi` for create methods
 - [ ] Use `tracking=True` for tracked fields
 - [ ] Use OWL 2.x syntax for frontend components
-- [ ] Include assets in manifest
+- [ ] Include assets in manifest; `depends` contains `base` if nothing else
 - [ ] Data files in correct order
+- [ ] Tests tagged `post_install, -at_install` where needed
 
 ## AI Agent Instructions (v16)
 
 When generating an Odoo 16.0 module:
 
-1. **USE** `Command` class for x2many operations (mandatory)
-2. **PREFER** direct `invisible`/`readonly` attributes (v17 preparation)
-3. **USE** `@api.model_create_multi` for create (recommended)
+1. **USE** `Command` class for x2many operations
+2. **USE** `attrs="{'invisible': [...]}"` / `states="..."` for record-dependent modifiers
+3. **USE** `@api.model_create_multi` for create
 4. **USE** `tracking=True` for field tracking
-5. **NOTE**: `attrs` still works but is deprecated
+5. **NEVER** emit `invisible="state == '...'"` (17.0+ syntax) in 16.0 views
 6. **USE** OWL 2.x with `/** @odoo-module **/`
 7. **INCLUDE** assets in manifest

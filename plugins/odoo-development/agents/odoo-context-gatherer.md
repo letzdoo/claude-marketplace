@@ -194,18 +194,17 @@ Return a structured context document in this EXACT format:
 - Direct `invisible="expr"` syntax
 
 ### Odoo 18
-- `_check_company_auto = True`
-- `check_company=True` on fields
+- `_check_company_auto = True` + `check_company=True` on fields (opt-in, same since 14.0)
 - Type hints recommended
 - `SQL()` builder recommended
-- `allowed_company_ids` in record rules
+- Use `company_ids` in record rules (`allowed_company_ids` is not available there)
 
 ### Odoo 19
-- Full type annotations REQUIRED
-- `SQL()` builder REQUIRED (no raw SQL)
-- SQL constraints use `models.Constraint()` class
-- `groups_id` cannot be set in `res.users.create()`
-- OWL 3.x patterns
+- Type annotations optional (recommended; nothing raises if missing)
+- `SQL()` builder recommended (plain `cr.execute(query, params)` still works)
+- SQL constraints use `models.Constraint()` class (`_sql_constraints` is ignored)
+- `res.users` groups field is `group_ids` (was `groups_id`)
+- OWL 2.8.x patterns (Owl 3 only on master/20.0)
 
 ## EXAMPLE EXECUTION
 

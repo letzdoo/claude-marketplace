@@ -7,7 +7,7 @@ This document covers OWL component concepts that are consistent across all Odoo 
 ║  OWL VERSION MAPPING                                                         ║
 ║  • Odoo 15.0: OWL 1.x                                                        ║
 ║  • Odoo 16.0-18.0: OWL 2.x                                                   ║
-║  • Odoo 19.0+: OWL 3.x                                                       ║
+║  • Odoo 19.0: OWL 2.8.x (Owl 3 only on master/20.0)                          ║
 ║  ALWAYS use the correct OWL version patterns for your target Odoo version!  ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```

@@ -41,7 +41,7 @@ Generate OWL components for Odoo frontend development.
 ║  - Odoo 14: NO OWL (use legacy JavaScript)                                   ║
 ║  - Odoo 15: OWL 1.x (odoo.define syntax)                                     ║
 ║  - Odoo 16-18: OWL 2.x (ES modules)                                          ║
-║  - Odoo 19+: OWL 3.x (ES modules, strict props)                              ║
+║  - Odoo 19: OWL 2.8.x (ES modules; Owl 3 only on master/20.0)                ║
 ║                                                                              ║
 ║  Using wrong OWL version WILL cause JavaScript errors.                       ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -56,7 +56,7 @@ What Odoo version are you targeting?
 - 14.0 (Legacy JS, no OWL)
 - 15.0 (OWL 1.x)
 - 16.0-18.0 (OWL 2.x)
-- 19.0 (OWL 3.x)
+- 19.0 (OWL 2.8.x)
 ```
 
 ### Step 2: Load Version-Specific Skill
@@ -107,7 +107,7 @@ static/src/components/{component_name}/{component_name}.xml
 static/src/components/{component_name}/{component_name}.scss
 ```
 
-### Odoo 19 (OWL 3.x)
+### Odoo 19 (OWL 2.8.x)
 ```
 static/src/components/{component_name}/{component_name}.js
 static/src/components/{component_name}/{component_name}.xml
@@ -169,7 +169,7 @@ export class {ComponentName} extends Component {
 registry.category("actions").add("{action_name}", {ComponentName});
 ```
 
-### OWL 3.x (Odoo 19)
+### OWL 2.8.x (Odoo 19)
 ```javascript
 /** @odoo-module **/
 
@@ -180,7 +180,7 @@ import { registry } from "@web/core/registry";
 export class {ComponentName} extends Component {
     static template = "{module_name}.{ComponentName}";
     static props = {
-        // REQUIRED in OWL 3.x
+        // Optional, but recommended (validated in dev mode)
         recordId: { type: Number, optional: true },
     };
 

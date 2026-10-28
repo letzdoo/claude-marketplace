@@ -13,7 +13,7 @@
 ║   - Odoo 14: No OWL (legacy JavaScript)                                      ║
 ║   - Odoo 15: OWL 1.x                                                         ║
 ║   - Odoo 16-18: OWL 2.x                                                      ║
-║   - Odoo 19+: OWL 3.x                                                        ║
+║   - Odoo 19: OWL 2.8.x (Owl 3 only on master/20.0)                           ║
 ║                                                                              ║
 ║   BEFORE writing ANY OWL component, identify your Odoo version               ║
 ║   and load the corresponding file. This is NOT optional.                     ║
@@ -30,7 +30,7 @@
 | Odoo 16.0 | OWL 2.x | `odoo-owl-components-16.md` |
 | Odoo 17.0 | OWL 2.x | `odoo-owl-components-17.md` |
 | Odoo 18.0 | OWL 2.x | `odoo-owl-components-18.md` |
-| Odoo 19.0 | OWL 3.x | `odoo-owl-components-19.md` |
+| Odoo 19.0 | OWL 2.8.x | `odoo-owl-components-19.md` |
 | All versions | Concepts | `odoo-owl-components-all.md` |
 
 ## Migration Guides
@@ -41,7 +41,7 @@
 | 15.0 → 16.0 | `odoo-owl-components-15-16.md` (OWL 1.x to 2.x) |
 | 16.0 → 17.0 | `odoo-owl-components-16-17.md` (OWL 2.x refinements) |
 | 17.0 → 18.0 | `odoo-owl-components-17-18.md` (OWL 2.x refinements) |
-| 18.0 → 19.0 | `odoo-owl-components-18-19.md` (OWL 2.x to 3.x) |
+| 18.0 → 19.0 | `odoo-owl-components-18-19.md` (OWL 2.x refinements, Owl 2.8) |
 
 ## Quick Reference: OWL Changes by Version
 
@@ -91,7 +91,7 @@ export class MyComponent extends Component {
 registry.category("actions").add("my_action", MyComponent);
 ```
 
-### Odoo 19+ (OWL 3.x)
+### Odoo 19 (OWL 2.8.x)
 ```javascript
 /** @odoo-module **/
 import { Component, useState } from "@odoo/owl";
@@ -100,7 +100,7 @@ import { registry } from "@web/core/registry";
 export class MyComponent extends Component {
     static template = "module.MyComponent";
     static props = {
-        // Explicit prop types required
+        // Optional, but recommended (validated in dev mode)
     };
     setup() {
         this.state = useState({ count: 0 });
@@ -110,13 +110,13 @@ export class MyComponent extends Component {
 
 ## Key Differences
 
-| Feature | OWL 1.x | OWL 2.x | OWL 3.x |
+| Feature | OWL 1.x (15) | OWL 2.x (16-18) | OWL 2.8.x (19) |
 |---------|---------|---------|---------|
 | Module system | `odoo.define` | ES modules | ES modules |
 | Import syntax | `require()` | `import` | `import` |
 | Hooks | `owl.hooks` | Direct import | Direct import |
 | Template | Property | Static property | Static property |
-| Props | Implicit | Optional | Required |
+| Props | Implicit | Optional | Optional (recommended) |
 
 ## OWL Detection in Existing Code
 
@@ -127,7 +127,7 @@ export class MyComponent extends Component {
 | `const { Component } = owl` | 15 (OWL 1.x) |
 | `/** @odoo-module **/` | 16+ (OWL 2.x+) |
 | `import { Component }` | 16+ (OWL 2.x+) |
-| `static props = {}` required | 19+ (OWL 3.x) |
+| `import { user } from "@web/core/user"` | 18+ (OWL 2.x) |
 
 ## Common OWL Patterns
 

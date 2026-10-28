@@ -3,7 +3,7 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  ODOO 16.0 ORM PATTERNS                                                      ║
-║  Command class introduced, attrs deprecated, OWL 2.x                         ║
+║  Command class, attrs/states view modifiers, OWL 2.x                         ║
 ║  VERIFY: https://github.com/odoo/odoo/tree/16.0/odoo/models.py               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
@@ -14,15 +14,15 @@
 | Feature | Odoo 16.0 Pattern |
 |---------|-------------------|
 | X2many commands | `Command` class (tuple syntax still works) |
-| attrs in views | DEPRECATED - use conditional attributes |
+| attrs in views | `attrs` / `states` are the 16.0 syntax (expressions only from 17.0) |
 | Change tracking | `tracking=True` |
 | OWL | Version 2.x |
-| Python version | 3.8+ |
+| Python version | 3.7 - 3.12 |
 
-## New in v16: Command Class
+## Command Class (available since 15.0)
 
 ```python
-from odoo.fields import Command
+from odoo import Command   # or: from odoo.fields import Command
 
 # Command class methods
 Command.create(values)      # Replaces (0, 0, values)
@@ -168,34 +168,27 @@ def unlink(self):
     return super().unlink()
 ```
 
-## XML Views: attrs Deprecation
+A single-dict `@api.model def create(self, vals)` still works in 16.0 but logs a WARNING; never call `create()` per record in a loop.
+
+## XML Views: attrs / states (16.0 syntax)
 
 ```xml
 <!--
-    v16: attrs is DEPRECATED
-    Start migrating to conditional attributes
+    v16: record-dependent modifiers MUST use attrs (domains) or states.
+    invisible="state == 'draft'" is NOT a record condition in 16.0: non-boolean
+    values are evaluated with only `context` available (ir_ui_view.py).
+    Python expressions on fields are 17.0+.
 -->
-
-<!-- OLD (deprecated but still works in v16) -->
 <field name="partner_id"
        attrs="{'invisible': [('state', '=', 'draft')],
                'required': [('state', '=', 'confirmed')],
                'readonly': [('state', '=', 'done')]}"/>
 
-<!-- NEW (v16+ recommended) -->
-<field name="partner_id"
-       invisible="state == 'draft'"
-       required="state == 'confirmed'"
-       readonly="state == 'done'"/>
-
-<!-- For buttons -->
-<!-- OLD -->
+<!-- Buttons -->
 <button name="action_confirm" type="object" string="Confirm"
         attrs="{'invisible': [('state', '!=', 'draft')]}"/>
-
-<!-- NEW -->
-<button name="action_confirm" type="object" string="Confirm"
-        invisible="state != 'draft'"/>
+<!-- Shorthand: visible only in the listed states -->
+<button name="action_confirm" type="object" string="Confirm" states="draft"/>
 ```
 
 ### Complete Form Example
@@ -204,14 +197,13 @@ def unlink(self):
 <form>
     <header>
         <button name="action_confirm" type="object" string="Confirm"
-                class="btn-primary"
-                invisible="state != 'draft'"/>
+                class="btn-primary" states="draft"/>
         <button name="action_done" type="object" string="Mark Done"
-                invisible="state != 'confirmed'"/>
+                states="confirmed"/>
         <button name="action_cancel" type="object" string="Cancel"
-                invisible="state in ('done', 'cancelled')"/>
+                attrs="{'invisible': [('state', 'in', ('done', 'cancelled'))]}"/>
         <button name="action_draft" type="object" string="Set to Draft"
-                invisible="state != 'cancelled'"/>
+                states="cancelled"/>
         <field name="state" widget="statusbar"
                statusbar_visible="draft,confirmed,done"/>
     </header>
@@ -219,29 +211,29 @@ def unlink(self):
         <div class="oe_title">
             <h1>
                 <field name="name" placeholder="Name"
-                       readonly="state == 'done'"/>
+                       attrs="{'readonly': [('state', '=', 'done')]}"/>
             </h1>
         </div>
         <group>
             <group>
                 <field name="partner_id"
-                       readonly="state == 'done'"/>
+                       attrs="{'readonly': [('state', '=', 'done')]}"/>
                 <field name="date"/>
                 <field name="date_deadline"
-                       invisible="state == 'draft'"/>
+                       attrs="{'invisible': [('state', '=', 'draft')]}"/>
             </group>
             <group>
                 <field name="total_amount"/>
                 <field name="company_id"
                        groups="base.group_multi_company"
-                       readonly="state != 'draft'"/>
+                       attrs="{'readonly': [('state', '!=', 'draft')]}"/>
             </group>
         </group>
 
         <notebook>
             <page string="Lines" name="lines">
                 <field name="line_ids"
-                       readonly="state == 'done'">
+                       attrs="{'readonly': [('state', '=', 'done')]}">
                     <tree editable="bottom">
                         <field name="sequence" widget="handle"/>
                         <field name="name"/>
@@ -292,6 +284,10 @@ def action_search_overdue(self):
     ]
     return self.search(domain, order='date_deadline')
 
+# Simplest in 16.0: declare the searched fields instead of overriding
+# _rec_names_search = ['name', 'code']
+
+@api.model  # required: name_search is @api.model in 16.0; without it RPC calls break
 def name_search(self, name='', args=None, operator='ilike', limit=100):
     """Enhanced name search"""
     args = args or []
@@ -326,26 +322,97 @@ def action_draft(self):
     self.filtered(lambda r: r.state == 'cancelled').write({'state': 'draft'})
 ```
 
+## Additional Rules from Odoo's Official Guidelines (verified for 16.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 16.0 source; master-only APIs are translated to the 16.0 equivalent or marked as not available.
+
+### Batching: one ORM call per collection
+No `search`, `search_count`, `read_group` or `create` inside a loop. Put conditions in the domain instead of `filtered()`. Iterate recordsets (shared prefetch) instead of `browse(id)` per id.
+
+```python
+# Aggregate per group - 16.0 API (master's _read_group(domain, groupby, aggregates) does NOT exist)
+groups = self.env['my.model.line'].read_group(
+    [('model_id', 'in', self.ids)],
+    ['amount:sum'],          # fields / aggregates
+    ['model_id'],            # groupby
+    lazy=False,
+)
+totals = {g['model_id'][0]: g['amount'] for g in groups}
+counts = {g['model_id'][0]: g['__count'] for g in groups}   # lazy=True -> key 'model_id_count'
+for record in self:
+    record.total_amount = totals.get(record.id, 0.0)
+```
+
+### Constraints and indexes
+```python
+class MyModel(models.Model):
+    _name = 'my.model'
+    _description = 'My Model'
+    _sql_constraints = [
+        ('code_company_uniq', 'UNIQUE(code, company_id)', 'The code must be unique per company.'),
+        ('amount_positive', 'CHECK(amount >= 0)', 'The amount must be positive.'),
+    ]
+
+    ref = fields.Char(index='trigram')          # True/'btree', 'btree_not_null', 'trigram'
+
+    def init(self):
+        # multi-column index (no models.Index in 16.0)
+        tools.create_index(self._cr, 'my_model_company_date_idx', self._table, ['company_id', 'date'])
+
+    @api.constrains('date_start', 'date_end')
+    def _check_dates(self):
+        for rec in self:
+            if rec.date_start and rec.date_end and rec.date_start > rec.date_end:
+                raise ValidationError(_("Start date must be before end date."))
+```
+(`from odoo import tools`.) `@api.onchange` is UI only; invariants go into `@api.constrains` or `_sql_constraints`. `models.Constraint/Index/UniqueIndex` do not exist in 16.0.
+
+### Translations
+- `from odoo import _, _lt`; no `self.env._` and no `LazyTranslate` in 16.0.
+- Pass arguments to `_()`: `_("Order %s confirmed", order.name)` or named `_("%(name)s confirmed", name=order.name)` (args or kwargs, not both). Never format before or after the lookup; prefer `%` over `.format()`.
+- `_()` at module/class level evaluates too early: use `_lt("...")`.
+- `_()` does not escape Markup args in 16.0; for HTML use `Markup(_("Hello %s")) % value`.
+- Field values are translated via `translate=True`, not `_()`.
+
+### Domains, grouping, context
+- Combine domains with `from odoo.osv import expression`: `expression.AND([d1, d2])`, `expression.OR([...])`; never hand-build prefix lists or concatenate user input (no `fields.Domain` in 16.0).
+- `records.grouped()` does not exist in 16.0: `for key, recs in tools.groupby(records, key=lambda r: r.partner_id)` (returns lists; wrap with `self.browse()`/`concat` if needed) or `tools.partition`.
+- `if records:` instead of `len()`; `ensure_one()` before reading a single value; `action_*` methods start with `self.ensure_one()` when they act on one record.
+- `with_context()` keys leak: `default_<field>` in context is used by `default_get` of EVERY model created downstream; pop it or use a module-prefixed key.
+
+### Fields
+- `related='a_ids.b'` through an x2many takes only the FIRST record of each intermediate x2many (silent truncation); use a compute instead.
+- Reserved fields: `active` (archive with `action_archive()`), `state`, `parent_id` + `parent_path` with `_parent_store = True`, `company_id` with `_check_company_auto = True` and `check_company=True` (all exist in 16.0); keep `_log_access` on TransientModel (asserted).
+
+### Transactions
+- Never `self.env.cr.commit()` / `rollback()` unless you own the cursor; justify every commit.
+- Recover from expected errors with `with self.env.cr.savepoint():` (signature `savepoint(flush=True)`) and catch specific exceptions; avoid hundreds of savepoints in one transaction.
+- Don't use `odoo.http.request` in models (unbound in crons, RPC, tests, shell).
+
+### Views, QWeb, reports
+- Inheritance: anchor on names, never on position. `<field name="x" position="after">` matches the FIRST `<field name="x">` at any depth; other tags match the first node having all given attributes; use `xpath` for anything more specific. Inheriting view id: `<parent_xmlid>_inherit_<details>`; use `mode="primary"` for a new variant.
+- `t-lang` is only valid on a node with `t-call`; elsewhere it raises `SyntaxError` at compile time. To translate a fragment, extract it into a template and `t-call` it with `t-lang`.
+- A custom `_get_report_values()` (model `report.<report_name>`) must itself return `doc_ids`, `doc_model` and `docs`; the defaults are only added when no such model exists.
+
 ## v16 Best Practices
 
 1. **Use Command class** for x2many operations
-2. **Migrate from attrs** to conditional attributes
+2. **Use attrs/states** for record-dependent view modifiers
 3. **Use @api.model_create_multi** for create methods
 4. **Leverage OWL 2.x** for frontend components
-5. **Use index=True** on frequently searched fields
+5. **Use index=True** only on fields that are searched AND selective
 
 ## Migration Notes to v17
 
 When upgrading from v16 to v17:
 
-1. **attrs REMOVED** - Must use conditional attributes
-2. **@api.model_create_multi mandatory** - No longer optional
-3. **OWL 2.x enhanced** - Minor updates
+1. **attrs/states replaced** - convert domains to Python expressions during the 17.0 migration (not before: expressions do not work as record conditions in 16.0)
+2. **Single-dict create** - still only a WARNING in 17.0; use `@api.model_create_multi` anyway
+3. **OWL 2.x** - `patch()` signature changes to `patch(obj, ext)` with `super`
 
-```python
-# v16: attrs still works (deprecated)
-# v17: attrs REMOVED - this will break
-
-# Must update all XML files before v17 upgrade
-# invisible="domain" instead of attrs="{'invisible': [domain]}"
+```xml
+<!-- v16 -->
+<field name="x" attrs="{'invisible': [('state', '=', 'draft')]}"/>
+<!-- v17 -->
+<field name="x" invisible="state == 'draft'"/>
 ```

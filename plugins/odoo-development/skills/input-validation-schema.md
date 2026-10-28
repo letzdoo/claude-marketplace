@@ -437,12 +437,12 @@ VERSION_FEATURES = {
         "track_visibility": False,
         "tracking": True,
         "attrs": False,
-        "owl": "3.x",
+        "owl": "2.x",  # Owl 2.8.x (Owl 3 only on master/20.0)
         "command_class": True,
         "create_multi": True,
         "check_company_auto": True,  # Required
-        "sql_builder": True,  # Required
-        "type_hints": True,  # Required
+        "sql_builder": True,  # Recommended (plain cr.execute strings still work)
+        "type_hints": True,  # Optional (recommended), nothing enforces them
     },
 }
 
@@ -469,8 +469,6 @@ def check_version_compatibility(data: dict) -> list[str]:
             warnings.append(f"Using OWL 1.x syntax for v{version}")
         elif features['owl'] == '2.x':
             warnings.append(f"Using OWL 2.x syntax for v{version}")
-        elif features['owl'] == '3.x':
-            warnings.append(f"Using OWL 3.x syntax for v{version}")
 
     # Check multi-company
     if data['multi_company'] and not features['check_company_auto']:

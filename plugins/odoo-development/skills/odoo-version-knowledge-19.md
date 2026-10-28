@@ -3,9 +3,9 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  ODOO 19.0 KNOWLEDGE BASE                                                    ║
-║  Type hints mandatory, SQL() required, OWL 3.x                               ║
-║  WARNING: v19 is in development - patterns may change                        ║
-║  VERIFY: https://github.com/odoo/odoo/tree/master                            ║
+║  models.Constraint (no _sql_constraints), group_ids, Owl 2.8.x               ║
+║  Released (final) - verified against the 19.0 source                         ║
+║  VERIFY: https://github.com/odoo/odoo/tree/19.0                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -13,17 +13,19 @@
 
 | Aspect | Details |
 |--------|---------|
-| Release Date | October 2024 (Expected) |
-| Python | 3.11, 3.12 |
-| PostgreSQL | 14, 15, 16 |
-| Frontend | OWL 3.x |
-| Status | In Development |
+| Status | Released (`odoo/release.py`: `version_info = (19, 0, 0, FINAL, 0, '')`) |
+| Python | 3.10 - 3.14 (`MIN_PY_VERSION = (3, 10)`, `MAX_PY_VERSION = (3, 14)`) |
+| PostgreSQL | 13+ (`MIN_PG_VERSION = 13`) |
+| Frontend | Owl 2.8.x (`addons/web/static/lib/owl/owl.js`: `version = "2.8.4"`) - there is NO Owl 3 in 19.0 |
 
 ## BREAKING Changes from v18
 
-### SQL Constraints Use models.Constraint() Class
+### SQL Constraints: `_sql_constraints` is IGNORED, use `models.Constraint()`
+In 19.0 the registry only logs a warning ("Model attribute '_sql_constraints' is no longer
+supported, please define models.Constraint on the model.") and **does not create the constraint**
+(`odoo/orm/model_classes.py`). Same for `_constraints`.
 ```python
-# DEPRECATED in v19 - _sql_constraints list
+# v18 form - SILENTLY IGNORED in v19 (constraint is never created)
 class MyModel(models.Model):
     _name = 'my.model'
 
@@ -32,58 +34,69 @@ class MyModel(models.Model):
          'The percentage must be between 0 and 100.'),
     ]
 
-# v19 REQUIRED - models.Constraint() class
+# v19 form - class attribute, name must start with '_'
 class MyModel(models.Model):
     _name = 'my.model'
 
     _check_percentage = models.Constraint(
         'CHECK(percentage >= 0 AND percentage <= 100)',
-        'The percentage of an analytic distribution should be between 0 and 100.',
+        'The percentage must be between 0 and 100.',
     )
+    _code_company_uniq = models.UniqueIndex('(code, company_id)', 'Code must be unique per company.')
+    _state_date_idx = models.Index('(state, date)')
 ```
 
-### res.users.create() Cannot Set groups_id
+### res.users: `groups_id` renamed to `group_ids`
+The Many2many on `res.users` is `group_ids` (plus computed `all_group_ids`); the inverse on
+`res.groups` is `user_ids` (plus `all_user_ids`). `ir.ui.view` and `ir.actions.act_window` also
+use `group_ids`. Setting groups in `create()` works; Odoo's own test helpers do it
+(`odoo/addons/base/tests/common.py`).
 ```python
-# BROKEN - groups_id ignored during create
+from odoo import Command
+
+# v19
 user = self.env['res.users'].create({
-    'login': 'user@example.com',
-    'groups_id': [(6, 0, [group.id])],  # IGNORED!
+    'name': 'Portal User',
+    'login': 'portal@example.com',
+    'group_ids': [Command.set([self.env.ref('base.group_portal').id])],
 })
 
-# CORRECT - Add to group after creation
-user = self.env['res.users'].create({'login': 'user@example.com'})
-group.write({'users': [(4, user.id)]})
+# or add a user to a group afterwards
+self.env.ref('my_module.group_manager').write({'user_ids': [Command.link(user.id)]})
 ```
 
-### Type Hints MANDATORY
-```python
-# DEPRECATED in v19
-def action_confirm(self):
-    pass
+### Type Hints: optional
+Type hints are NOT enforced in 19.0. Many core public methods have none (e.g. `read_group`).
+They are welcome for readability; their absence never raises an error.
 
-# v19 REQUIRED
-def action_confirm(self) -> bool:
-    return True
-
-def create_record(self, name: str, partner_id: int | None = None) -> 'MyModel':
-    return self.create({'name': name, 'partner_id': partner_id})
-```
-
-### SQL() Builder REQUIRED
+### Raw SQL: `SQL()` recommended, string queries still work
+`cr.execute()` accepts either a string with a params tuple/list/dict or an `SQL` object
+(`odoo/sql_db.py`); there is no deprecation of string queries. Prefer `SQL` because it composes
+safely (`SQL.identifier()`, nested `SQL`, `Query.select()`; `_search()` returns a `Query`). Never
+format values into the string.
 ```python
 from odoo.tools import SQL
 
-# DEPRECATED in v19
+# Works in v19 (parameters passed separately)
 self.env.cr.execute("SELECT id FROM my_model WHERE state = %s", ['draft'])
 
-# v19 REQUIRED
-self.env.cr.execute(SQL(
-    "SELECT id FROM my_model WHERE state = %s",
-    'draft'
-))
+# Preferred in v19
+self.env.cr.execute(SQL("SELECT id FROM my_model WHERE state = %s", 'draft'))
 ```
 
-### OWL 3.x
+### Other 19.0 deprecations (still work, emit warnings)
+- `odoo.osv.expression.AND/OR/normalize_domain` -> `odoo.fields.Domain`
+- `read_group()` -> `_read_group(domain, groupby, aggregates)` (backend, returns a list of tuples) /
+  `formatted_read_group()` (UI-style dicts)
+- `@route(type='json')` -> `type='jsonrpc'`
+- `odoo.models.check_method_name` -> `odoo.service.model.get_public_method` / `@api.private`
+- `check_access_rights()` / `check_access_rule()` (since 18.0) -> `check_access()` / `has_access()`
+- `toggle_active()` -> `action_archive()` / `action_unarchive()`
+- `with_context(force_company=...)` -> `with_company(...)`
+- QWeb `t-esc` (still renders escaped, dev-mode warning) and `t-raw` (still renders raw, always
+  warns) -> `t-out`
+
+### Owl 2 component (19.0 ships Owl 2.8.x)
 ```javascript
 /** @odoo-module **/
 
@@ -170,19 +183,18 @@ export class MyComponent extends Component {
 
 ## Key Features
 
-### New in Odoo 19 (Expected)
-- OWL 3.x framework
-- Mandatory type hints
-- SQL() builder required
-- Enhanced performance
-- AI integrations
-- Improved mobile experience
+### New in Odoo 19 (framework, verified)
+- `odoo.fields.Domain` object for domains (`&`, `|`, `~`, `Domain.AND/OR`)
+- `models.Constraint` / `models.Index` / `models.UniqueIndex` replace `_sql_constraints`
+- `@api.private` to hide public methods from RPC
+- `self.env._()` translation helper; `_()` takes interpolation args; `_lt` / `LazyTranslate` exist
+- Route type `jsonrpc` (and `json2`); `json` is a deprecated alias
+- `formatted_read_group()` (web) replaces `read_group()` for UI-style results
 
 ### Technical Stack
-- Python 3.11+ (3.12 recommended)
-- PostgreSQL 14+
-- OWL 3.x framework
-- Full ES2022+ support
+- Python 3.10 - 3.14
+- PostgreSQL 13+
+- Owl 2.8.x
 
 ## Version-Specific Patterns
 
@@ -262,6 +274,8 @@ class MyModel(models.Model):
 ```
 
 ### CRUD Methods with Type Hints
+`create` with a single dict (no decorator) is still accepted silently in 19.0, but always write
+`@api.model_create_multi`.
 ```python
 @api.model_create_multi
 def create(self, vals_list: list[dict]) -> 'MyModel':
@@ -423,29 +437,29 @@ def _search_is_overdue(self, operator: str, value: bool) -> list:
     return ['|', ('date_deadline', '>=', today), ('date_deadline', '=', False)]
 ```
 
-## OWL 3.x Features
+## Owl 2.8 Notes
 
-### Enhanced Reactivity
+### Reactivity of Set/Map
+Owl 2 already tracks `Set` and `Map` in `useState` (they are listed as reactive raw types in
+`owl.js`); this is not new in 19.0. `markup` from `@odoo/owl` works as a tagged template.
 ```javascript
 setup() {
     this.state = useState({
         items: [],
-        selectedIds: new Set(),  // Sets now fully reactive
+        selectedIds: new Set(),
     });
 }
 
 toggleSelect(id) {
-    // Direct mutation works in OWL 3.x
     if (this.state.selectedIds.has(id)) {
         this.state.selectedIds.delete(id);
     } else {
         this.state.selectedIds.add(id);
     }
-    // No need to recreate Set
 }
 ```
 
-### Enhanced Props Validation
+### Props Validation
 ```javascript
 static props = {
     recordId: { type: Number, optional: true },
@@ -464,45 +478,38 @@ static defaultProps = {
 
 ## Migration from v18
 
-### Type Hints Migration
+### Constraint Migration (mandatory)
 ```python
-# v18 (worked without types)
-def action_confirm(self):
-    for record in self:
-        record.state = 'confirmed'
-    return True
+# v18
+_sql_constraints = [('code_uniq', 'unique(code)', 'Code must be unique.')]
 
-# v19 (types required)
-def action_confirm(self) -> bool:
-    for record in self:
-        record.state = 'confirmed'
-    return True
+# v19 (the list above is ignored with only a warning)
+_code_uniq = models.Constraint('UNIQUE(code)', 'Code must be unique.')
 ```
 
-### SQL Migration
+### Group Field Migration (mandatory)
+- `res.users.groups_id` -> `group_ids`; `res.groups.users` -> `user_ids`
+- `ir.ui.view.groups_id` / `ir.actions.act_window.groups_id` -> `group_ids`
+
+### Domain Migration (recommended)
 ```python
-# v18 (string queries worked)
-self.env.cr.execute("SELECT id FROM my_model WHERE state = %s", ['draft'])
+# v18
+from odoo.osv import expression
+domain = expression.AND([domain, [('company_id', 'in', company_ids)]])
 
-# v19 (SQL() required)
-from odoo.tools import SQL
-self.env.cr.execute(SQL("SELECT id FROM my_model WHERE state = %s", 'draft'))
+# v19 (osv.expression still works but warns)
+from odoo.fields import Domain
+domain = Domain(domain) & Domain('company_id', 'in', company_ids)
 ```
-
-### OWL Migration (2.x → 3.x)
-- Add comprehensive JSDoc annotations
-- Use AbortController for cancellation
-- Implement proper cleanup in onWillUnmount
-- Update Set/Map usage (now reactive)
 
 ## Best Practices for v19
 
-1. **Type hints everywhere** - On all public methods
-2. **Use SQL() builder** - For all raw SQL
-3. **_check_company_auto = True** - On multi-company models
+1. **models.Constraint / Index / UniqueIndex** - never `_sql_constraints`
+2. **Use SQL() builder** for raw SQL (recommended, not enforced)
+3. **_check_company_auto = True** - opt-in flag (default False) for multi-company models
 4. **check_company=True** - On relational fields
-5. **OWL 3.x patterns** - Comprehensive JSDoc, cleanup
-6. **from __future__ import annotations** - For forward refs
+5. **Domain objects** - `odoo.fields.Domain` instead of `osv.expression`
+6. Type hints are optional (not enforced)
 
 ## Manifest Structure
 
@@ -536,46 +543,57 @@ self.env.cr.execute(SQL("SELECT id FROM my_model WHERE state = %s", 'draft'))
 
 ## Common Issues
 
-### Missing Type Hints
+### SQL Constraint Not Created
 ```
-TypeError: Missing return type annotation
+WARNING ... Model attribute '_sql_constraints' is no longer supported, please define models.Constraint on the model.
 ```
-Solution: Add return type to all public methods
+Solution: Convert each tuple to a `models.Constraint(...)` class attribute (see above).
 
-### SQL String Deprecated
-```
-DeprecationWarning: String SQL queries are deprecated
-```
-Solution: Use `SQL()` builder from `odoo.tools`
-
-### OWL Set Reactivity
-```javascript
-// v18 issue - Set not reactive
-this.state.selectedIds = new Set(this.state.selectedIds);
-
-// v19 - Direct mutation works
-this.state.selectedIds.add(id);
-```
-
-### groups_id Cannot Be Set During res.users.create()
-
-In Odoo 19, `groups_id` cannot be set directly during `res.users.create()`.
-
+### Invalid Field `groups_id`
+Writing `groups_id` on `res.users` fails because the field is `group_ids` in 19.0.
 ```python
-# BROKEN in v19
 user = self.env['res.users'].create({
     'name': 'Portal User',
     'login': 'portal@example.com',
-    'groups_id': [(6, 0, [portal_group.id])],  # This will NOT work
+    'group_ids': [Command.set([self.env.ref('base.group_portal').id])],
 })
-
-# CORRECT in v19 - Create user first, then add to group
-user = self.env['res.users'].create({
-    'name': 'Portal User',
-    'login': 'portal@example.com',
-})
-portal_group = self.env.ref('base.group_portal')
-portal_group.write({'users': [(4, user.id)]})
 ```
 
-**Why**: Security hardening prevents group assignment during user creation to avoid privilege escalation.
+### View Mode `tree`
+The view type is `list` (`ir.ui.view.type` has no `tree`); use `'view_mode': 'list,form'` and
+`<list>` arch.
+
+## Additional Rules from Odoo's Official Guidelines (verified for 19.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were
+checked against the 19.0 source; master-only APIs are translated to the 19.0 equivalent or marked
+as not available.
+
+### API availability in 19.0 vs master
+
+| Topic | 19.0 | Notes |
+|-------|------|-------|
+| Access model | `ir.model.access` + `ir.rule` | master `ir.access` does NOT exist (see list below) |
+| `_allow_sudo_commands` | exists | |
+| `fields.NO_ACCESS` | exists (`'.'`) | |
+| `related_sudo` | default True | `related_sudo=False` for sensitive chains |
+| `grouped()` | exists | |
+| Route `auth` | `user`, `bearer`, `public`, `none` | NO `bearer_scope` parameter |
+| CSRF | on for `http` (non-GET), none for `jsonrpc` | |
+| `t-lang` | only on a node with `t-call` | otherwise `SyntaxError` |
+| `odoo.tools.consteq` | exists | |
+| Restricted pickle (`odoo.tools.pickle`) | absent | never pickle |
+| `base.group_everyone` | absent | |
+| Test default tags | `standard`, `at_install` | post-install needs `@tagged('post_install', '-at_install')` |
+| `BaseCommon`, `TransactionCaseWithUserDemo` | exist | `SavepointCase` absent |
+| `allow_inherited_tests_method` | exists | |
+| `patch()` | `patch(obj, extension)` | |
+| `populate` | `odoo-bin populate` duplicates records | no factory API |
+
+### Master/20.0-only - do NOT use in 19.0
+- `ir.access` model and `security/ir.access.csv`
+- `bearer_scope=` on `@http.route`
+- Owl `computed` (Owl 3)
+- `expectUnloadPage` tour step option (not verified for 19.0)
+- `populate.blueprint` / factory-based populate
+- `--unsafe-policy` server option

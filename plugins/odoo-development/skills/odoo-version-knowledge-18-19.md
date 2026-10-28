@@ -11,29 +11,33 @@
 
 | Category | Change | Impact |
 |----------|--------|--------|
-| SQL | `SQL()` builder **REQUIRED** | **CRITICAL** - All raw SQL |
-| Type Hints | **REQUIRED** for methods | High - Update all methods |
-| SQL Constraints | `models.Constraint()` class **REQUIRED** | High - All SQL constraints |
-| res.users | `groups_id` cannot be set in create() | High - User creation code |
-| OWL | OWL 3.x replaces 2.x | High - Component rewrite |
-| Multi-Company | `_check_company_auto` required | High - All multi-company models |
-| Python | Python 3.12+ required | Medium - Check compatibility |
+| SQL Constraints | `_sql_constraints` is **ignored** in 19 (only a warning is logged); use `models.Constraint()` / `models.Index()` / `models.UniqueIndex()` | **CRITICAL** - constraints silently disappear |
+| Domains | `odoo.fields.Domain` (`&`, `|`, `~`, `Domain.AND/OR`) replaces `odoo.osv.expression.AND/OR` helpers (still available, deprecated) | Medium |
+| res.users / views / actions | `groups_id` renamed to `group_ids` | High - user creation, data files |
+| Routes | `type='json'` becomes a deprecated alias of `type='jsonrpc'`; new `type='json2'` | Low |
+| `read_group()` | `read_group()` (dicts) deprecated -> `formatted_read_group()` (`_read_group()`, returning tuples, unchanged) | Medium |
+| ir.rule eval context | `time` removed (`user`, `company_ids`, `company_id` remain) | Low |
+| Manifest | empty `depends` -> `['base']` injected (18: stays empty, declare `base`) | Low |
+| SQL | `SQL()` builder recommended in both versions; plain `cr.execute(str, params)` still works in 19 | None |
+| Type Hints | optional in both versions | None |
+| OWL | Owl 2.x in both (19.0 ships Owl 2.8.4, not Owl 3) | None |
+| Multi-Company | `_check_company_auto` stays opt-in (default False) | None |
+| Python | 3.10+ in both (19.0 `release.py`: `MIN_PY_VERSION = (3, 10)`) | None |
 
-## CRITICAL: SQL() Builder Required
+## SQL() Builder (recommended in both versions)
 
-### Before (v18) - Worked but discouraged
+### v18 and v19 - plain parameterized SQL still works
 ```python
-# String SQL - NO LONGER WORKS in v19
+# Still valid in v19 (core itself uses it); never format values into the string
 self.env.cr.execute("""
     SELECT id FROM my_model WHERE state = %s
 """, ('draft',))
 ```
 
-### After (v19) - Required
+### Preferred in v18 and v19
 ```python
 from odoo.tools import SQL
 
-# MUST use SQL() builder
 self.env.cr.execute(SQL(
     "SELECT id FROM my_model WHERE state = %s",
     'draft'
@@ -92,7 +96,7 @@ class MyModel(models.Model):
 
 ## SQL Constraints: models.Constraint() Class Required
 
-In Odoo 19, SQL constraints must use the `models.Constraint()` class instead of the `_sql_constraints` list.
+In Odoo 19, SQL constraints must use the `models.Constraint()` class instead of the `_sql_constraints` list. A remaining `_sql_constraints` attribute is not applied at all: 19 only logs "Model attribute '_sql_constraints' is no longer supported" (`odoo/orm/model_classes.py`).
 
 ### Before (v18) - Worked
 ```python
@@ -144,43 +148,34 @@ _amount_positive = models.Constraint(
 )
 ```
 
-## res.users: groups_id Cannot Be Set in create()
+## res.users: groups_id Renamed to group_ids
 
-In Odoo 19, `groups_id` is ignored during `res.users.create()` due to security hardening.
+In Odoo 19 the user's groups field is `group_ids` (`odoo/addons/base/models/res_users.py`);
+`ir.ui.view` and `ir.actions.act_window` use `group_ids` as well.
 
-### Before (v18) - Worked
+### Before (v18)
 ```python
 user = self.env['res.users'].create({
     'name': 'Portal User',
     'login': 'portal@example.com',
-    'groups_id': [(6, 0, [self.env.ref('base.group_portal').id])],
+    'groups_id': [Command.set([self.env.ref('base.group_portal').id])],
 })
 ```
 
-### After (v19) - Must Add Group Separately
+### After (v19)
 ```python
-# Create user first
 user = self.env['res.users'].create({
     'name': 'Portal User',
     'login': 'portal@example.com',
+    'group_ids': [Command.set([self.env.ref('base.group_portal').id])],
 })
-
-# Then add to group via group's users field
-portal_group = self.env.ref('base.group_portal')
-portal_group.write({'users': [(4, user.id)]})
 ```
 
-### Migration Pattern
-```python
-def migrate(cr, version):
-    """Update user creation code for v19 compatibility."""
-    # Find all user creation patterns and update them
-    # groups_id must be set after create() via group.write()
-```
+## Type Hints (optional in v18 and v19)
 
-## Type Hints Required
+Odoo 19 core still has public methods without annotations; nothing enforces them.
 
-### v19 Required Style
+### Example Style
 ```python
 from typing import Optional, Any
 from collections.abc import Iterable
@@ -267,9 +262,13 @@ class MyModel(models.Model):
 | `int` | Count/ID methods |
 | `str` | String methods |
 
-## OWL 3.x Migration
+## OWL: 2.x in Both Versions
 
-### OWL 2.x (v18)
+Odoo 19.0 ships Owl 2.8.4 (`addons/web/static/lib/owl/owl.js`), not Owl 3. Existing v18
+components keep working; the "v19" variant below is only a style refresh (object prop
+specs, try/finally), not a required migration.
+
+### v18
 ```javascript
 /** @odoo-module **/
 
@@ -300,7 +299,7 @@ class MyComponent extends Component {
 }
 ```
 
-### OWL 3.x (v19)
+### v19 (same Owl 2 API)
 ```javascript
 /** @odoo-module **/
 
@@ -355,59 +354,38 @@ class MyComponent extends Component {
 }
 ```
 
-### OWL 3.x Key Changes
+Both prop forms (`field: Type` and `field: { type: Type, optional: true }`) are valid Owl 2 syntax in v18 and v19.
 
-| OWL 2.x | OWL 3.x |
-|---------|---------|
-| `static props = { field: Type }` | `static props = { field: { type: Type, required: bool } }` |
-| Props validation basic | Enhanced props validation with defaults |
-| `onWillStart(async () => {})` | `onWillStart(() => promise)` |
-| Basic error boundaries | Enhanced error handling |
+## Multi-Company (unchanged)
 
-## Multi-Company Enforcement
-
-### v19 Required Pattern
+`_check_company_auto` is opt-in in both versions (default `False` in 19.0
+`odoo/orm/models.py`). Recommended pattern for multi-company models:
 ```python
 class MyModel(models.Model):
     _name = 'my.model'
     _description = 'My Model'
-    _check_company_auto = True  # REQUIRED for multi-company
+    _check_company_auto = True
 
     company_id = fields.Many2one(
         'res.company',
         string='Company',
-        required=True,  # REQUIRED
-        readonly=True,
+        required=True,
         default=lambda self: self.env.company,
         index=True,
     )
-
-    # ALL relational fields must have check_company
     partner_id = fields.Many2one(
         'res.partner',
-        check_company=True,  # REQUIRED
-    )
-    warehouse_id = fields.Many2one(
-        'stock.warehouse',
-        check_company=True,  # REQUIRED
+        check_company=True,
     )
 ```
 
-## Python 3.12+ Features
+## Python Features
 
-### Usable in v19
+Both versions require Python 3.10+ (3.12 recommended). Keep code 3.10-compatible
+(no PEP 695 `type` statements) unless the deployment pins a newer Python.
+
 ```python
-# Type parameter syntax (PEP 695)
-type RecordList = list['MyModel']
-
-# Self type
-from typing import Self
-
-class MyModel(models.Model):
-    def copy(self) -> Self:
-        return super().copy()
-
-# Match statement (structural pattern matching)
+# Match statement (Python 3.10+)
 def process_state(self) -> str:
     match self.state:
         case 'draft':
@@ -423,55 +401,36 @@ def process_state(self) -> str:
 ## GitHub Verification URLs
 
 ```
-# SQL builder (required)
-https://raw.githubusercontent.com/odoo/odoo/master/odoo/tools/sql.py
+# SQL builder
+https://raw.githubusercontent.com/odoo/odoo/19.0/odoo/tools/sql.py
 
-# OWL 3.x
-https://raw.githubusercontent.com/odoo/odoo/master/addons/web/static/src/core/
+# ORM (19.0 moved the ORM to odoo/orm/)
+https://raw.githubusercontent.com/odoo/odoo/19.0/odoo/orm/models.py
 
-# Type hints in core
-https://raw.githubusercontent.com/odoo/odoo/master/odoo/models.py
-
-# Note: v19 uses 'master' branch until release
+# Web client (Owl 2.8.x)
+https://raw.githubusercontent.com/odoo/odoo/19.0/addons/web/static/src/core/
 ```
 
 ## Migration Checklist
 
-- [ ] **CRITICAL**: Migrate ALL raw SQL to `SQL()` builder
-- [ ] Add type hints to ALL public methods
-- [ ] Update OWL 2.x components to OWL 3.x
-- [ ] Ensure `_check_company_auto = True` on all models
-- [ ] Add `check_company=True` to all relational fields
-- [ ] Verify Python 3.12+ compatibility
-- [ ] Update prop definitions in OWL components
-- [ ] Test all SQL queries work with SQL builder
+- [ ] **CRITICAL**: Convert every `_sql_constraints` to `models.Constraint()` / `models.UniqueIndex()` (ignored in 19)
+- [ ] Rename `groups_id` to `group_ids` on res.users, views and actions (Python and XML data)
+- [ ] Replace `odoo.osv.expression` helpers with `odoo.fields.Domain` (old ones still work, deprecated)
+- [ ] Replace `read_group()` calls with `_read_group()` or `formatted_read_group()`
+- [ ] Remove `time` from record rule domains (no longer in the eval context)
+- [ ] Review routes declared with `type='json'` (deprecated alias of `jsonrpc`)
 - [ ] Review and update all tests
 
 ## Common Migration Errors
 
-### Error: `SQL string queries not supported`
-**Fix**: Wrap ALL raw SQL with `SQL()`:
-```python
-from odoo.tools import SQL
-self.env.cr.execute(SQL("SELECT ...", param1, param2))
-```
+### Unique/check constraint no longer enforced
+**Cause**: `_sql_constraints` left in place (19 logs a warning and ignores it).
+**Fix**: Declare `_name_uniq = models.Constraint('UNIQUE(name)', 'Name must be unique.')`.
 
-### Error: `Type hints required for public method`
-**Fix**: Add return type and parameter types:
-```python
-def my_method(self, param: str) -> bool:
-```
+### `Invalid field 'groups_id' on model 'res.users'`
+**Fix**: Use `group_ids`.
 
-### Error: `Props validation failed`
-**Fix**: Update OWL props to new format:
-```javascript
-static props = {
-    value: { type: Number, required: true },
-    label: { type: String, optional: true },
-};
-```
-
-## SQL Migration Tool
+## SQL Builder Conversion Helper (optional)
 
 ```python
 #!/usr/bin/env python3
@@ -502,10 +461,26 @@ def migrate_sql(content: str) -> str:
     return content
 ```
 
+## Additional deltas from Odoo's official guidelines (18.0 -> 19.0)
+
+Items of the verified 14-19 matrix (official Odoo skill rules, checked against both source trees) that change between 18.0 and 19.0 and are not in the Breaking Changes Summary:
+
+| Topic | 18.0 | 19.0 |
+|-------|------|------|
+| RPC guard (`get_public_method`) | blocks `_` names, `@api.private`, unsafe attribute names | + blocks classmethods/staticmethods; `check_method_name` deprecated |
+| Web HTML helpers | `htmlEscape`, `setElementContent`, `isHtmlEmpty` | + `htmlJoin`, `htmlSprintf`, `htmlReplace`, ... (still no `setInnerHtml`) |
+| `@api.model` on `create` | works, DeprecationWarning | converted silently |
+| Multi-column index | `init()` + `tools.sql.create_index` | `models.Index` |
+| Translation | `env._`, `_()`, `LazyTranslate`; list args not localized | + iterable args formatted per language |
+| Archiving | `action_archive`, `toggle_active` | `toggle_active` deprecated |
+| `BaseCommon` (tests) | runs as superuser | optional independent user/company |
+
+Unchanged between 18.0 and 19.0: default test tags `standard` + `at_install`; post-install via `@tagged('post_install', '-at_install')`; `check_access()` API; Owl without `computed`; `patch(obj, extension)`; no `ir.access`, no `base.group_everyone`, no `bearer_scope`; `t-raw` still renders unescaped, `t-esc` escapes (both deprecated).
+
 ## Comparison: v18 vs v19
 
 ```python
-# v18 Style (works but not recommended)
+# v18 Style (still valid in v19)
 class MyModelV18(models.Model):
     _name = 'my.model'
     _check_company_auto = True
@@ -517,7 +492,7 @@ class MyModelV18(models.Model):
         return self.env.cr.fetchone()[0]
 
 
-# v19 Style (required)
+# Preferred style in v18 and v19 (SQL builder)
 class MyModelV19(models.Model):
     _name = 'my.model'
     _check_company_auto = True

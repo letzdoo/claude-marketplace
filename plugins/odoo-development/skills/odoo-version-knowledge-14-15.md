@@ -11,17 +11,17 @@
 
 | Category | Change | Impact |
 |----------|--------|--------|
-| API | `@api.multi` REMOVED | High - Update all methods |
-| Fields | `track_visibility` deprecated | Medium - Use `tracking` |
-| OWL | OWL 1.x introduced | High - New frontend framework |
-| Assets | `assets_backend` pattern change | Medium - Update manifests |
-| Python | Python 3.8+ required | Low - Check compatibility |
+| API | `@api.multi` already removed in 13.0 (fails in 14 and 15) | Only for code ported from <= 12.0 |
+| Fields | `track_visibility` legacy in both 14 and 15 (`tracking=True` is the valid parameter in both) | Low - clean up |
+| Frontend | Owl 1.4.11 in both; 15.0 adds the ES-module web client (`/** @odoo-module **/`, `@web/core/...`) | High for JS |
+| Assets | manifest `assets` key (absent in 14.0) replaces XML templates inheriting `web.assets_*` and the `'qweb'` key; JS QWeb XML goes in `web.assets_qweb` | Medium - Update manifests |
+| Python | 3.6+ (14.0) -> 3.7+ (15.0) | Low - Check compatibility |
 
-## Critical Migration: @api.multi Removal
+## Legacy Clean-up: @api.multi
 
-**The most significant breaking change in v15**
+**Not a 14 -> 15 change**: `@api.multi` does not exist in 14.0 either (removed in 13.0). The example below only applies to code ported from 12.0 or older.
 
-### Before (v14)
+### Before (<= 12.0, fails in 14.0 and 15.0)
 ```python
 from odoo import api, models
 
@@ -39,7 +39,7 @@ class SaleOrder(models.Model):
         return self.write({'state': 'cancel'})
 ```
 
-### After (v15)
+### After (14.0 and 15.0)
 ```python
 from odoo import api, models
 
@@ -66,16 +66,18 @@ def migrate_api_multi(content):
     return content
 ```
 
-## Field Tracking Migration
+## Field Tracking Clean-up
 
-### Before (v14)
+`mail.thread` behaves the same in 14.0 and 15.0: only `tracking` is a valid field parameter; `track_visibility` is still tracked but logs "unknown parameter". Do this clean-up in 14.0 already.
+
+### Legacy (logs a warning in 14 and 15)
 ```python
 name = fields.Char(track_visibility='onchange')
 state = fields.Selection([...], track_visibility='always')
 partner_id = fields.Many2one('res.partner', track_visibility='onchange')
 ```
 
-### After (v15)
+### Correct (14.0 and 15.0)
 ```python
 name = fields.Char(tracking=True)
 state = fields.Selection([...], tracking=True)
@@ -87,9 +89,9 @@ partner_id = fields.Many2one('res.partner', tracking=True)
 - `track_visibility='always'` → `tracking=True`
 - `track_visibility=False` → Remove or `tracking=False`
 
-## OWL Introduction (v15)
+## New Web Client (v15)
 
-v15 introduces OWL 1.x as the new frontend framework alongside legacy JS.
+Owl 1.4.11 ships in both 14.0 and 15.0. What 15.0 adds is the new ES-module web client (`/** @odoo-module **/`, `import ... from "@web/core/..."`, services, registries), alongside legacy JS. In 15.0, Owl hooks such as `onMounted` come from `owl.hooks`.
 
 ### Legacy Widget (v14)
 ```javascript
@@ -159,9 +161,9 @@ class MyComponent extends Component {
 
 | Feature | Status | Replacement |
 |---------|--------|-------------|
-| `@api.multi` | REMOVED | No decorator needed |
-| `@api.one` | REMOVED | Use loop in method |
-| `track_visibility` | Deprecated | `tracking=True` |
+| `@api.multi` | Removed already in 13.0 | No decorator needed |
+| `@api.one` | Removed already in 13.0 | Use loop in method |
+| `track_visibility` | Legacy in 14 and 15 (warning) | `tracking=True` |
 | `qweb` in manifest | Deprecated | Use `assets` |
 | `website_published` | Deprecated | `is_published` |
 
@@ -171,7 +173,7 @@ class MyComponent extends Component {
 # v14 reference
 https://raw.githubusercontent.com/odoo/odoo/14.0/odoo/api.py
 
-# v15 reference (note: @api.multi removed)
+# v15 reference
 https://raw.githubusercontent.com/odoo/odoo/15.0/odoo/api.py
 
 # Compare sale.order between versions
@@ -179,24 +181,37 @@ https://raw.githubusercontent.com/odoo/odoo/14.0/addons/sale/models/sale_order.p
 https://raw.githubusercontent.com/odoo/odoo/15.0/addons/sale/models/sale_order.py
 ```
 
+## Official guideline deltas 14.0 -> 15.0
+
+Rows of the verified official-guideline matrix that change between 14.0 and 15.0 and are not covered above (assets and Python: see Breaking Changes Summary):
+
+| Topic | 14.0 | 15.0 |
+|-------|------|------|
+| `Command` class | absent (tuples `(0, 0, vals)`...) | `from odoo import Command` (tuples still work) |
+| server QWeb output | no `t-out`; `t-esc` escapes, `t-raw` prints raw | `t-out` (escapes, Markup passes); `t-esc` = alias; `t-raw` deprecated |
+| class-level test fixtures | `SavepointCase` (`TransactionCase` has no `cls.env`) | `TransactionCase` (`SavepointCase` is a deprecated alias) |
+| JS patching | legacy `.include()` / `.extend()` | `patch(obj, name, ext)` with `this._super` |
+
+Unchanged in both: no `grouped()`, no `odoo.tools.SQL`, no `fields.Domain`, no `@api.private` (RPC guard `check_method_name`), route `auth` user/public/none and `type` http/json, Owl 1.4.11 without `markup`/`htmlEscape`, `t-lang` without `t-call` silently ignored, `read_group(domain, fields, groupby)` returning dicts, `_sql_constraints`, boolean `index`, no `base` injection in `depends`, default test tags `standard` + `at_install`, `_allow_sudo_commands`, restricted `odoo.tools.misc.pickle`.
+
 ## Migration Checklist
 
-- [ ] Remove all `@api.multi` decorators
-- [ ] Remove all `@api.one` decorators (rewrite logic)
-- [ ] Replace `track_visibility` with `tracking`
-- [ ] Update manifest `qweb` to `assets`
-- [ ] Test all button actions work without decorators
+- [ ] Remove leftover `@api.multi`/`@api.one` (only in code ported from <= 12.0)
+- [ ] Replace `track_visibility` with `tracking` (already valid in 14.0)
+- [ ] Update manifest `qweb` and XML asset templates to `assets`
+- [ ] Optionally switch x2many tuples to `Command` (15.0+)
+- [ ] Server QWeb: prefer `t-out`; `t-raw` is deprecated in 15.0
 - [ ] Verify field tracking still works
-- [ ] Update Python compatibility (3.8+)
-- [ ] Consider OWL for new frontend components
+- [ ] Update Python compatibility (3.7+)
+- [ ] Consider the new ES-module web client for new frontend code
 
 ## Common Migration Errors
 
 ### Error: `AttributeError: module 'odoo.api' has no attribute 'multi'`
-**Fix**: Remove `@api.multi` decorator
+**Fix**: Remove `@api.multi` decorator (raised in 14.0 too)
 
-### Error: `Unknown field 'track_visibility'`
-**Fix**: Replace with `tracking=True`
+### Warning: `Field ...: unknown parameter 'track_visibility'`
+**Fix**: Replace with `tracking=True` (same warning in 14.0)
 
 ### Error: `qweb key not supported in manifest`
 **Fix**: Move to `assets.web.assets_qweb`

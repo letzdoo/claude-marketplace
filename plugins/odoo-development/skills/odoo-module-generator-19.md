@@ -5,27 +5,27 @@
 ║  ODOO 19.0 MODULE GENERATION PATTERNS                                        ║
 ║  This file contains ONLY Odoo 19.0 specific patterns.                        ║
 ║  DO NOT use these patterns for other versions.                               ║
-║  Note: v19 is in DEVELOPMENT - patterns may change before release.           ║
+║  Released (final) - verified against the 19.0 source.                        ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ## Version 19.0 Requirements
 
-- **Python**: 3.12+ required
-- **Type Hints**: MANDATORY on all methods
-- **SQL Builder**: MANDATORY for all raw SQL
-- **OWL**: 3.x (new patterns)
-- **View syntax**: Direct `invisible`/`readonly` with Python expressions
+- **Python**: 3.10 - 3.14 (`odoo/release.py`)
+- **Type Hints**: optional (not enforced by the framework)
+- **SQL Builder**: `SQL()` recommended for raw SQL (string + params still accepted)
+- **Owl**: 2.8.x (19.0 does not ship Owl 3)
+- **View syntax**: Direct `invisible`/`readonly` with Python expressions; `<list>` (no `<tree>`); `<chatter/>`
 
-## MANDATORY Features in v19
+## Mandatory Changes in v19
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  v19 MANDATORY REQUIREMENTS:                                                 ║
-║  • Type hints on ALL method parameters and return types                      ║
-║  • SQL() builder for ALL raw SQL queries                                     ║
-║  • OWL 3.x patterns (OWL 2.x will not work)                                  ║
-║  • Python 3.12+ syntax                                                       ║
+║  v19 MANDATORY:                                                              ║
+║  • models.Constraint / models.Index instead of _sql_constraints (ignored)    ║
+║  • group_ids (not groups_id) on res.users / ir.ui.view / act_window          ║
+║  • view type 'list' and view_mode 'list,form' (no 'tree')                    ║
+║  • ir.rule domains use company_ids (allowed_company_ids is NOT defined)      ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -65,6 +65,15 @@
     'auto_install': False,
 }
 ```
+
+Manifest facts (19.0, `odoo/modules/module.py`):
+- `depends`: list direct dependencies only. An empty `depends` gets `['base']` injected; listing
+  `base` next to other modules is redundant.
+- `license`: missing -> defaults to `LGPL-3` with a warning (missing `author` also warns). Set it.
+- `auto_install`: `True` (all depends) or a list that must be a subset of `depends`.
+- `assets`: the manifest key for static bundles (`web.assets_backend`, `web.assets_frontend`, ...).
+- `data` loads in order (security groups, then ACL csv, then views/menus); `demo` only with demo data.
+- `application: True` only for full apps; `external_dependencies` for python/bin requirements.
 
 ## Model Template (v19 - Full Type Hints)
 
@@ -159,6 +168,13 @@ class {ModelName}(models.Model):
         store=True,
     )
 
+    # === SQL CONSTRAINTS / INDEXES (after the fields) === #
+    # v19: `_sql_constraints` is ignored (warning only) -> models.Constraint
+    _name_uniq = models.Constraint(
+        'UNIQUE(company_id, name)',
+        'Name must be unique per company!',
+    )
+
     @api.depends('line_ids.amount')
     def _compute_total_amount(self) -> None:
         """Compute total from lines."""
@@ -173,11 +189,7 @@ class {ModelName}(models.Model):
             if record.amount < 0:
                 raise ValidationError(_("Amount must be positive."))
 
-    _sql_constraints = [
-        ('name_uniq', 'unique(company_id, name)', 'Name must be unique per company!'),
-    ]
-
-    # === CRUD METHODS (v19 - Type hints mandatory) === #
+    # === CRUD METHODS (type hints optional) === #
     @api.model_create_multi
     def create(self, vals_list: list[dict[str, Any]]) -> '{ModelName}':
         """Create records with sequence generation."""
@@ -234,7 +246,7 @@ class {ModelName}(models.Model):
         """Reset to draft."""
         self.write({'state': 'draft'})
 
-    # === SQL OPERATIONS (v19 - SQL() MANDATORY) === #
+    # === SQL OPERATIONS (v19 - SQL() recommended) === #
     def _get_report_data(self) -> list[dict[str, Any]]:
         """Use SQL builder for all raw SQL queries."""
         query = SQL(
@@ -257,25 +269,12 @@ class {ModelName}(models.Model):
         self.env.cr.execute(query)
         return self.env.cr.dictfetchall()
 
-    # === SEARCH METHODS === #
-    @api.model
-    def _name_search(
-        self,
-        name: str = '',
-        domain: Optional[list[tuple[str, str, Any]]] = None,
-        operator: str = 'ilike',
-        limit: int = 100,
-        order: Optional[str] = None,
-    ) -> Sequence[int]:
-        """Extended name search with type hints."""
-        domain = domain or []
-        if name:
-            domain = [
-                '|',
-                ('name', operator, name),
-                ('sequence', operator, name),
-            ] + domain
-        return self._search(domain, limit=limit, order=order)
+    # === SEARCH === #
+    # v19: name_search() searches on display_name; there is no _name_search hook
+    # in BaseModel anymore. Declare the searched fields (class attribute, placed
+    # with the other private attributes at the top of the class):
+    #     _rec_names_search = ['name', 'description']
+    # or override _search_display_name(self, operator, value) -> Domain.
 
     # === RETURN ACTION METHODS === #
     def action_view_records(self) -> dict[str, Any]:
@@ -283,7 +282,7 @@ class {ModelName}(models.Model):
         return {
             'type': 'ir.actions.act_window',
             'res_model': '{module_name}.{model_name}',
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'domain': [('partner_id', '=', self.partner_id.id)],
             'context': {'default_partner_id': self.partner_id.id},
         }
@@ -331,29 +330,25 @@ class {ModelName}(models.Model):
                     <notebook>
                         <page string="Lines" name="lines">
                             <field name="line_ids">
-                                <tree editable="bottom">
+                                <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
                                     <field name="name"/>
                                     <field name="quantity"/>
                                     <field name="price_unit"/>
                                     <field name="amount"/>
-                                </tree>
+                                </list>
                             </field>
                         </page>
                     </notebook>
                 </sheet>
-                <div class="oe_chatter">
-                    <field name="message_follower_ids"/>
-                    <field name="activity_ids"/>
-                    <field name="message_ids"/>
-                </div>
+                <chatter/>
             </form>
         </field>
     </record>
 </odoo>
 ```
 
-## OWL 3.x Component (v19)
+## Owl Component (v19, Owl 2.8.x)
 
 ```javascript
 /** @odoo-module **/
@@ -361,6 +356,7 @@ class {ModelName}(models.Model):
 import { Component, useState, useRef, onMounted, onWillStart } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { registry } from "@web/core/registry";
+import { user } from "@web/core/user";  // v19: user is an object, not a service
 
 export class {ComponentName} extends Component {
     static template = "{module_name}.{ComponentName}";
@@ -376,7 +372,7 @@ export class {ComponentName} extends Component {
         this.action = useService("action");
         this.notification = useService("notification");
         this.dialog = useService("dialog");
-        this.user = useService("user");
+        this.user = user;
 
         // State
         this.state = useState({
@@ -439,7 +435,7 @@ export class {ComponentName} extends Component {
 registry.category("actions").add("{module_name}.{component_name}", {ComponentName});
 ```
 
-## OWL 3.x Template (v19)
+## Owl Template (v19)
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -507,51 +503,103 @@ registry.category("actions").add("{module_name}.{component_name}", {ComponentNam
 
 ## Security (v19)
 
+Files: `security/ir.model.access.csv` + `security/<module>_security.xml` (groups, rules).
+There is NO `ir.access` / `ir.access.csv` in 19.0.
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- v19: Uses allowed_company_ids -->
-    <record id="rule_{model_name}_company" model="ir.rule">
+    <!-- v19: ir.rule eval context provides user, company_ids, company_id
+         (allowed_company_ids is NOT defined there) -->
+    <record id="{model_name}_rule_company" model="ir.rule">
         <field name="name">{Model Name}: Multi-Company</field>
         <field name="model_id" ref="model_{module_name}_{model_name}"/>
-        <field name="global" eval="True"/>
-        <field name="domain_force">[
-            '|',
-            ('company_id', '=', False),
-            ('company_id', 'in', allowed_company_ids)
-        ]</field>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
     </record>
 </odoo>
+```
+
+## Additional Rules from Odoo's Official Guidelines (verified for 19.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were
+checked against the 19.0 source; master-only APIs are translated to the 19.0 equivalent or marked
+as not available.
+
+### Structure and naming
+- One model per file named after the model (`models/sale_order.py`); views
+  `views/<model>_views.xml`, templates `*_templates.xml`, menus `*_menus.xml`, data
+  `data/*_data.xml`, demo `demo/*_demo.xml`.
+- Controllers: feature-named files (or `<inherited_module>.py`); `main.py` is legacy.
+- Reports: SQL-view model in `<model>_report.py`; printable report split into
+  `<model>_reports.xml` (action) and `<model>_templates.xml` (QWeb).
+- XML ids: `<model>_view_<type>`, `<model>_action`, `<model>_menu`, `<module>_group_<name>`,
+  `<model>_rule_<group>`; inheriting view: same id prefix + `.inherit.<details>` in `name`.
+- No `populate/` factory directory: 19.0 `odoo-bin populate` duplicates existing records.
+
+### Model naming and body order
+- `_name` dotted, module-prefixed, singular (`my_module.order`); wizards `<base_model>.<action>`;
+  SQL reports `<base_model>.report.<action>`. Relational fields end in `_id` / `_ids`.
+- Method prefixes: `_compute_`, `_inverse_`, `_search_`, `_default_`, `_selection_`, `_onchange_`,
+  `_check_`, `action_*` (starts with `self.ensure_one()` when it acts on one record).
+- Methods are private (`_`) by default; a public method is RPC-callable with attacker-chosen
+  arguments. Use `@api.private` for public names that must not be exposed.
+- Body order: private attributes (`_name`, `_inherit`, `_order`, `_rec_names_search`, ...) ->
+  default methods -> fields -> `models.Constraint` / `models.Index` attributes ->
+  compute/inverse/search -> selection -> `@api.constrains` / `@api.onchange` -> CRUD overrides ->
+  actions -> business methods.
+- Imports: stdlib, third-party, `odoo`, `odoo.addons`; e.g. `from odoo import Command, api, fields, models`.
+
+### Generated tests
+- Base classes: `TransactionCase`, `HttpCase`; for business tests prefer
+  `odoo.addons.base.tests.common.BaseCommon` (mail side effects disabled, `cls.company`,
+  `cls.currency`, `cls.partner`, group refs) or `TransactionCaseWithUserDemo`. `SavepointCase`
+  does not exist.
+- Default tags are `standard` + `at_install`. For post-install tests use
+  `@tagged('post_install', '-at_install')` - exactly one of the two must remain, otherwise the
+  test runs twice (both) or never (neither).
+- Test files must be named `test_*.py` and imported in `tests/__init__.py`; classes imported
+  from another file are skipped; inherited `test_*` methods need `allow_inherited_tests_method = True`.
+
+```python
+from odoo.addons.base.tests.common import BaseCommon
+from odoo.tests import tagged
+
+
+@tagged('post_install', '-at_install')
+class TestMyModel(BaseCommon):
+
+    def test_confirm(self):
+        record = self.env['{module_name}.{model_name}'].create({'name': 'Test'})
+        record.action_confirm()
+        self.assertEqual(record.state, 'confirmed')
 ```
 
 ## v19 Checklist
 
 When generating a v19 module:
 
-- [ ] Add `from __future__ import annotations`
-- [ ] Type hints on ALL method parameters
-- [ ] Type hints on ALL return types
-- [ ] Use `SQL()` builder for ALL raw SQL
-- [ ] Use `_check_company_auto = True`
-- [ ] Use `check_company=True` on relational fields
-- [ ] Use `@api.model_create_multi` for create
-- [ ] Use `Command` class for x2many
-- [ ] Use direct `invisible`/`readonly` in views
-- [ ] Use `allowed_company_ids` in record rules
-- [ ] Use OWL 3.x patterns
-- [ ] Python 3.12+ compatible code
+- [ ] `models.Constraint` / `models.Index` instead of `_sql_constraints`
+- [ ] `<list>` views and `view_mode` `'list,form'`; `<chatter/>` in forms
+- [ ] `group_ids` (not `groups_id`) wherever groups are set
+- [ ] Record rules use `company_ids` / `company_id` / `user`
+- [ ] `SQL()` builder for raw SQL (recommended)
+- [ ] `_check_company_auto = True` + `check_company=True` on multi-company models
+- [ ] `@api.model_create_multi` for create
+- [ ] `Command` class for x2many
+- [ ] Direct `invisible`/`readonly` in views
+- [ ] Owl 2 patterns (`@odoo/owl` as shipped in 19.0)
+- [ ] Tests tagged deliberately (`at_install` default, or `post_install` + `-at_install`)
 
 ## AI Agent Instructions (v19)
 
 When generating an Odoo 19.0 module:
 
-1. **MANDATORY**: Add type hints to ALL methods
-2. **MANDATORY**: Use `SQL()` for ALL raw SQL queries
-3. **USE** `from __future__ import annotations`
-4. **USE** `_check_company_auto = True`
+1. **USE** `models.Constraint` / `models.Index` / `models.UniqueIndex` - `_sql_constraints` is ignored
+2. **USE** `list` views / `'list,form'` and `<chatter/>`
+3. **USE** `group_ids` for groups on users, views and actions
+4. **USE** `company_ids` in record rules (not `allowed_company_ids`)
 5. **USE** `@api.model_create_multi` for create
-6. **USE** OWL 3.x patterns
-7. **USE** Python 3.12+ syntax (match statements, etc.)
-8. **DO NOT** use raw SQL strings
-9. **DO NOT** use OWL 2.x patterns
-10. **DO NOT** use methods without type hints
+6. **PREFER** `SQL()` for raw SQL; never interpolate values into SQL strings
+7. **USE** Owl 2 patterns (19.0 ships Owl 2.8.x); there is no Owl 3 / `computed`
+8. Type hints are optional - add them where they help readability
+9. **DO NOT** use master-only APIs (`ir.access`, `bearer_scope`, Owl `computed`)

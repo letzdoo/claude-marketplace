@@ -1,34 +1,26 @@
-# Odoo OWL Components - Version 19.0 (OWL 3.x)
+# Odoo OWL Components - Version 19.0 (Owl 2.8.x)
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  ODOO 19.0 OWL 3.x COMPONENT PATTERNS                                        ║
+║  ODOO 19.0 OWL COMPONENT PATTERNS (Owl 2.8.x)                                ║
 ║  This file contains ONLY Odoo 19.0 OWL patterns.                             ║
 ║  DO NOT use these patterns for other versions.                               ║
-║  Note: v19 is in development - patterns may change.                          ║
+║  Released (final) - verified against the 19.0 source.                        ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ## Version 19.0 OWL Requirements
 
-- **OWL Version**: 3.x (new version)
-- **Module System**: ES modules with `/** @odoo-module **/`
-- **Breaking**: Some changes from OWL 2.x
+- **Owl Version**: 2.8.x (`addons/web/static/lib/owl/owl.js`: `version = "2.8.4"`). 19.0 does
+  NOT ship Owl 3; Owl 3-only APIs such as `computed` do not exist. For derived state use plain
+  getters (or compute in the handler that changes state); do not port Owl 3 `computed` examples
+  from master.
+- **Module System**: ES modules (`/** @odoo-module **/` header as in the examples)
+- **User / company info**: `import { user } from "@web/core/user"` (an object, not a service):
+  `user.userId`, `user.context`, `user.hasGroup(xmlid)`, `user.checkAccessRight(model, op)`,
+  `user.activeCompany`, `user.activeCompanies`, `user.allowedCompanies`
 
-## OWL 2.x → 3.x Changes
-
-```
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  KEY CHANGES in OWL 3.x:                                                     ║
-║  • Enhanced reactivity system                                                ║
-║  • Improved props validation                                                 ║
-║  • Better TypeScript support                                                 ║
-║  • Refined lifecycle hooks                                                   ║
-║  • Performance improvements                                                  ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-```
-
-## Basic Component Structure (OWL 3.x)
+## Basic Component Structure (Owl 2.8)
 
 ```javascript
 /** @odoo-module **/
@@ -43,6 +35,7 @@ import {
 } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { registry } from "@web/core/registry";
+import { user } from "@web/core/user";
 
 /**
  * @typedef {Object} MyComponentProps
@@ -72,8 +65,9 @@ export class MyComponent extends Component {
         this.action = useService("action");
         this.notification = useService("notification");
         this.dialog = useService("dialog");
-        this.user = useService("user");
-        this.company = useService("company");
+        // v19: user/company data come from the `user` object, not from services
+        this.user = user;
+        this.company = user.activeCompany;
 
         // Reactive state
         this.state = useState({
@@ -227,7 +221,9 @@ export class MyComponent extends Component {
 registry.category("actions").add("my_module.my_component", MyComponent);
 ```
 
-## Template Structure (OWL 3.x)
+## Template Structure (Owl 2.8)
+
+Note: `t-esc` still works in Owl templates (alias of `t-out`); prefer `t-out` in new code.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -345,7 +341,7 @@ registry.category("actions").add("my_module.my_component", MyComponent);
 </templates>
 ```
 
-## Field Widget (OWL 3.x)
+## Field Widget (Owl 2.8)
 
 ```javascript
 /** @odoo-module **/
@@ -392,15 +388,49 @@ registry.category("fields").add("custom_widget", {
 });
 ```
 
-## v19 OWL 3.x Checklist
+## Additional Rules from Odoo's Official Guidelines (verified for 19.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were
+checked against the 19.0 source; master-only APIs are translated to the 19.0 equivalent or marked
+as not available.
+
+### Escaping and HTML (XSS sinks)
+- Sinks: `innerHTML`, `insertAdjacentHTML`, `markup()` called on a non-literal value, `t-out` of a
+  value that was wrapped in `markup` from user content.
+- Escape with `htmlEscape` (`import { htmlEscape, markup } from "@odoo/owl"`). Build HTML with the
+  tagged-template form, which escapes every interpolated value:
+  ```javascript
+  const html = markup`<b>${record.name}</b>`;   // record.name is escaped
+  ```
+- Helpers in `@web/core/utils/html` (19.0): `setElementContent(el, content)` (instead of
+  `el.innerHTML = ...`), `htmlJoin`, `htmlSprintf`, `htmlReplace`, `htmlReplaceAll`,
+  `htmlFormatList`, `createElementWithContent`, `createDocumentFragmentFromContent`, `htmlTrim`,
+  `isMarkup`, `isHtmlEmpty`. There is no `setInnerHtml` in 19.0.
+- ``_t("I love %s", markup`<b>Odoo</b>`)`` escapes the translation and returns markup when an
+  argument is markup.
+
+### patch
+`patch(objToPatch, extension)` from `@web/core/utils/patch` returns an unpatch function; a string
+as second argument throws (the old `patch(obj, name, ext)` form is gone). Inside Odoo core
+patching is discouraged, in custom addons it is the normal extension mechanism.
+
+### Organisation, SCSS and assets
+- Organise JS by feature (`static/src/<feature>/...` with its `.js`, `.xml`, `.scss`), not by type.
+- SCSS: 4-space indentation, class names prefixed `o_<module>_`, reuse `$o-...` variables, no
+  CSS variables on `:root`, no id selectors.
+- Ship assets through the manifest `assets` key; third-party libraries go unminified into
+  `static/lib/`.
+
+## v19 OWL Checklist
 
 - [ ] Use `/** @odoo-module **/` directive
-- [ ] Import from `@odoo/owl`
+- [ ] Import from `@odoo/owl` (Owl 2.8.x)
+- [ ] `user` from `@web/core/user`, not `useService("user")`
 - [ ] Add JSDoc type annotations
 - [ ] Define comprehensive `static props`
 - [ ] Use `static defaultProps` where needed
 - [ ] Handle cleanup in `onWillUnmount`
-- [ ] Use proper TypeScript-compatible patterns
+- [ ] No raw `innerHTML`; use `setElementContent` / tagged `markup`
 - [ ] Include in manifest assets
 
 ## AI Agent Instructions (v19 OWL)
@@ -408,9 +438,9 @@ registry.category("fields").add("custom_widget", {
 When generating Odoo 19.0 OWL components:
 
 1. **USE** `/** @odoo-module **/`
-2. **IMPORT** from `@odoo/owl`
+2. **IMPORT** from `@odoo/owl` - 19.0 ships Owl 2.8.x
 3. **ADD** JSDoc type annotations
 4. **DEFINE** comprehensive `static props`
 5. **HANDLE** cleanup in `onWillUnmount`
-6. **USE** OWL 3.x enhanced patterns
-7. **DO NOT** use OWL 2.x deprecated patterns
+6. **USE** `patch(obj, extension)` for extensions
+7. **DO NOT** use Owl 3 APIs (`computed`) or `useService("user")` / `useService("company")`

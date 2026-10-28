@@ -3,7 +3,7 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  MODULE MIGRATION: 14.0 → 15.0                                               ║
-║  @api.multi removed, tracking=True standardized, OWL 1.x introduced          ║
+║  assets manifest key, Command, t-out, ES-module web client (Owl 1.4.11)      ║
 ║  VERIFY: https://github.com/odoo/odoo/tree/15.0                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
@@ -12,18 +12,19 @@
 
 | Aspect | v14 | v15 |
 |--------|-----|-----|
-| @api.multi | Deprecated (works) | REMOVED |
-| track_visibility | Deprecated (works) | Deprecated (warns) |
-| tracking=True | Supported | Standard |
-| OWL | Not available | OWL 1.x |
-| Python | 3.6-3.8 | 3.7-3.9 |
+| @api.multi | Removed (since 13.0) | Removed |
+| track_visibility | Legacy (tracked, logs "unknown parameter") | Same as 14 |
+| tracking=True | Valid parameter | Valid parameter |
+| OWL | Owl 1.4.11 (legacy widgets dominate) | Owl 1.4.11 + new ES-module web client |
+| Manifest assets | no `assets` key: inherit `web.assets_backend`/`web.assets_frontend` templates in an XML data file; JS QWeb in `'qweb'` | `assets` key; JS/SCSS in `web.assets_backend`, client QWeb XML in `web.assets_qweb` |
+| Python | 3.6+ | 3.7+ |
 
-## Breaking Changes
+## Legacy Clean-up (already needed in 14.0)
 
-### 1. @api.multi REMOVED
+### 1. @api.multi (removed in 13.0)
 
 ```python
-# v14 (works but deprecated):
+# <= 12.0 code (fails in 14.0 and 15.0):
 from odoo import models, api
 
 class MyModel(models.Model):
@@ -35,7 +36,7 @@ class MyModel(models.Model):
             record.state = 'confirmed'
         return True
 
-# v15 (REQUIRED):
+# 14.0 and 15.0:
 from odoo import models
 
 class MyModel(models.Model):
@@ -50,7 +51,7 @@ class MyModel(models.Model):
 ### 2. track_visibility → tracking
 
 ```python
-# v14 (works):
+# Legacy (still tracked in 14.0 and 15.0, logs "unknown parameter"):
 state = fields.Selection([
     ('draft', 'Draft'),
     ('done', 'Done'),
@@ -58,7 +59,7 @@ state = fields.Selection([
 
 name = fields.Char(track_visibility='always')
 
-# v15 (RECOMMENDED):
+# 14.0 and 15.0 (valid parameter):
 state = fields.Selection([
     ('draft', 'Draft'),
     ('done', 'Done'),
@@ -93,8 +94,11 @@ name = fields.Char(tracking=True)
     'assets': {
         'web.assets_backend': [
             'my_module/static/src/js/**/*',
-            'my_module/static/src/xml/**/*',
             'my_module/static/src/scss/**/*',
+        ],
+        # 15.0: client-side QWeb templates go in web.assets_qweb
+        'web.assets_qweb': [
+            'my_module/static/src/xml/**/*',
         ],
     },
 }
@@ -105,7 +109,7 @@ name = fields.Char(tracking=True)
 ### Complete Model Example
 
 ```python
-# v14 Model:
+# Legacy model (<= 12.0 style - @api.multi fails in 14.0; track_visibility warns):
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
@@ -143,7 +147,7 @@ class MyModel(models.Model):
             vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
         return super(MyModel, self).create(vals)
 
-# v15 Model:
+# 14.0 / 15.0 Model:
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
@@ -173,11 +177,12 @@ class MyModel(models.Model):
         self.write({'state': 'done'})
         return True
 
-    @api.model
-    def create(self, vals):
-        if not vals.get('code'):
-            vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
-        return super().create(vals)  # Python 3 style super()
+    @api.model_create_multi  # BaseModel.create is model_create_multi in 14.0 and 15.0
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('code'):
+                vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
+        return super().create(vals_list)  # Python 3 style super()
 ```
 
 ## View Changes
@@ -218,7 +223,7 @@ Views remain largely compatible. No mandatory changes required.
 
 ## Frontend Migration
 
-### Legacy JavaScript (v14) → OWL 1.x (v15)
+### Legacy JavaScript (v14) → ES-module Owl 1.4.11 component (v15)
 
 ```javascript
 // v14 Legacy Widget:
@@ -268,12 +273,14 @@ odoo.define('my_module.MyWidget', function (require) {
     return MyWidget;
 });
 
-// v15 OWL 1.x Component:
+// v15 Owl 1.4.11 Component (ES module, new web client):
 /** @odoo-module **/
 
-const { Component, useState, onMounted } = owl;
-const { useService } = require('@web/core/utils/hooks');
-const { registry } = require('@web/core/registry');
+import { useService } from "@web/core/utils/hooks";
+import { registry } from "@web/core/registry";
+
+const { Component, useState } = owl;
+const { onMounted } = owl.hooks;  // Owl 1: lifecycle hooks live in owl.hooks
 
 class MyComponent extends Component {
     setup() {
@@ -338,22 +345,36 @@ registry.category('actions').add('my_module.my_action', MyComponent);
 </t>
 ```
 
+## Official guideline deltas 14.0 -> 15.0
+
+Generator-relevant rows of the verified official-guideline matrix that change between 14.0 and 15.0 and are not covered above (manifest assets and Python: see Migration Overview):
+
+| Topic | 14.0 | 15.0 |
+|-------|------|------|
+| `Command` import | absent (tuples) | `from odoo import Command` |
+| server QWeb templates | `t-esc` / `t-raw`; no `t-out` | `t-out` (`t-esc` alias, `t-raw` deprecated) |
+| test base class with class fixtures | `SavepointCase` | `TransactionCase` (`SavepointCase` deprecated alias) |
+| JS module format / patching | `odoo.define(...)`, `.include()` | `/** @odoo-module **/` imports; `patch(obj, name, ext)` with `this._super` |
+
+Unchanged in both: no `base` injection for empty `depends`, `license` default `LGPL-3`, `auto_install` list must be a subset of `depends`, no `<asset>` XML tag, default test tags `standard` + `at_install` (post-install = `@tagged('post_install', '-at_install')`), imported test classes and inherited `test_*` methods are collected again, `--test-tags /my_module:TestClass`.
+
 ## Migration Checklist
 
 ### Code Changes
-- [ ] Remove all `@api.multi` decorators
-- [ ] Replace `track_visibility='onchange'` with `tracking=True`
+- [ ] Remove leftover `@api.multi` (only in code ported from <= 12.0; fails in 14.0 too)
+- [ ] Replace `track_visibility='onchange'` with `tracking=True` (valid since 14.0)
 - [ ] Replace `track_visibility='always'` with `tracking=True`
 - [ ] Update `super()` calls to Python 3 style (remove class/self)
 - [ ] Update Python version to 3.7+ if needed
+- [ ] Rename `SavepointCase` test classes to `TransactionCase`
 
 ### Manifest Changes
 - [ ] Update version to `15.0.x.x.x`
-- [ ] Add `assets` bundle for JS/CSS/XML
-- [ ] Add `'web'` to depends if using OWL
+- [ ] Move asset XML templates and the `'qweb'` key to the `assets` key (`web.assets_backend`, `web.assets_qweb`)
+- [ ] Add `'web'` to depends if using web client code
 
 ### Optional Improvements
-- [ ] Consider `@api.model_create_multi` for batch creates
+- [ ] Use `@api.model_create_multi` for create overrides (already available in 14.0)
 - [ ] Consider migrating legacy JS widgets to OWL
 - [ ] Add `mail.activity.mixin` for activity support
 
@@ -379,14 +400,14 @@ grep -r "super(.*self)" --include="*.py"
 
 ## Common Issues
 
-### AttributeError: 'api' object has no attribute 'multi'
-**Cause**: @api.multi used in v15
+### AttributeError: module 'odoo.api' has no attribute 'multi'
+**Cause**: @api.multi used (fails in 14.0 and 15.0)
 **Solution**: Remove all @api.multi decorators
 
-### DeprecationWarning: track_visibility is deprecated
-**Cause**: track_visibility still used
+### Warning: Field ...: unknown parameter 'track_visibility'
+**Cause**: track_visibility still used (same warning in 14.0)
 **Solution**: Replace with tracking=True
 
 ### ImportError: cannot import name 'Component' from 'owl'
 **Cause**: Wrong OWL import for v15
-**Solution**: Use `const { Component } = owl;`
+**Solution**: Use `const { Component } = owl;` and `const { onMounted } = owl.hooks;`

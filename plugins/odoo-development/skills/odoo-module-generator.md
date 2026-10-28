@@ -130,17 +130,18 @@ If the version is not explicitly stated, look for these clues in existing code:
 - Python expressions in visibility
 
 ### v18 Key Patterns
-- `_check_company_auto = True`
-- `check_company=True` on fields
+- `_check_company_auto = True` + `check_company=True` on fields (opt-in, same since 14.0)
 - Type hints recommended
 - `SQL()` builder recommended
-- `allowed_company_ids` in rules
+- Use `company_ids` in record rules (`allowed_company_ids` is not available there)
 
 ### v19 Key Patterns
-- Type hints mandatory
-- `SQL()` builder mandatory
-- OWL 3.x
-- Python 3.12+
+- `_sql_constraints` ignored: use `models.Constraint` / `models.Index` / `models.UniqueIndex`
+- `res.users` groups field is `group_ids`
+- Type hints optional (recommended)
+- `SQL()` builder recommended (string SQL with params still works)
+- OWL 2.8.x (no Owl 3)
+- Python 3.10+
 
 ## Structured Output Format
 
@@ -292,8 +293,8 @@ Upgrade our custom CRM module from Odoo 16.0 to 17.0
 1. Parse structured input
 2. Load v18 patterns
 3. Generate complete module skeleton with:
-   - Multi-company record rules using `allowed_company_ids`
-   - `_check_company_auto = True` on models
+   - Multi-company record rules using `company_ids`
+   - `_check_company_auto = True` on models (opt-in)
    - Advanced security groups
    - Type hints on methods
 

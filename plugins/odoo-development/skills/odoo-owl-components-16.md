@@ -278,6 +278,48 @@ registry.category("systray").add("{module_name}.{SystrayName}", systrayItem, { s
 },
 ```
 
+- Assets ship in the module through the manifest `assets` key; third-party libraries go unminified into `static/lib/`.
+- Organize `static/src/` by feature (`static/src/my_feature/my_feature.js|.xml|.scss`), not by file type.
+
+## Additional Rules from Odoo's Official Guidelines (verified for 16.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 16.0 source; master-only APIs are translated to the 16.0 equivalent or marked as not available.
+
+### Escaping / XSS (16.0 helpers)
+- Sinks: `el.innerHTML = ...`, `insertAdjacentHTML`, `t-out` of a value wrapped in `markup()`. Never pass non-literal (server or user) data to `markup()`.
+- Available in 16.0: `import { markup, htmlEscape } from "@odoo/owl";` and `import { escape } from "@web/core/utils/strings";`.
+- `@web/core/utils/html` (`setInnerHtml`, `htmlJoin`, ...) does NOT exist in 16.0 - do not import it.
+- In Owl templates `t-out`/`t-esc` escape strings; only `markup(...)` values are rendered as HTML.
+
+```javascript
+import { markup } from "@odoo/owl";
+import { escape } from "@web/core/utils/strings";
+
+// build HTML from a literal and escape the dynamic part
+this.state.message = markup(`<b>${escape(partnerName)}</b> was updated`);
+```
+
+### Owl 2 in 16.0
+- No `computed` in Owl 2 (exports are `useState`, `reactive`, `useEffect`, ...): derive values with getters or compute them in `setup()` / `onWillUpdateProps`.
+- `patch` is the normal way to extend core components from a custom addon. 16.0 signature (`@web/core/utils/patch`): the patch name is mandatory and the parent is reached with `this._super`:
+
+```javascript
+/** @odoo-module **/
+import { patch } from "@web/core/utils/patch";
+import { FormController } from "@web/views/form/form_controller";
+
+patch(FormController.prototype, "my_module.FormController", {
+    setup() {
+        this._super(...arguments);
+        // extra setup
+    },
+});
+```
+`patch(obj, { ... })` without a name and `super.method()` are 17.0+ and fail in 16.0 ("Incorrect use of patch").
+
+### SCSS
+- SCSS: 4-space indentation, properties ordered outside-in (position, box model, typography, decoration), classes prefixed `o_<module>_`, use Bootstrap/Odoo `$o-...` variables, no CSS custom properties on `:root`.
+
 ## v16 OWL 2.x Checklist
 
 - [ ] Use `/** @odoo-module **/` directive

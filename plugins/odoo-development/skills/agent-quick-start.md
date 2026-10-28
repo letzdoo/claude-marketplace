@@ -68,7 +68,7 @@ NEVER mix patterns from different versions.
 | **16** | `Command` class, `attrs` (deprecated), OWL 2.x |
 | **17** | NO `attrs`, `@api.model_create_multi`, inline expressions |
 | **18** | `_check_company_auto`, `check_company=True`, SQL() builder |
-| **19** | Type hints required, SQL() required, OWL 3.x |
+| **19** | `models.Constraint` (no `_sql_constraints`), `group_ids`, SQL() recommended, type hints optional, OWL 2.8.x |
 
 ---
 
@@ -147,10 +147,10 @@ class MyModel(models.Model):
 class MyModel(models.Model):
     _name = 'my.model'
     _description = 'My Model'
-    _check_company_auto = True  # ADD for v18+
+    _check_company_auto = True  # opt-in for multi-company models (available since v14)
 
     company_id = fields.Many2one('res.company', required=True)
-    partner_id = fields.Many2one('res.partner', check_company=True)  # ADD for v18+
+    partner_id = fields.Many2one('res.partner', check_company=True)  # opt-in (available since v14)
 
     @api.model_create_multi
     def create(self, vals_list: list[dict]) -> 'MyModel':  # ADD type hints

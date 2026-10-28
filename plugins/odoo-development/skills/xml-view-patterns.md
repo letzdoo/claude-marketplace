@@ -129,7 +129,8 @@
 
 ### v14-v16: attrs Syntax
 ```xml
-<!-- DEPRECATED in v16, REMOVED in v17 -->
+<!-- CORRECT in v14-v16 (also in 16.0: a bare invisible="state == 'draft'" is NOT
+     evaluated per record there). REMOVED in v17: views using attrs/states fail validation. -->
 <field name="partner_id"
        attrs="{'invisible': [('state', '=', 'draft')],
                'readonly': [('state', '!=', 'draft')],
@@ -436,6 +437,36 @@
 | `replace` | Replace entire element |
 | `attributes` | Modify attributes only |
 
+### Anchor on Names, Never on Position
+
+Anchor on a stable, identifying attribute (an element's `name`), never on document position: the parent view belongs to another module that changes it freely, and a positional match silently lands on the wrong element or breaks at install.
+
+```xml
+<!-- good: shorthand form, matches the field by name -->
+<field name="partner_id" position="after">
+    <field name="delivery_instructions"/>
+</field>
+
+<!-- good: xpath when the shorthand cannot express the match -->
+<xpath expr="//page[@name='other_information']//field[@name='user_id']" position="attributes">
+    <attribute name="readonly">1</attribute>
+</xpath>
+
+<!-- bad: breaks as soon as the parent view inserts or reorders anything -->
+<xpath expr="//group[2]/field[3]" position="after">
+    <field name="delivery_instructions"/>
+</xpath>
+```
+
+Shorthand matching semantics (same in 14.0-19.0):
+- A `<field name="x">` locator matches the **first** field named `x` in document order at **any depth** - including fields inside an embedded one2many subview. Other attributes on the locator are ignored. Use an xpath when the name recurs (e.g. `//field[@name='line_ids']/list/field[@name='name']`; `tree` in 14.0-17.0).
+- Any **other** tag (`<group name="...">`, `<page name="...">`, `<div class="...">`) matches the first node with the same tag carrying **all** the locator's attributes with equal values (`position` excepted); extra attributes on the target are fine.
+
+Record conventions for inherited views:
+- An inheriting view's `name` carries an `.inherit.<details>` suffix.
+- A new primary variant (not an extension) sets `<field name="mode">primary</field>` (or `<template primary="True">`) and needs no inherit suffix.
+- Do not re-add fields the parent view already renders.
+
 ### CRITICAL: Always Verify XPath Expressions
 
 **ALWAYS read the parent view structure before writing inheritance code.** XPath expressions must match the ACTUAL view structure, not assumptions.
@@ -483,6 +514,55 @@
 - ✅ Verify class names and attributes
 - ✅ Test xpath matches target element
 - ❌ Never assume structure based on common patterns
+
+---
+
+## Additional Rules from Odoo's Official Guidelines (verified for 14.0-19.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/odoo-guidelines`, branch 20.0) and were checked against the 14.0-19.0 sources (`odoo/tools/template_inheritance.py`, `odoo/tools/convert.py`).
+
+### Shortcut tags and the `active` trap
+
+Prefer `<menuitem>` and `<template>` (all versions; `<asset>` from 17.0) over raw `<record>`. Trap: an `active` attribute on `<template>` / `<asset>` is applied only when the record is **created** (install, or update when the record does not exist yet). A module **update** (`-u`) refreshes the arch but never changes `active`, so it cannot deactivate an already-installed template.
+
+### `noupdate`
+
+Use `<data noupdate="1">` only for data the user may change and that an update must not overwrite. If the whole file is noupdate, put `noupdate="1"` on the root `<odoo>` and drop `<data>` (supported on `<odoo>` and `<data>` in all of 14.0-19.0; nested elements inherit it).
+
+```xml
+<odoo noupdate="1">
+    <record id="my_model_rule_user" model="ir.rule">
+        ...
+    </record>
+</odoo>
+```
+
+### XML id naming
+
+| Record | Pattern | Example |
+|---|---|---|
+| View | `<model>_view_<type>` | `my_model_view_form`, `my_model_view_search` (`_view_tree` 14.0-17.0, `_view_list` 18.0+) |
+| Action | `<model>_action[_<detail>]` | `my_model_action`, `my_model_action_draft` |
+| Window-action view | `<model>_action_view_<type>` | `my_model_action_view_form` |
+| Menu | `<model>_menu[_<do_stuff>]` | `my_model_menu`, `my_model_menu_config` |
+| Group | `<module>_group_<name>` | `my_module_group_manager` |
+| Record rule | `<model>_rule_<group>` | `my_model_rule_user` |
+
+Model names use underscores in ids (`my.model` -> `my_model`). The view `name` field mirrors the id with dots (`my.model.view.form`); actions get a real display name. Put `id` before `model` on records.
+
+### CSS classes
+
+Prefix custom CSS classes in views and templates with `o_<module>` (e.g. `o_my_module_badge`); `o_` alone is reserved for the web client. Never style through ids, and keep names flat (`o_my_module_entry`) instead of mirroring the DOM nesting.
+
+### `t-lang` in QWeb reports
+
+`t-lang` is only meaningful on the node that has `t-call` (it is an alias of `t-options-lang`). From 16.0 using it without `t-call` raises a SyntaxError; in 14.0-15.0 it is silently ignored - the document renders in the wrong language without any error.
+
+```xml
+<t t-foreach="docs" t-as="doc">
+    <t t-call="my_module.report_my_document" t-lang="doc.partner_id.lang"/>
+</t>
+```
 
 ---
 
@@ -561,6 +641,13 @@
 | Visibility | `attrs="{'invisible': [...]}"` | `invisible="expr"` |
 | Readonly | `attrs="{'readonly': [...]}"` | `readonly="expr"` |
 | Required | `attrs="{'required': [...]}"` | `required="expr"` |
+| `states="draft,sent"` | supported | removed (use `invisible="state not in (...)"`) |
 | Column hide | N/A | `column_invisible="True"` |
 | Optional cols | Limited | `optional="show/hide"` |
 | Tree `string` attr | `string="..."` supported | Deprecated (omit it) |
+
+| Feature | v14-v17 | v18+ |
+|---------|---------|------|
+| List view root / type | `<tree>`, `view_mode="tree,form"` | `<list>`, `view_mode="list,form"` (`tree` no longer accepted) |
+
+The `<tree>` examples in this file are 14.0-17.0 syntax; write `<list>` for 18.0+. In 19.0 the form chatter is `<chatter/>` instead of `<div class="oe_chatter">...</div>`. Shortcut tags and `t-lang`: see "Additional Rules from Odoo's Official Guidelines".

@@ -139,13 +139,13 @@ Check for:
 @api.model_create_multi  # v17+: Should be present on create()
 
 # 2. Company handling
-_check_company_auto = True  # v18+: Should be present
+_check_company_auto = True  # v14+: opt-in, use on multi-company models
 
 # 3. Field attributes
-check_company=True  # v18+: Should be on cross-company fields
+check_company=True  # v14+: opt-in, on cross-company fields (needs _check_company_auto)
 
 # 4. Type hints
-def method(self, arg: int) -> bool:  # v18+: Encouraged, v19+: Required
+def method(self, arg: int) -> bool:  # optional in all versions (nothing enforces annotations)
 ```
 
 ### For XML Views

@@ -1,6 +1,6 @@
 {
   "name": "odoo-development",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Odoo module generation, review, and upgrade for versions 14-19 with progressive skill loading",
   "author": {
     "name": "Letzdoo Team",

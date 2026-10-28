@@ -10,7 +10,7 @@
 
 ## Multi-Company Model Setup
 
-### Basic Company-Aware Model (v18+)
+### Basic Company-Aware Model (v14+)
 ```python
 from odoo import api, fields, models
 
@@ -18,7 +18,7 @@ from odoo import api, fields, models
 class MyModel(models.Model):
     _name = 'my.model'
     _description = 'My Model'
-    _check_company_auto = True  # v18+ automatic company checking
+    _check_company_auto = True  # opt-in automatic company checking (available since v14)
 
     name = fields.Char(string='Name', required=True)
     company_id = fields.Many2one(
@@ -42,7 +42,7 @@ class MyModel(models.Model):
     )
 ```
 
-### v17 and Earlier Pattern
+### Manual Alternative (without `_check_company_auto`, any version)
 ```python
 class MyModel(models.Model):
     _name = 'my.model'

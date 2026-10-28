@@ -475,7 +475,7 @@ class EquipmentItem(models.Model):
     <record id="equipment_item_rule_company" model="ir.rule">
         <field name="name">Equipment Item: Multi-company</field>
         <field name="model_id" ref="model_equipment_item"/>
-        <field name="domain_force">[('company_id', 'in', allowed_company_ids)]</field>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
     </record>
 </odoo>
 ```
@@ -574,11 +574,11 @@ class TestEquipmentItem(TestEquipmentCommon):
 ```json
 {
   "version_notes": [
-    "Using _check_company_auto = True for automatic multi-company validation (v18 pattern)",
+    "Using _check_company_auto = True for automatic multi-company validation (opt-in, available since v14)",
     "Using @api.model_create_multi for batch record creation (required in v17+)",
     "Using inline visibility expressions in views (attrs removed in v17)",
-    "Using check_company=True on relational fields for cross-company validation (v18 pattern)",
-    "Using allowed_company_ids in record rules (v18 pattern)",
+    "Using check_company=True on relational fields for cross-company validation (opt-in, available since v14)",
+    "Using company_ids in record rules (allowed_company_ids is not available in rule domains)",
     "Using btree_not_null index type for serial_number (v16+ optimization)"
   ]
 }
@@ -777,7 +777,7 @@ WORKFLOW EXECUTION PATTERN:
 ALWAYS REMEMBER:
 - Security files BEFORE views in manifest
 - Version-specific patterns are MANDATORY
-- Multi-company requires _check_company_auto (v18+)
+- Multi-company: opt in with _check_company_auto + check_company=True (v14+); rules use company_ids
 - Create uses @api.model_create_multi (v17+)
 - Views use inline expressions (v17+)
 ```

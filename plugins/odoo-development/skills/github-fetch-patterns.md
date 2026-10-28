@@ -22,7 +22,7 @@ https://raw.githubusercontent.com/odoo/odoo/{branch}/{path}
 | 16.0 | `16.0` | `https://raw.githubusercontent.com/odoo/odoo/16.0/` |
 | 17.0 | `17.0` | `https://raw.githubusercontent.com/odoo/odoo/17.0/` |
 | 18.0 | `18.0` | `https://raw.githubusercontent.com/odoo/odoo/18.0/` |
-| 19.0 | `master` | `https://raw.githubusercontent.com/odoo/odoo/master/` |
+| 19.0 | `19.0` | `https://raw.githubusercontent.com/odoo/odoo/19.0/` |
 
 ---
 
@@ -96,7 +96,7 @@ URL: https://raw.githubusercontent.com/odoo/odoo/18.0/addons/mail/models/mail_ac
 Prompt: "Show how to inherit mail.activity.mixin for activity support"
 ```
 
-### Multi-Company (v18+ Pattern)
+### Multi-Company (all versions)
 
 ```
 # Company mixin
@@ -105,7 +105,7 @@ Prompt: "Show how company_id field is defined in base models"
 
 # Multi-company record rule
 URL: https://raw.githubusercontent.com/odoo/odoo/18.0/addons/sale/security/sale_security.xml
-Prompt: "Show the multi-company record rule using allowed_company_ids"
+Prompt: "Show the multi-company record rule using company_ids"
 ```
 
 ---
@@ -195,17 +195,17 @@ Prompt: "Show methods with type hints"
 ### v19 Patterns
 
 ```
-# SQL() required
-URL: https://raw.githubusercontent.com/odoo/odoo/master/odoo/sql_db.py
-Prompt: "Show that string SQL is deprecated/removed"
+# SQL() recommended (plain cr.execute strings with params still work)
+URL: https://raw.githubusercontent.com/odoo/odoo/19.0/odoo/tools/sql.py
+Prompt: "Show SQL class for query building"
 
-# Type hints required
-URL: https://raw.githubusercontent.com/odoo/odoo/master/addons/sale/models/sale_order.py
-Prompt: "Show mandatory type hints on methods"
+# Type hints (optional, recommended)
+URL: https://raw.githubusercontent.com/odoo/odoo/19.0/addons/sale/models/sale_order.py
+Prompt: "Show methods with type hints"
 
-# OWL 3.x
-URL: https://raw.githubusercontent.com/odoo/odoo/master/addons/web/static/src/core/utils/hooks.js
-Prompt: "Show OWL 3.x hook patterns"
+# OWL 2.8.x (Owl 3 only on master/20.0)
+URL: https://raw.githubusercontent.com/odoo/odoo/19.0/addons/web/static/src/core/utils/hooks.js
+Prompt: "Show Owl 2 hook patterns (useService etc.)"
 ```
 
 ---
@@ -222,7 +222,7 @@ VERIFICATION_MATRIX = {
         "16": ("addons/sale/models/sale_order.py", "Show create method with @api.model_create_multi optional"),
         "17": ("addons/sale/models/sale_order.py", "Show create method with @api.model_create_multi required"),
         "18": ("addons/sale/models/sale_order.py", "Show create method with @api.model_create_multi and type hints"),
-        "19": ("addons/sale/models/sale_order.py", "Show create method with @api.model_create_multi, type hints required"),
+        "19": ("addons/sale/models/sale_order.py", "Show create method with @api.model_create_multi (type hints optional)"),
     },
     "view_visibility": {
         "14": ("addons/sale/views/sale_order_views.xml", "Show attrs usage for visibility"),
@@ -246,7 +246,7 @@ VERIFICATION_MATRIX = {
         "16": ("odoo/sql_db.py", "Show cr.execute with string SQL"),
         "17": ("odoo/sql_db.py", "Show cr.execute with string SQL"),
         "18": ("odoo/tools/sql.py", "Show SQL() builder recommended"),
-        "19": ("odoo/tools/sql.py", "Show SQL() builder required"),
+        "19": ("odoo/tools/sql.py", "Show SQL() builder recommended"),
     },
 }
 ```
@@ -255,7 +255,7 @@ VERIFICATION_MATRIX = {
 
 ```python
 def get_verification_url(version: str, path: str) -> str:
-    branch = "master" if version == "19" else f"{version}.0"
+    branch = f"{version}.0"  # 19.0 is a released branch; master is 20.0 development
     return f"https://raw.githubusercontent.com/odoo/odoo/{branch}/{path}"
 ```
 
@@ -321,7 +321,7 @@ Before generating code, verify these patterns:
 | Company handling | _check_company_auto, check_company | sale_order.py |
 | SQL queries | String vs SQL() builder | sale_order.py |
 | OWL imports | owl.tags vs @odoo/owl | hooks.js |
-| Record rules | domain syntax, allowed_company_ids | sale_security.xml |
+| Record rules | domain syntax, company_ids (allowed_company_ids is not available in rules) | sale_security.xml |
 
 ---
 

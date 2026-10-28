@@ -22,6 +22,7 @@
 import { Component, useState, useRef, onWillStart, onMounted } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { registry } from "@web/core/registry";
+import { user } from "@web/core/user";
 
 export class MyComponent extends Component {
     static template = "my_module.MyComponent";
@@ -36,7 +37,8 @@ export class MyComponent extends Component {
         this.action = useService("action");
         this.notification = useService("notification");
         this.dialog = useService("dialog");
-        this.user = useService("user");
+        // v18: no "user" service; user info is a plain module object
+        this.user = user;
 
         // State
         this.state = useState({
@@ -363,6 +365,8 @@ setup() {
 
 ### State and Reactivity
 
+Owl 2.x (shipped with 18.0) has no `computed` helper. Derive values with getters or compute them in `setup()` / `onWillRender`.
+
 ```javascript
 import { useState, useRef, reactive } from "@odoo/owl";
 
@@ -493,6 +497,46 @@ dialog.add(ConfirmationDialog, {
         # For website components
     ],
 },
+```
+
+- Organize `static/src/` by feature (`static/src/dashboard/dashboard.js`, `.xml`, `.scss` side by side), not by file type.
+- SCSS: 4-space indentation, classes prefixed `o_<module>_`, Odoo `$o-...` variables; do not define CSS custom properties on `:root`.
+- All assets ship in the module (no CDN); third-party libraries go unminified under `static/lib/`. Declare files in the manifest `assets` key.
+
+## Additional Rules from Odoo's Official Guidelines (verified for 18.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 18.0 source; master-only APIs are translated to their 18.0 equivalent or marked as not available.
+
+### Escaping and HTML in JS (XSS)
+
+- Sinks: `innerHTML`, `insertAdjacentHTML`, `t-out` of a `markup()` value, `markup(nonLiteral)`. Never wrap user or server-provided strings in `markup()`.
+- 18.0 helpers in `@web/core/utils/html`: `htmlEscape(content)` (returns a Markup; leaves existing Markup unchanged), `setElementContent(el, content)` (innerHTML only for Markup values, textContent otherwise), `isHtmlEmpty(content)`. `htmlEscape` and `markup` are also exported by `@odoo/owl`.
+- `markup` from `@odoo/owl` also works as a tagged template in 18.0: ``markup`<b>${value}</b>` `` escapes every placeholder. Calling `markup(string)` with a plain (non-tagged) string trusts it entirely.
+- Not available in 18.0: `setInnerHtml`, `htmlJoin`, `htmlSprintf` (newer versions only).
+
+```javascript
+import { markup } from "@odoo/owl";
+import { setElementContent } from "@web/core/utils/html";
+
+// Safe: tagged template escapes record.name, only the literal parts are trusted
+const html = markup`<b>${record.name}</b>`;
+setElementContent(this.rootRef.el, html);  // rootRef = useRef("root")
+```
+
+### Patching
+
+- `patch(objToPatch, extension)` from `@web/core/utils/patch` takes two arguments (a string second argument throws) and returns an unpatch function; use `super.method(...)` inside the extension. In custom addons `patch()` is the normal extension mechanism.
+
+```javascript
+import { patch } from "@web/core/utils/patch";
+import { FormController } from "@web/views/form/form_controller";
+
+patch(FormController.prototype, {
+    setup() {
+        super.setup(...arguments);
+        // extra setup
+    },
+});
 ```
 
 ## v18 OWL Checklist

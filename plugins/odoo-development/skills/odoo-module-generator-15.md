@@ -10,16 +10,16 @@
 
 ## Version 15.0 Requirements
 
-- **Python**: 3.8+ required
-- **Key Changes**: `@api.multi` removed, `tracking` replaces `track_visibility`
+- **Python**: 3.7+
+- **Key facts**: no `@api.multi`, `tracking=True` for field tracking, `Command` class available
 - **View syntax**: `attrs` for visibility (standard)
-- **OWL**: 1.x introduced for new components
+- **OWL**: Owl 1.4 with `/** @odoo-module **/` ES modules for new components
 
 ## Breaking Changes from v14
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  REMOVED in v15:                                                             ║
+║  NOT AVAILABLE in v15:                                                       ║
 ║  • @api.multi decorator - REMOVED (methods work on recordsets by default)    ║
 ║  • @api.one decorator - REMOVED                                              ║
 ║  • track_visibility - DEPRECATED (use tracking=True)                         ║
@@ -52,8 +52,11 @@
     'assets': {
         'web.assets_backend': [
             '{module_name}/static/src/**/*.js',
-            '{module_name}/static/src/**/*.xml',
             '{module_name}/static/src/**/*.scss',
+        ],
+        # 15.0: QWeb/Owl XML templates go to web.assets_qweb (not assets_backend)
+        'web.assets_qweb': [
+            '{module_name}/static/src/**/*.xml',
         ],
     },
     'demo': [],
@@ -63,11 +66,17 @@
 }
 ```
 
+- `depends`: list direct dependencies only. 15.0 does NOT add `base` automatically to an empty `depends`: if the module needs nothing else, write `'depends': ['base']`.
+- `license`: missing key defaults to `LGPL-3` (with a warning) - always set it explicitly.
+- `auto_install`: `True` (all of `depends`) or a list that must be a subset of `depends`.
+- `assets`: globs and `('include', ...)`, `('remove', ...)`, `('prepend', ...)` directives are supported. JS/SCSS in `web.assets_backend` / `web.assets_frontend`, QWeb/Owl XML in `web.assets_qweb`. There is no `<asset>` XML tag in 15.0.
+- `application: True` only for full apps; `data` loads in list order (security groups before ACL CSV before views/menus); `demo` only demo data.
+
 ## Model Template (v15)
 
 ```python
 # -*- coding: utf-8 -*-
-from odoo import api, fields, models, _
+from odoo import Command, api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
 
@@ -139,22 +148,22 @@ class {ModelName}(models.Model):
         for record in self:
             record.total_amount = sum(record.line_ids.mapped('amount'))
 
-    # === CRUD METHODS (v15 - multi-record aware) === #
-    @api.model
-    def create(self, vals):
-        """Create method - no @api.multi needed."""
-        if not vals.get('name'):
-            vals['name'] = self.env['ir.sequence'].next_by_code(
-                '{module_name}.{model_name}'
-            ) or _('New')
-        return super().create(vals)
+    # === CRUD METHODS (v15: base create() is model_create_multi) === #
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('name'):
+                vals['name'] = self.env['ir.sequence'].next_by_code(
+                    '{module_name}.{model_name}'
+                ) or _('New')
+        return super().create(vals_list)
 
-    # === x2many OPERATIONS - v15: Still tuple syntax === #
+    # === x2many OPERATIONS - v15: Command class available === #
     def action_add_line(self):
-        """Use tuple syntax for x2many operations."""
+        """Command.create(...) == (0, 0, {...}); both work in 15.0."""
         self.write({
             'line_ids': [
-                (0, 0, {'name': 'New Line', 'amount': 0}),
+                Command.create({'name': 'New Line', 'amount': 0}),
             ]
         })
 
@@ -237,47 +246,41 @@ class {ModelName}(models.Model):
 ## OWL 1.x Component (v15)
 
 ```javascript
-odoo.define('{module_name}.{ComponentName}', function (require) {
-    "use strict";
+/** @odoo-module **/
+// 15.0 new web client: ES module + Owl 1.4 globals (owl / owl.hooks)
+import { registry } from "@web/core/registry";
+import { useService } from "@web/core/utils/hooks";
 
-    const { Component } = owl;
-    const { useState, onWillStart } = owl.hooks;
-    const AbstractAction = require('web.AbstractAction');
-    const core = require('web.core');
+const { Component } = owl;
+const { useState, onWillStart } = owl.hooks;
 
-    class {ComponentName} extends Component {
-        setup() {
-            this.state = useState({
-                data: [],
-                loading: true,
-            });
+export class {ComponentName} extends Component {
+    setup() {
+        this.orm = useService("orm");
+        this.state = useState({
+            data: [],
+            loading: true,
+        });
 
-            onWillStart(async () => {
-                await this.loadData();
-            });
-        }
-
-        async loadData() {
-            const rpc = this.env.services.rpc;
-            try {
-                const data = await rpc({
-                    model: '{module_name}.{model_name}',
-                    method: 'search_read',
-                    args: [[], ['name', 'state']],
-                });
-                this.state.data = data;
-            } finally {
-                this.state.loading = false;
-            }
-        }
+        onWillStart(async () => {
+            await this.loadData();
+        });
     }
 
-    {ComponentName}.template = '{module_name}.{ComponentName}';
+    async loadData() {
+        try {
+            this.state.data = await this.orm.searchRead(
+                "{module_name}.{model_name}", [], ["name", "state"]
+            );
+        } finally {
+            this.state.loading = false;
+        }
+    }
+}
 
-    core.action_registry.add('{module_name}.{component_name}', {ComponentName});
+{ComponentName}.template = "{module_name}.{ComponentName}";
 
-    return {ComponentName};
-});
+registry.category("actions").add("{module_name}.{component_name}", {ComponentName});
 ```
 
 ## OWL 1.x Template (v15)
@@ -313,16 +316,17 @@ name = fields.Char(tracking=True)
 state = fields.Selection([...], tracking=True)
 ```
 
-### x2many Commands (v15 - still tuple syntax)
+### x2many Commands (v15 - Command class available)
 ```python
-# v15: Tuple syntax (Command class comes in v16)
-(0, 0, values)      # Create
-(1, id, values)     # Update
-(2, id)             # Delete
-(3, id)             # Unlink
-(4, id)             # Link
-(5, 0, 0)           # Clear
-(6, 0, [ids])       # Set
+from odoo import Command
+
+Command.create(values)   # == (0, 0, values)
+Command.update(id, values)  # == (1, id, values)
+Command.delete(id)       # == (2, id, 0)
+Command.unlink(id)       # == (3, id, 0)
+Command.link(id)         # == (4, id, 0)
+Command.clear()          # == (5, 0, 0)
+Command.set(ids)         # == (6, 0, ids)
 ```
 
 ### No More @api.multi
@@ -338,6 +342,58 @@ def action_confirm(self):
     ...
 ```
 
+## Additional Rules from Odoo's Official Guidelines (verified for 15.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 15.0 source; master-only APIs are translated to the 15.0 equivalent or marked as not available.
+
+### Structure and naming
+
+- One model class per file, named after the model (`models/sale_order.py`); views `<model>_views.xml`, templates `<model>_templates.xml`, menus `<module>_menus.xml`, data `<module>_data.xml`, demo `<module>_demo.xml`.
+- Security: `security/ir.model.access.csv` + `security/<module>_security.xml` (groups, `ir.rule`). No `ir.access.csv` in 15.0.
+- Controllers: feature-named files (or `<inherited_module>.py`), `main.py` is legacy. Overriding a route: re-decorate with `@http.route()` - in 15.0 an override without the decorator silently drops the URL.
+- Reports: SQL-view model `<model>_report.py`; printable reports split into `<model>_reports.xml` (action) and `<model>_templates.xml` (QWeb).
+- XML ids: `<model>_view_form` / `_view_tree`, `<model>_action`, `<model>_menu`, `<module>_group_<name>`, `<model>_rule_<group>`. `id` before `model` on `<record>`; inherited views keep the parent name + `.inherit.<details>`.
+- Model `_name`: dotted, module-prefixed, singular (`my_module.order`); wizards `<base_model>.<action>`; SQL reports `<base_model>.report.<action>`.
+- Methods: `_compute_*`, `_search_*`, `_default_*`, `_selection_*`, `_onchange_*`, `_check_*` (constraints), `action_*` (start with `self.ensure_one()` when single-record). Non-`_` methods are RPC-callable: keep helpers private.
+- Class body order: private attributes (`_name`, `_description`, `_inherit`, `_order`, `_sql_constraints`) -> default methods -> fields -> compute/inverse/search -> selection methods -> constrains/onchange -> CRUD overrides -> actions -> business methods.
+- Imports: stdlib, third-party, `from odoo import Command, api, fields, models, _`, then `odoo.addons...`.
+
+### Tests for generated modules (15.0)
+
+```python
+from odoo.exceptions import ValidationError
+from odoo.tests import TransactionCase, HttpCase, tagged, new_test_user
+from odoo.tools import mute_logger
+
+
+class TestMyModel(TransactionCase):          # default tags: standard, at_install
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()                  # TransactionCase is savepoint-based in 15.0
+        cls.user = new_test_user(cls.env, login='my_module_user', groups='base.group_user')
+
+    def test_constraint(self):
+        with self.assertRaises(ValidationError):
+            self.env['my.model'].with_user(self.user).create({...})
+
+    @mute_logger('odoo.sql_db')
+    def test_unique(self):
+        ...
+
+
+@tagged('post_install', '-at_install')       # HttpCase / tours must run post-install
+class TestMyModelUi(HttpCase):
+    def test_tour(self):
+        self.start_tour('/web', 'my_module_tour', login='admin')
+```
+
+- 15.0 default tags are `standard` + `at_install`. Set exactly one of `at_install` / `post_install`: both -> the test runs twice, neither -> it never runs (`tagged()` logs a warning).
+- No `BaseCommon` / `BaseUsersCommon` in 15.0; reusable fixtures: `odoo.addons.base.tests.common.TransactionCaseWithUserDemo`, `HttpCaseWithUserDemo`, `HttpCaseWithUserPortal`. `SavepointCase` is a deprecated alias.
+- Test files must be named `test_*.py` AND imported in `tests/__init__.py`. TestCase classes imported into a test file are collected again (run twice) and inherited `test_*` methods are collected: keep shared base classes without `test_*` methods.
+- `assertQueryCount` only in dedicated performance tests with `@warmup` (and `@users`); exceeding fails, a lower count only logs.
+- Run one class: `--test-tags /my_module:TestMyModel`.
+
 ## v15 Checklist
 
 When generating a v15 module:
@@ -345,10 +401,12 @@ When generating a v15 module:
 - [ ] Use `tracking=True` for field tracking (NOT `track_visibility`)
 - [ ] Remove any `@api.multi` decorators
 - [ ] Remove any `@api.one` decorators
-- [ ] Use tuple syntax for x2many operations
+- [ ] Use `Command` (or tuples) for x2many operations
+- [ ] Override `create` with `@api.model_create_multi`
 - [ ] Use `attrs` for view visibility
 - [ ] Use OWL 1.x if adding new components
-- [ ] Include `assets` in manifest for JS/CSS
+- [ ] Include `assets` in manifest for JS/CSS (XML templates in `web.assets_qweb`)
+- [ ] Tag HttpCase/tour tests `@tagged('post_install', '-at_install')`
 - [ ] Data files in correct order in manifest
 
 ## AI Agent Instructions (v15)
@@ -357,9 +415,10 @@ When generating an Odoo 15.0 module:
 
 1. **USE** `tracking=True` for tracked fields
 2. **REMOVE** any `@api.multi` or `@api.one` decorators
-3. **USE** tuple syntax for x2many (Command class is v16+)
+3. **USE** `Command` (`from odoo import Command`) or tuples for x2many
 4. **USE** `attrs` in views for visibility/readonly
-5. **USE** OWL 1.x patterns with `odoo.define()`
-6. **INCLUDE** `assets` key in manifest
-7. **DO NOT** use `Command` class (v16+)
+5. **USE** OWL 1.x patterns (`/** @odoo-module **/`, `owl` / `owl.hooks` globals, `registry.category("actions")`)
+6. **INCLUDE** `assets` key in manifest (XML templates in `web.assets_qweb`)
+7. **USE** `@api.model_create_multi` for `create` overrides
 8. **DO NOT** use direct `invisible`/`readonly` (v17+)
+9. **FOLLOW** "Additional Rules from Odoo's Official Guidelines (verified for 15.0)" above

@@ -6,21 +6,24 @@
 ║  Use this guide when upgrading security code from v14 to v15.                ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
+> Includes rules from Odoo's official skill library (odoo/odoo skills/, branch 20.0), verified against the 14.0 and 15.0 source.
 
 ## Overview of Security Changes
 
 | Component | v14 | v15 | Migration Required |
 |-----------|-----|-----|-------------------|
-| @api.multi | Deprecated | **Removed** | **REQUIRED** |
-| Field tracking | `track_visibility` | `tracking` | **REQUIRED** |
-| Python | 3.6+ | 3.8+ | Check compatibility |
+| @api.multi | Removed (since 13.0) | Removed | Only for code ported from <= 12.0 |
+| Field tracking | `tracking` (`track_visibility` legacy, warns) | same | Clean-up recommended |
+| Server QWeb output (XSS sink) | `t-esc` (escapes) / `t-raw` (only raw directive); no `t-out` | `t-out` escapes but prints `Markup` values raw; `t-esc` alias; `t-raw` deprecated (still renders raw) - audit `Markup(...)` built from user input | Recommended |
+| x2many commands (also payloads under `sudo()`) | tuples | `Command.create/update/link/set...` or tuples - same `_allow_sudo_commands` rule | Optional |
+| Python | 3.6+ | 3.7+ | Check compatibility |
 | Chatter widgets | Legacy | Simplified | Recommended |
 
-## Breaking Changes
+## Legacy Clean-up (not 14 -> 15 changes)
 
-### 1. @api.multi Decorator REMOVED
+### 1. @api.multi Decorator (already removed in 14.0)
 
-**v14 (deprecated but works):**
+**<= 12.0 code (fails in 14.0 and 15.0):**
 ```python
 @api.multi
 def action_confirm(self):
@@ -28,7 +31,7 @@ def action_confirm(self):
         record.state = 'confirmed'
 ```
 
-**v15 (no decorator needed):**
+**14.0 and 15.0 (no decorator):**
 ```python
 def action_confirm(self):
     for record in self:
@@ -37,14 +40,16 @@ def action_confirm(self):
 
 ### 2. track_visibility → tracking
 
-**v14:**
+`mail.thread` in 14.0 and 15.0 accepts only `tracking` as a field parameter; `track_visibility` is still tracked but logs "unknown parameter". Clean up in 14.0 already.
+
+**Legacy (warns in 14 and 15):**
 ```python
 name = fields.Char(string='Name', track_visibility='onchange')
 state = fields.Selection([...], track_visibility='always')
 partner_id = fields.Many2one('res.partner', track_visibility='onchange')
 ```
 
-**v15:**
+**14.0 and 15.0:**
 ```python
 name = fields.Char(string='Name', tracking=True)
 state = fields.Selection([...], tracking=True)
@@ -85,7 +90,7 @@ def remove_api_multi(python_content):
 
 ### Model with Tracking
 
-**v14:**
+**Legacy (<= 12.0 style; `@api.multi` fails in 14.0):**
 ```python
 from odoo import api, fields, models
 
@@ -112,7 +117,7 @@ class MyModel(models.Model):
             record._send_notification()
 ```
 
-**v15:**
+**14.0 and 15.0:**
 ```python
 from odoo import api, fields, models
 
@@ -196,11 +201,16 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 notes = fields.Text(groups='my_module.group_manager')
 ```
 
+### Other Unchanged Security Rules
+
+Unchanged in both: `sudo(user)` deprecated (use `with_user`), `_allow_sudo_commands`, `related_sudo=True` default, no `odoo.tools.SQL` (`_search()` -> `Query.select('"t"."c"')`, identifiers via `psycopg2.sql`), `odoo.osv.expression.AND/OR`, RPC guard `check_method_name` (no `@api.private`), route `auth` user/public/none and `type` http/json, CSRF on non-safe `http` methods, `_()` does not escape, Owl 1.4.11 (no `markup`/`htmlEscape`), `fields.NO_ACCESS`, `odoo.tools.file_open`, restricted `odoo.tools.misc.pickle`, `odoo.tools.consteq`, `ir.model.access` + `ir.rule` (no `base.group_everyone`, eval context `user`/`time`/`company_ids`/`company_id`).
+
 ## Migration Checklist
 
-- [ ] **CRITICAL**: Remove ALL `@api.multi` decorators
-- [ ] **CRITICAL**: Replace `track_visibility` with `tracking=True`
-- [ ] Update Python version to 3.8+
+- [ ] Remove leftover `@api.multi` (only in code ported from <= 12.0; it fails in 14.0 too)
+- [ ] Replace `track_visibility` with `tracking=True` (valid since 14.0)
+- [ ] Review `t-raw` usages; move to `t-out` with sanitized/`Markup` values
+- [ ] Update Python version to 3.7+
 - [ ] Update chatter widgets (optional but recommended)
 - [ ] Test all methods that had `@api.multi`
 - [ ] Verify tracking works on mail.thread models
@@ -209,7 +219,7 @@ notes = fields.Text(groups='my_module.group_manager')
 
 ### 1. Leaving @api.multi
 
-**Wrong (will cause errors in v15):**
+**Wrong (AttributeError in 14.0 and 15.0):**
 ```python
 @api.multi
 def my_method(self):
@@ -226,7 +236,7 @@ def my_method(self):
 
 **Wrong:**
 ```python
-# These won't work in v15
+# Legacy: still tracked in 14/15, but each logs "unknown parameter 'track_visibility'"
 name = fields.Char(track_visibility='onchange')
 state = fields.Selection([...], track_visibility='always')
 ```
@@ -257,4 +267,4 @@ def test_tracking(self):
 ## GitHub Reference
 
 - `odoo/api.py` - Decorator changes
-- `odoo/models.py` - Field tracking implementation
+- `addons/mail/models/mail_thread.py` - Field tracking implementation (`_valid_field_parameter`, `_get_tracked_fields`)

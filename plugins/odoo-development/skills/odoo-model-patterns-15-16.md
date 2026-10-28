@@ -3,7 +3,7 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  MODEL PATTERNS MIGRATION: 15.0 → 16.0                                       ║
-║  Command class introduced, attrs deprecated (still works)                    ║
+║  index types, create() warning, t-lang strict; attrs and Command unchanged   ║
 ║  VERIFY: https://github.com/odoo/odoo/tree/16.0/odoo/models.py               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
@@ -11,13 +11,15 @@
 ## Overview
 
 Migration from v15 to v16 is **non-breaking** for model code. The main changes are:
-- `Command` class for x2many operations (recommended)
-- `attrs` deprecation in views (start migrating)
-- `@api.model_create_multi` recommended
+- `index=` accepts `'trigram'` / `'btree_not_null'`
+- a single-dict `@api.model` `create` override now logs a warning: use `@api.model_create_multi`
+- `t-lang` without `t-call` raises a SyntaxError at template compile (15.0 silently ignored it)
+- `attrs` stays the correct view syntax in 16.0 (direct expressions are 17.0+)
 
-## New: Command Class
+## Command Class (already available in 15.0)
 
-The `Command` class provides a cleaner API for x2many field operations.
+The `Command` class provides a cleaner API for x2many field operations. It exists in 15.0 and 16.0
+(`from odoo import Command` or `from odoo.fields import Command`); tuples remain valid in both.
 
 ### Import
 
@@ -111,17 +113,18 @@ def manage_tags_v16(self):
 
 ## Create Method: model_create_multi
 
-While `@api.model` still works, `@api.model_create_multi` is now **strongly recommended**.
+The base `create` is `@api.model_create_multi` in both versions. A single-dict `@api.model` override is silently
+wrapped in 15.0 and logs a warning in 16.0 (17.0 still only warns).
 
 ```python
-# v15 (still works in v16):
+# legacy form (15.0: silent; 16.0: warning):
 @api.model
 def create(self, vals):
     if not vals.get('code'):
         vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
     return super().create(vals)
 
-# v16 (RECOMMENDED - prepare for v17 where it's mandatory):
+# 15.0 and 16.0 (RECOMMENDED):
 @api.model_create_multi
 def create(self, vals_list):
     for vals in vals_list:
@@ -133,7 +136,7 @@ def create(self, vals_list):
 ### Benefits of model_create_multi
 
 1. **Better Performance**: Batch operations are more efficient
-2. **Future Compatibility**: Mandatory in v17
+2. **Future Compatibility**: The single-dict form warns from 16.0 on
 3. **Cleaner API**: Consistent handling of single/batch creates
 
 ## Field Indexing (Best Practice)
@@ -152,9 +155,11 @@ state = fields.Selection([...], index=True)          # For filtering
 
 ### Index Types
 
+15.0 accepts only a bool (`index=True`); the string values are 16.0+.
+
 | Type | Use Case |
 |------|----------|
-| `index=True` | Standard B-tree index |
+| `index=True` / `index='btree'` | Standard B-tree index |
 | `index='trigram'` | For ILIKE/pattern searches |
 | `index='btree_not_null'` | B-tree excluding NULL |
 
@@ -255,18 +260,15 @@ class SaleOrder(models.Model):
         })
 ```
 
-## View Changes (Start Migrating)
+## View Modifiers (unchanged)
 
-While `attrs` still works in v16, start migrating to prepare for v17:
+`attrs` is the correct syntax in 15.0 and 16.0. A direct `invisible="state == 'draft'"` is NOT evaluated as a
+record condition in 16.0; convert to direct expressions only when migrating to 17.0.
 
 ```xml
-<!-- v15 (works in v16 but deprecated): -->
+<!-- 15.0 and 16.0: -->
 <field name="partner_id"
        attrs="{'invisible': [('state', '=', 'draft')]}"/>
-
-<!-- v16 (RECOMMENDED - required in v17): -->
-<field name="partner_id"
-       invisible="state == 'draft'"/>
 ```
 
 ## Migration Checklist
@@ -278,10 +280,9 @@ While `attrs` still works in v16, start migrating to prepare for v17:
 - [ ] Add `index=True` to frequently filtered fields
 - [ ] Consider `index='trigram'` for searchable text fields
 
-### Views (Start Now for v17)
-- [ ] Identify all `attrs=` usage in XML views
-- [ ] Start converting to `invisible=`, `readonly=`, `required=`
-- [ ] Test conditional visibility with new syntax
+### Views / QWeb
+- [ ] Keep `attrs=` (direct `invisible=`/`readonly=`/`required=` expressions only from 17.0)
+- [ ] Move every `t-lang` onto a `t-call` node (16.0 raises a SyntaxError otherwise)
 
 ## Search and Replace Patterns
 
@@ -299,5 +300,21 @@ While `attrs` still works in v16, start migrating to prepare for v17:
 
 1. **Test x2many operations** - Verify Command class works correctly
 2. **Test batch creates** - Ensure model_create_multi handles single and batch
-3. **Test view conditionals** - If migrating attrs, verify visibility logic
+3. **Test QWeb reports** - templates using `t-lang` compile in 16.0
 4. **Performance testing** - Verify indexing improvements
+
+## Official guideline deltas 15.0 -> 16.0
+
+`index=`, `create()` warning and `t-lang` are covered above.
+
+| Topic | 15.0 | 16.0 |
+|---|---|---|
+| `sudo(user)` | deprecated alias of `with_user(user)` | removed (bool only) |
+| `@api.private` | absent (use `_` prefix) | available |
+| `odoo.tools.SQL` | absent | psycopg2 `sql.SQL` (not the 17.0+ builder) |
+
+Unchanged: `Command`, `read_group` dict API (`_read_group` has the same signature in 16.0), `_sql_constraints`
++ `tools.create_index` in `init()`, no `grouped()` (use `odoo.tools.groupby`), `osv.expression.AND/OR`,
+`_()` / `_lt` (no `env._`, no Markup escaping), related-through-x2many truncation to the first record,
+`cr.savepoint()`, view-inheritance shorthand semantics, `_get_report_values` must return
+`docs`/`doc_ids`/`doc_model`, `attrs` view modifiers.

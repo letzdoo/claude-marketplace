@@ -3,7 +3,7 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  ODOO 14.0 ORM PATTERNS                                                      ║
-║  Last version with @api.multi and track_visibility                           ║
+║  No @api.multi (removed in 13.0); tracking=True; model_create_multi          ║
 ║  VERIFY: https://github.com/odoo/odoo/tree/14.0/odoo/models.py               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
@@ -13,8 +13,9 @@
 ### Key Characteristics
 | Feature | Odoo 14.0 Pattern |
 |---------|-------------------|
-| Multi-record decorator | `@api.multi` (deprecated but works) |
-| Change tracking | `track_visibility='onchange'` |
+| Multi-record decorator | none (`@api.multi` is removed and fails) |
+| Change tracking | `tracking=True` (`track_visibility` still tracked but logs a warning) |
+| Create override | `@api.model_create_multi` + `vals_list` |
 | X2many commands | Tuple syntax `(0, 0, vals)` |
 | attrs in views | Full support |
 | Python version | 3.6+ |
@@ -37,15 +38,16 @@ class MyModel(models.Model):
         string='Name',
         required=True,
         index=True,
-        tracking=True,  # New way (works in 14.0)
+        tracking=True,  # the valid tracking parameter in 14.0
     )
 
-    # Old tracking syntax (deprecated but works)
+    # track_visibility='onchange' is legacy: still tracked by mail.thread,
+    # but the field setup logs "unknown parameter" - use tracking=True
     state = fields.Selection([
         ('draft', 'Draft'),
         ('confirmed', 'Confirmed'),
         ('done', 'Done'),
-    ], default='draft', track_visibility='onchange')  # Old way
+    ], default='draft', tracking=True)
 
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
@@ -79,13 +81,14 @@ class MyModel(models.Model):
     )
 ```
 
-## @api.multi Pattern (Deprecated)
+## @api.multi Pattern (Removed)
 
 ```python
-# v14: @api.multi still works but is deprecated
-# It's the implicit default for methods
+# v14: @api.multi does NOT exist (removed in 13.0).
+# Code still carrying it fails at import:
+# AttributeError: module 'odoo.api' has no attribute 'multi'
 
-@api.multi  # Deprecated - remove this decorator
+# @api.multi  # remove this line
 def action_confirm(self):
     for record in self:
         if record.state != 'draft':
@@ -135,12 +138,16 @@ def create_with_lines(self):
 ## CRUD Methods
 
 ```python
-@api.model
-def create(self, vals):
-    """Override create - note: not create_multi yet"""
-    if not vals.get('code'):
-        vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
-    return super(MyModel, self).create(vals)
+@api.model_create_multi
+def create(self, vals_list):
+    """Override create - BaseModel.create is model_create_multi in 14.0"""
+    for vals in vals_list:
+        if not vals.get('code'):
+            vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
+    return super().create(vals_list)
+
+# A legacy `@api.model def create(self, vals)` override is wrapped silently
+# (no warning) and loops one record at a time - always use vals_list.
 
 def write(self, vals):
     """Override write"""
@@ -219,6 +226,10 @@ def _check_dates(self):
                 )
 ```
 
+- Python invariants belong in `@api.constrains`; `@api.onchange` is UI-only.
+- `models.Constraint`/`Index`/`UniqueIndex` do not exist in 14.0: use `_sql_constraints`.
+- `index=True` only on searched AND selective fields (boolean only: a plain btree). Multi-column or partial indexes: `def init(self):` with `tools.create_index(self._cr, ...)` or explicit SQL.
+
 ## Search and Domain
 
 ```python
@@ -247,6 +258,8 @@ def get_partner_data(self):
         limit=50,
     )
 ```
+
+- Combine domains with `odoo.osv.expression.AND([...])` / `OR([...])`, never by concatenating a user-supplied list onto a security domain (`fields.Domain` is 19.0+).
 
 ## XML Views with attrs
 
@@ -352,23 +365,73 @@ class MyWizard(models.TransientModel):
         return {'type': 'ir.actions.act_window_close'}
 ```
 
+## Additional Rules from Odoo's Official Guidelines (verified for 14.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 14.0 source; master-only APIs are translated to the 14.0 equivalent or marked as not available.
+
+### Batching: no ORM call per record
+
+```python
+# WRONG: one search_count / create per record
+for order in orders:
+    order.line_count = self.env['my.model.line'].search_count([('model_id', '=', order.id)])
+
+# RIGHT (14.0): one read_group; returns a list of dicts, m2o keys are (id, name)
+groups = self.env['my.model.line'].read_group(
+    [('model_id', 'in', orders.ids)], ['amount:sum'], ['model_id'])
+totals = {g['model_id'][0]: g['amount'] for g in groups}
+counts = {g['model_id'][0]: g['model_id_count'] for g in groups}
+for order in orders:
+    order.total = totals.get(order.id, 0.0)
+
+# create in batch
+self.env['my.model.line'].create([{'model_id': o.id, 'name': 'X'} for o in orders])
+```
+
+- No `_read_group(domain, groupby, aggregates)` in 14.0 (that signature is 17.0+).
+- Iterate recordsets (shared prefetch) instead of `browse(id)` in a loop. Put filters in the domain, not in `filtered()`.
+
+### Translations
+```python
+from odoo import _, _lt
+
+LABEL = _lt("Draft")                                   # module/class level: lazy
+raise UserError(_("Order %s cannot be confirmed.", order.name))      # positional
+raise UserError(_("%(name)s: %(count)s lines", name=n, count=c))     # named
+```
+- `_()` formats after the translation lookup (`%` style, positional or named, not both). It does not escape and does not format lists per language.
+- `self.env._` and `LazyTranslate` do not exist in 14.0. Never call `_()` at import time. Never format before calling `_()`.
+
+### Grouping, context
+- `recordset.grouped()` does not exist: use `odoo.tools.groupby(records, key)` (returns `(key, list)` pairs) or a `defaultdict(lambda: self.env['my.model'])`.
+- `default_<field>` keys in the context are used by `default_get` (and by `mail.thread` auto-subscription) for every create on a model with that field. Strip them (`odoo.tools.clean_context`) before creating unrelated records; prefix custom context keys with the module name.
+
+### Fields
+- `related` through an x2many takes the first record at each hop and silently truncates. Use a compute instead.
+- Related fields are computed as superuser by default (`related_sudo=True`). Set `related_sudo=False` on sensitive chains.
+- Reserved fields: `active` (+ `action_archive`/`action_unarchive`), `state`, `parent_id` + `parent_path` (indexed) with `_parent_store = True`, `company_id` with `_check_company_auto = True` and `check_company=True`.
+- Reading a field on a multi-record set raises: call `ensure_one()` in `action_*` methods.
+
+### Transactions
+- Never `self.env.cr.commit()` / `rollback()` in business code (only in your own cursor, e.g. a cron that processes batches, with a comment explaining why).
+- Recover from an expected error with `with self.env.cr.savepoint():` and catch a specific exception. Keep the number of savepoints per transaction small.
+- `odoo.http.request` is unbound in crons, RPC, tests and the shell: do not use it in model code.
+
+### View inheritance and reports
+- Anchor on names, not positions: `<field name="partner_id" position="after">`. The shorthand `<field name="x">` matches the FIRST field named `x` anywhere in the parent arch (at any depth). Other tags match the first node whose attributes all match. Use an `xpath` when the field appears more than once.
+- `t-lang` only takes effect on a node with `t-call`. Without `t-call` it is silently ignored in 14.0 (no error), so the text renders in the current language.
+- A custom `report.<report_name>` model with `_get_report_values()` must return `doc_ids`, `doc_model` and `docs` itself. Odoo adds them only when no custom report model exists.
+
 ## Migration Notes to v15
 
 When upgrading from v14 to v15:
 
-1. **Remove @api.multi** - No longer needed
-2. **Replace track_visibility** - Use `tracking=True` instead
-3. **Update create()** - Consider `@api.model_create_multi` (optional in v15)
+1. **`@api.multi`** - already absent in 14.0; nothing to do
+2. **`track_visibility`** - replace with `tracking=True` (already the valid form in 14.0)
+3. **x2many** - `Command` becomes available in 15.0 (tuples keep working)
 
 ```python
-# v14
-@api.multi
-def action_test(self):
-    pass
-
-state = fields.Selection(..., track_visibility='onchange')
-
-# v15
+# v14 and v15
 def action_test(self):
     pass
 
@@ -377,8 +440,8 @@ state = fields.Selection(..., tracking=True)
 
 ## Important v14 Notes
 
-1. **@api.multi is implicit** - Don't use it explicitly
-2. **track_visibility works** - But tracking=True is preferred
+1. **`@api.multi` does not exist** - methods are multi-record by default
+2. **Use `tracking=True`** - `track_visibility` still tracks but logs "unknown parameter"
 3. **Tuple commands work** - Standard x2many syntax
 4. **attrs fully supported** - Use for conditional visibility
 5. **Python 3.6+** - f-strings and type hints available

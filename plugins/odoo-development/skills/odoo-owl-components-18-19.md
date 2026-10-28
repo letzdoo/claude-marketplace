@@ -1,26 +1,34 @@
-# Odoo OWL Migration Guide: 18.0 → 19.0 (OWL 2.x → 3.x)
+# Odoo OWL Guide: 18.0 → 19.0 (Owl 2.x in both)
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  OWL MIGRATION GUIDE: 2.x → 3.x                                              ║
-║  This is a significant update with enhanced patterns.                        ║
-║  Note: v19 is in development - patterns may change.                          ║
+║  OWL GUIDE: 18.0 → 19.0                                                      ║
+║  Both versions ship Owl 2 (19.0: Owl 2.8.4). No Owl 3 migration.             ║
+║  Verified against the 18.0 and 19.0 (final) source trees.                    ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
+> Includes rules from Odoo's official skill library (odoo/odoo skills/, branch 20.0), verified against the 18.0 and 19.0 source.
 
 ## Changes Summary
 
-| Feature | OWL 2.x (v18) | OWL 3.x (v19) |
-|---------|---------------|---------------|
-| Reactivity | Standard | Enhanced |
-| Props validation | Runtime | Enhanced + TypeScript-like |
-| Type annotations | JSDoc optional | JSDoc recommended |
-| Error boundaries | Basic | Enhanced |
-| Performance | Good | Improved |
+| Feature | v18 | v19 |
+|---------|-----|-----|
+| Owl version | 2.x | 2.8.4 (`addons/web/static/lib/owl/owl.js`) |
+| Component API, hooks, props validation | Owl 2 | Owl 2 (unchanged) |
+| `@web/core/utils/html` helpers | `htmlEscape`, `setElementContent`, `isHtmlEmpty` | + `htmlJoin`, `htmlSprintf`, `htmlReplace`/`htmlReplaceAll`, `htmlFormatList`, `htmlTrim`, `isMarkup`, `createElementWithContent`, `createDocumentFragmentFromContent` |
+| `setInnerHtml` | not available (use `setElementContent`) | not available (use `setElementContent`) |
+| `markup` as tagged template escaping placeholders (``markup`<b>${name}</b>` ``) | yes | yes |
+| `patch(objToPatch, extension)` with `super` | yes | yes |
+| Owl `computed` | not available (derive values with getters) | not available (derive values with getters) |
+| User info | `user` from `@web/core/user` (no `user` service) | same |
+| Assets | organize `static/src` by feature; declare in manifest `assets` key | same |
 
-## Enhanced Reactivity in OWL 3.x
+The sections below are style recommendations (JSDoc, cleanup, defaultProps); all of them
+already work in v18.
 
-### Before (OWL 2.x)
+## Reactivity of Set/Map
+
+### Recreating the Set (unnecessary)
 ```javascript
 setup() {
     this.state = useState({
@@ -40,17 +48,16 @@ toggleSelect(id) {
 }
 ```
 
-### After (OWL 3.x)
+### Direct mutation (works in Owl 2, i.e. v18 and v19)
 ```javascript
 setup() {
     this.state = useState({
         items: [],
-        selectedIds: new Set(),  // Sets are now fully reactive
+        selectedIds: new Set(),  // Owl 2 reactivity tracks Set/Map mutations
     });
 }
 
 toggleSelect(id) {
-    // Direct mutation works with enhanced reactivity
     if (this.state.selectedIds.has(id)) {
         this.state.selectedIds.delete(id);
     } else {
@@ -60,9 +67,9 @@ toggleSelect(id) {
 }
 ```
 
-## Enhanced Props Validation
+## Props Validation
 
-### Before (OWL 2.x)
+### Basic props
 ```javascript
 static props = {
     recordId: { type: Number, optional: true },
@@ -70,7 +77,7 @@ static props = {
 };
 ```
 
-### After (OWL 3.x)
+### With JSDoc, `validate` and `defaultProps` (Owl 2, v18 and v19)
 ```javascript
 /**
  * @typedef {Object} MyComponentProps
@@ -96,7 +103,7 @@ static defaultProps = {
 
 ## Complete Migration Example
 
-### Before (OWL 2.x - v18)
+### Minimal version (v18 and v19)
 
 ```javascript
 /** @odoo-module **/
@@ -139,7 +146,7 @@ export class MyComponent extends Component {
 registry.category("actions").add("my_module.my_action", MyComponent);
 ```
 
-### After (OWL 3.x - v19)
+### Extended version with JSDoc and cleanup (v18 and v19)
 
 ```javascript
 /** @odoo-module **/
@@ -258,7 +265,7 @@ registry.category("actions").add("my_module.my_action", MyComponent);
 
 ### 3. Props Callback Pattern
 ```javascript
-// v19: Better callback props pattern
+// Optional callback prop (v18 and v19)
 static props = {
     onSelect: {
         type: Function,
@@ -283,24 +290,20 @@ this.props.onSelect?.(selectedId);
 this.state = useState({...});
 ```
 
-## Migration Checklist
+## Optional Style Checklist
 
-- [ ] Add comprehensive JSDoc type annotations
-- [ ] Define type for component props (`@typedef`)
-- [ ] Define type for component state (`@typedef`)
-- [ ] Add return types to all methods
-- [ ] Add parameter types to all methods
+- [ ] Add JSDoc type annotations where they help
+- [ ] Define `static props` (with `optional: true` where needed)
 - [ ] Implement proper cleanup in `onWillUnmount`
-- [ ] Use AbortController for cancellable requests
-- [ ] Update Set/Map usage (now fully reactive)
-- [ ] Add validation functions to props where needed
 - [ ] Use `static defaultProps` for optional props
+- [ ] Mutate reactive Set/Map directly (no copies needed)
 
-## Common Migration Issues
+## Common Issues
 
 ### Issue: Set/Map not updating UI
-**v18**: Required recreating Set/Map for reactivity
-**v19**: Direct mutations work, no workaround needed
+Owl 2 (v18 and v19) tracks Set/Map mutations inside `useState`; recreating the Set is
+not needed. If the UI does not update, check that the Set lives inside the reactive
+state object and is not a copy taken before `useState`.
 
 ### Issue: Missing type annotations
 **Fix**: Add JSDoc for all methods, state, and props

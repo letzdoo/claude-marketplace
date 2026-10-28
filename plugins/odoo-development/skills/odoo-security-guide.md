@@ -25,8 +25,8 @@
 | Odoo 15.0 | `odoo-security-guide-15.md` | Legacy |
 | Odoo 16.0 | `odoo-security-guide-16.md` | Supported |
 | Odoo 17.0 | `odoo-security-guide-17.md` | Supported |
-| Odoo 18.0 | `odoo-security-guide-18.md` | Current |
-| Odoo 19.0 | `odoo-security-guide-19.md` | Development |
+| Odoo 18.0 | `odoo-security-guide-18.md` | Supported |
+| Odoo 19.0 | `odoo-security-guide-19.md` | Current (released) |
 | All versions | `odoo-security-guide-all.md` | Core concepts |
 
 ## Migration Guides
@@ -74,37 +74,50 @@ If the version is not explicitly stated, look for these clues:
 
 | Indicator | Version |
 |-----------|---------|
-| `@api.multi` decorator | 14.0 (deprecated in 15.0+) |
-| `track_visibility` parameter | 14.0-15.0 |
-| `tracking` parameter | 15.0+ |
-| `Command` class usage | 16.0+ |
+| `@api.multi` decorator | 12.0 or older (removed before 14.0) |
+| `track_visibility` parameter | legacy (only a warning in 14.0-16.0) |
+| `tracking` parameter | 14.0+ (no hint) |
+| no manifest `assets` key, `qweb` key | 14.0 |
+| `Command` class usage | 15.0+ |
+| `t-out` in server QWeb | 15.0+ |
+| `@api.private` | 16.0+ |
 | `attrs` in views | 14.0-16.0 |
-| Direct `invisible`/`readonly` | 17.0+ |
-| `_check_company_auto` | 18.0+ |
-| Type hints on fields | 18.0+ |
-| `SQL()` builder | 18.0+ |
+| Direct `invisible="<expression>"` | 17.0+ |
+| `odoo.tools.SQL("...", args)` builder | 17.0+ |
+| `<list>` views, `check_access()` | 18.0+ |
+| `fields.Domain`, `models.Constraint`, `group_ids` on users | 19.0 |
+
+`_check_company_auto` / `check_company=True` exist in every version 14-19 and are no version hint.
 
 ## Quick Reference: Major Security Changes by Version
 
 ### v14 → v15
-- No major security API changes
+- `t-out` introduced (escapes); `t-raw` deprecated (still renders raw), `t-esc` becomes an alias
+- `Command` class introduced for x2many values (tuples still accepted)
 
 ### v15 → v16
-- `Command` class introduced for x2many security patterns
-- Enhanced record rule evaluation
+- `sudo()` accepts only a bool (no more `sudo(user)` - use `with_user`)
+- RPC guard `get_public_method` + `@api.private`
+- Route methods overridden without `@http.route()` are auto-decorated with a warning (15.0: route silently dropped)
+- Owl 2: `markup()` / `htmlEscape` in JS
 
 ### v16 → v17
-- `attrs` removed from views - security visibility changed
-- `invisible` attribute now takes Python expressions
+- `attrs`/`states` removed from views (validation error) - use direct expressions
+- `odoo.tools.SQL` builder with `SQL.identifier()`
+- `_()` escapes its arguments when one of them is `Markup`
 
 ### v17 → v18
-- `_check_company_auto` for automatic company validation
-- `check_company` parameter on Many2one fields
-- Enhanced field-level security
+- `check_access_rights`/`check_access_rule` deprecated -> `check_access()`/`has_access()`
+- Route `auth='bearer'` (API keys)
+- Restricted `pickle` wrapper removed; `@web/core/utils/html` helpers in JS
 
 ### v18 → v19
-- Stricter type checking
-- Enhanced audit capabilities
+- `odoo.fields.Domain` for combining domains (`expression.AND/OR` deprecated)
+- Route types `jsonrpc`/`json2` (`json` kept as alias)
+- `res.users.groups_id` renamed `group_ids`; `time` removed from the record-rule eval context
+- RPC guard also blocks classmethods/staticmethods
+
+For the version-aware audit sweep (pattern -> what makes it a finding -> per-version form), see `odoo-security-guide-all.md`, section "Additional Rules from Odoo's Official Guidelines" -> "Security Audit Sweep".
 
 ---
 

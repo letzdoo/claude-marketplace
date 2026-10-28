@@ -4,7 +4,7 @@
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  MIGRATION GUIDE: ODOO 18.0 → 19.0 SECURITY                                  ║
 ║  Use this guide when upgrading security code from v18 to v19.                ║
-║  NOTE: v19 is in development - patterns may change.                          ║
+║  Verified against the 18.0 and 19.0 (final) source trees.                    ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -12,16 +12,21 @@
 
 | Component | v18 | v19 | Migration Required |
 |-----------|-----|-----|-------------------|
-| Type hints | Recommended | **Mandatory** | **REQUIRED** |
-| SQL builder | Recommended | **Mandatory** | **REQUIRED** |
-| Python | 3.11+ | 3.12+ | Check compatibility |
-| OWL | 2.x | 3.x | For OWL components |
+| Record rule eval context | `user`, `time`, `company_ids`, `company_id` | `user`, `company_ids`, `company_id` | Remove `time` from rule domains |
+| User groups field | `groups_id` | `group_ids` | Rename |
+| Domain combination (no list concatenation onto security domains) | `odoo.osv.expression`: `expression.AND([...])` | `odoo.fields.Domain`: `Domain(a) & Domain(b)` (expression deprecated) | Recommended |
+| RPC guard `get_public_method` | blocks `_` names, `@api.private`, unsafe attribute names; classmethods callable | + blocks classmethods/staticmethods | None |
+| Route types | `http`, `json` | `http`, `jsonrpc`, `json2`; `json` = deprecated alias | Optional |
+| Type hints | Optional | Optional | None |
+| SQL builder | Recommended | Recommended | None |
+| Python | 3.10+ | 3.10+ | None |
+| OWL | 2.x | 2.x (2.8.4) | None |
 
-## Breaking Changes
+## Style Notes (not breaking)
 
-### 1. Type Hints Now Mandatory
+### 1. Type Hints (optional in both versions)
 
-**v18 (recommended):**
+**Without hints:**
 ```python
 class MyModel(models.Model):
     _name = 'my.model'
@@ -31,30 +36,30 @@ class MyModel(models.Model):
     line_ids = fields.One2many('my.line', 'parent_id')
 ```
 
-**v19 (mandatory):**
+**With method hints (optional style):**
 ```python
-from __future__ import annotations
-
 class MyModel(models.Model):
     _name = 'my.model'
 
-    name: str = fields.Char(required=True)
-    partner_id: int = fields.Many2one('res.partner')
-    line_ids: list[int] = fields.One2many('my.line', 'parent_id')
+    name = fields.Char(required=True)
+    partner_id = fields.Many2one('res.partner')
+
+    def _get_partner_name(self) -> str:
+        self.ensure_one()
+        return self.partner_id.name or ''
 ```
 
-### 2. SQL Builder Now Mandatory
+### 2. SQL Builder (recommended in both versions)
 
-**v18 (recommended):**
+**Parameterized string SQL (still valid in v18 and v19):**
 ```python
-# Still allowed in v18
 self.env.cr.execute(
     "SELECT id FROM my_table WHERE company_id = %s",
     [self.env.company.id]
 )
 ```
 
-**v19 (mandatory):**
+**SQL builder (preferred in v18 and v19):**
 ```python
 from odoo.tools import SQL
 
@@ -66,7 +71,10 @@ query = SQL(
 self.env.cr.execute(query)
 ```
 
-## Migration Script
+## Optional Helper Scripts (style only, nothing here is required by 19.0)
+
+Note: annotations like `partner_id: int = fields.Many2one(...)` are not real types for
+Odoo fields; they are cosmetic. Prefer no field annotations.
 
 ```python
 import re
@@ -106,7 +114,7 @@ def convert_to_sql_builder(python_content):
     # This is a complex transformation that often requires manual review
     # Basic pattern detection
     if "self.env.cr.execute" in python_content and "SQL(" not in python_content:
-        print("WARNING: Found raw SQL execution. Manual migration to SQL() required.")
+        print("NOTE: Found string SQL execution. It still works in 19.0; migration to SQL() is recommended, not required.")
     return python_content
 ```
 
@@ -217,16 +225,10 @@ def _get_records(self) -> list[tuple[int, str]]:
 
 ### Query with Dynamic Table
 
-**v18:**
-```python
-def _get_model_records(self):
-    self.env.cr.execute(
-        f"SELECT id FROM {self._table} WHERE company_id = %s",
-        [self.env.company.id]
-    )
-```
+**Never (any version):** an f-string or `%` for identifiers, e.g.
+`f"SELECT id FROM {self._table} ..."`. `SQL.identifier()` exists in 18 and 19.
 
-**v19:**
+**v18 and v19:**
 ```python
 def _get_model_records(self) -> list[tuple[int]]:
     query = SQL(
@@ -272,11 +274,14 @@ def _get_report_data(self) -> list[dict[str, Any]]:
     return self.env.cr.dictfetchall()
 ```
 
-## OWL 3.x Migration
+## OWL (2.x in both versions)
+
+19.0 ships Owl 2.8.4; components need no framework migration. Declaring `static props`
+is good practice in both versions.
 
 ### Component Structure
 
-**v18 (OWL 2.x):**
+**v18:**
 ```javascript
 import { Component, useState } from "@odoo/owl";
 
@@ -289,7 +294,7 @@ export class MyComponent extends Component {
 }
 ```
 
-**v19 (OWL 3.x):**
+**v19 (same Owl 2 API, props declared):**
 ```javascript
 import { Component, useState } from "@odoo/owl";
 
@@ -305,32 +310,44 @@ export class MyComponent extends Component {
 }
 ```
 
+## Additional deltas from Odoo's official guidelines (18.0 -> 19.0)
+
+Verified official-guideline security items that change between 18.0 and 19.0 and are not in the overview above:
+
+| Topic | 18.0 | 19.0 |
+|-------|------|------|
+| JS escaping helpers (`@web/core/utils/html`) | `htmlEscape`, `setElementContent`, `isHtmlEmpty` | + `htmlJoin`, `htmlSprintf`, `htmlReplace`, ...; still no `setInnerHtml` |
+| Field access check helper | `check_field_access_rights()` | deprecated (internal `_check_field_access`) |
+
 ## Migration Checklist
 
-- [ ] **CRITICAL**: Add type hints to ALL field definitions
-- [ ] **CRITICAL**: Add type hints to ALL method signatures
-- [ ] **CRITICAL**: Convert ALL raw SQL to `SQL()` builder
-- [ ] Add `from __future__ import annotations` to all Python files
-- [ ] Update Python to 3.12+
-- [ ] Migrate OWL 2.x to OWL 3.x components
+- [ ] Remove `time` from record rule domains
+- [ ] Rename `groups_id` -> `group_ids` (users, views, actions, data files, tests)
+- [ ] Replace `expression.AND/OR` with `Domain` where security domains are combined (recommended)
+- [ ] Review public classmethods/staticmethods relied on over RPC (now blocked)
+- [ ] Keep raw SQL parameterized; prefer `SQL()` builder
 - [ ] Test all SQL queries work correctly
-- [ ] Verify type hints don't cause runtime errors
 
 ## No Change Required
 
 ### Security Groups, Access Rights, Record Rules
 
 These remain unchanged from v18 to v19:
-- Group definitions
-- ir.model.access.csv format
-- Record rule syntax
-- Field groups attribute
+- ir.model.access.csv format; `ir.model.access` + `ir.rule` (no `ir.access`, no `base.group_everyone`)
+- Record rule combination semantics: global rules AND-ed, group rules OR-ed (except the removed `time` name)
+- `check_access()` / `has_access()` (old `check_access_rights`/`check_access_rule` deprecated since 18)
+- Field groups attribute, `fields.NO_ACCESS`
 - View visibility syntax
+- `sudo(flag)` / `with_user()`; `_allow_sudo_commands`; `related_sudo=True` default
+- `odoo.tools.SQL` + `SQL.identifier`
+- Routes: `auth` values `user`/`bearer`/`public`/`none` with no `bearer_scope`; CSRF on for http routes, no token check for JSON routes
+- Server QWeb: `t-out` (with `t-esc` escaping and `t-raw` unescaped, both deprecated)
+- `file_open` confinement; `safe_eval` dunder blocking; no restricted pickle; `odoo.tools.consteq`
 
 ## GitHub Reference
 
-Check the `master` branch for v19 patterns:
-- `odoo/fields.py` - Type hint support
-- `odoo/tools/sql.py` - SQL builder enhancements
-- `odoo/models.py` - Model type annotations
-- `addons/web/static/src/` - OWL 3.x patterns
+Check the `19.0` branch for v19 patterns:
+- `odoo/orm/` - ORM (models, fields, domains) moved here in 19.0
+- `odoo/tools/sql.py` - SQL builder
+- `odoo/addons/base/models/ir_rule.py` - rule eval context
+- `addons/web/static/src/core/utils/html.js` - JS escaping helpers

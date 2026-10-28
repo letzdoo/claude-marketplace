@@ -3,7 +3,7 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  MODULE MIGRATION: 15.0 → 16.0                                               ║
-║  Command class introduced, attrs deprecated, OWL 2.x                         ║
+║  OWL 2.x, XML templates in JS bundles, attrs and Command unchanged           ║
 ║  VERIFY: https://github.com/odoo/odoo/tree/16.0                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
@@ -12,18 +12,21 @@
 
 | Aspect | v15 | v16 |
 |--------|-----|-----|
-| X2many commands | Tuple syntax | Command class (recommended) |
-| attrs in views | Full support | DEPRECATED (warns) |
+| X2many commands | Command class (or tuples) | Command class (or tuples) |
+| attrs in views | Full support | Full support (direct `invisible="expr"` only from 17.0) |
 | OWL | 1.x | 2.x |
-| Python | 3.7-3.9 | 3.8-3.10 |
-| create method | @api.model | @api.model_create_multi recommended |
+| Python (minimum) | 3.7 | 3.7 |
+| create method | @api.model_create_multi (single-dict @api.model silently wrapped) | @api.model_create_multi (single-dict @api.model warns) |
+| XML templates in assets | `web.assets_qweb` | inside JS bundles (`web.assets_backend`, ...) |
+| `t-lang` without `t-call` | silently ignored | SyntaxError |
+| `index=` | bool only | + `'btree_not_null'`, `'trigram'` |
 
 ## Key Changes
 
-### 1. Command Class for X2many
+### 1. Command Class for X2many (unchanged: available since 15.0)
 
 ```python
-# v15 Tuple syntax (still works in v16):
+# Tuple syntax (works in 15.0 and 16.0):
 line_ids = [
     (0, 0, {'name': 'Line 1'}),      # Create
     (1, line_id, {'name': 'Updated'}), # Update
@@ -33,8 +36,8 @@ line_ids = [
     (6, 0, [id1, id2]),               # Replace
 ]
 
-# v16 Command class (RECOMMENDED):
-from odoo.fields import Command
+# Command class (15.0 and 16.0, RECOMMENDED):
+from odoo import Command
 
 line_ids = [
     Command.create({'name': 'Line 1'}),      # Create
@@ -46,30 +49,28 @@ line_ids = [
 ]
 ```
 
-### 2. attrs DEPRECATED
+### 2. attrs stays (no change in 16.0)
 
 ```xml
-<!-- v15 (full support): -->
+<!-- 15.0 and 16.0: attrs is the correct syntax -->
 <field name="partner_id"
        attrs="{'invisible': [('state', '=', 'draft')],
                'required': [('state', '=', 'confirmed')],
                'readonly': [('state', '=', 'done')]}"/>
-
-<!-- v16 (RECOMMENDED - prepare for v17): -->
-<field name="partner_id"
-       invisible="state == 'draft'"
-       required="state == 'confirmed'"
-       readonly="state == 'done'"/>
 ```
+
+A direct `invisible="state == 'draft'"` is NOT evaluated as a record condition in 16.0; direct expressions
+replace `attrs` only in 17.0.
 
 ### 3. OWL 1.x → 2.x
 
 ```javascript
 // v15 OWL 1.x:
 /** @odoo-module **/
-const { Component, useState, onMounted } = owl;
-const { useService } = require('@web/core/utils/hooks');
-const { registry } = require('@web/core/registry');
+import { useService } from "@web/core/utils/hooks";
+import { registry } from "@web/core/registry";
+const { Component, useState } = owl;
+const { onMounted } = owl.hooks;
 
 class MyComponent extends Component {
     setup() {
@@ -112,12 +113,14 @@ export class MyComponent extends Component {
     'assets': {
         'web.assets_backend': [
             'my_module/static/src/js/**/*',
+        ],
+        'web.assets_qweb': [
             'my_module/static/src/xml/**/*',
         ],
     },
 }
 
-# v16 - Same structure, update version
+# v16 - XML templates move into the JS bundle, update version
 {
     'name': 'My Module',
     'version': '16.0.1.0.0',
@@ -160,17 +163,18 @@ class MyModel(models.Model):
     partner_id = fields.Many2one('res.partner')
     line_ids = fields.One2many('my.model.line', 'model_id')
 
-    @api.model
-    def create(self, vals):
-        if not vals.get('code'):
-            vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
-        return super().create(vals)
+    @api.model_create_multi  # also the right form in 15.0
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('code'):
+                vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
+        return super().create(vals_list)
 
     def create_with_lines(self):
         return self.env['my.model'].create({
             'name': 'Test',
             'line_ids': [
-                (0, 0, {'name': 'Line 1'}),
+                (0, 0, {'name': 'Line 1'}),  # Command.create(...) also works in 15.0
                 (0, 0, {'name': 'Line 2'}),
             ],
         })
@@ -242,30 +246,8 @@ class MyModel(models.Model):
     </sheet>
 </form>
 
-<!-- v16 (with Python expressions - RECOMMENDED): -->
-<form>
-    <header>
-        <button name="action_confirm" type="object" string="Confirm"
-                invisible="state != 'draft'"/>
-        <button name="action_done" type="object" string="Done"
-                invisible="state != 'confirmed'"/>
-        <field name="state" widget="statusbar"/>
-    </header>
-    <sheet>
-        <group>
-            <field name="name"/>
-            <field name="partner_id"
-                   required="state == 'confirmed'"
-                   readonly="state == 'done'"/>
-        </group>
-        <notebook>
-            <page string="Lines"
-                  invisible="state == 'draft'">
-                <field name="line_ids"/>
-            </page>
-        </notebook>
-    </sheet>
-</form>
+<!-- v16: identical - keep attrs. Python-expression attributes
+     (invisible="state != 'draft'") only work from 17.0. -->
 ```
 
 ### Tree View with Decorations
@@ -290,9 +272,11 @@ class MyModel(models.Model):
 // v15 OWL 1.x:
 /** @odoo-module **/
 
-const { Component, useState, onWillStart, onMounted } = owl;
-const { useService } = require('@web/core/utils/hooks');
-const { registry } = require('@web/core/registry');
+import { useService } from "@web/core/utils/hooks";
+import { registry } from "@web/core/registry";
+
+const { Component } = owl;
+const { useState, onWillStart } = owl.hooks;
 
 class MyComponent extends Component {
     setup() {
@@ -413,27 +397,26 @@ registry.category("actions").add("my_module.my_action", MyComponent);
 ## Migration Checklist
 
 ### Code Changes
-- [ ] Add `from odoo.fields import Command` where needed
-- [ ] Replace tuple x2many commands with Command class
-- [ ] Consider `@api.model_create_multi` for create methods
-- [ ] Add `index=True` to frequently searched fields
+- [ ] (Optional) Use `Command` instead of tuples (already possible in 15.0)
+- [ ] Use `@api.model_create_multi` for create methods (single-dict form warns in 16.0)
+- [ ] Replace `sudo(user)` with `with_user(user)`
+- [ ] Consider `index='trigram'` / `'btree_not_null'` where useful
 
-### View Changes
-- [ ] Replace `attrs=` with Python expression attributes
-- [ ] Convert invisible/required/readonly domains to expressions
-- [ ] Update page visibility conditions
+### View / QWeb Changes
+- [ ] Keep `attrs=` (no change needed in 16.0)
+- [ ] Move `t-lang` onto `t-call` nodes (SyntaxError otherwise in 16.0)
 
 ### OWL Changes
-- [ ] Change `require()` to ES `import`
+- [ ] Replace `owl` / `owl.hooks` globals by imports from `@odoo/owl`
 - [ ] Update OWL imports from `@odoo/owl`
 - [ ] Add `static template` and `static props`
 - [ ] Use arrow functions in t-on-click: `t-on-click="() => this.method(arg)"`
 
 ### Manifest Changes
 - [ ] Update version to `16.0.x.x.x`
-- [ ] Update asset glob patterns if needed
+- [ ] Move XML template entries from `web.assets_qweb` into `web.assets_backend`
 
-## attrs Conversion Reference
+## attrs Conversion Reference (for the later 17.0 migration, not for 16.0)
 
 | attrs | Python Expression |
 |-------|-------------------|
@@ -450,14 +433,23 @@ registry.category("actions").add("my_module.my_action", MyComponent);
 
 ## Common Issues
 
-### DeprecationWarning: attrs is deprecated
-**Cause**: Using attrs in v16
-**Solution**: Migrate to Python expression attributes
-
 ### ImportError: cannot import 'Command'
-**Cause**: Using Command in v15
-**Solution**: Ensure you're on v16; use tuple syntax for v15
+**Cause**: Only on 14.0 or older (`Command` exists in 15.0 and 16.0)
+**Solution**: `from odoo import Command`
 
 ### OWL Import Errors
-**Cause**: Using old require() syntax in v16
-**Solution**: Use ES `import` statements
+**Cause**: Using the Owl 1 globals (`owl`, `owl.hooks`) in 16.0
+**Solution**: `import { Component, useState } from "@odoo/owl"`
+
+## Official guideline deltas 15.0 -> 16.0
+
+| Topic | 15.0 | 16.0 |
+|---|---|---|
+| route override without `@http.route` | URL silently dropped | auto-decorated + warning (still re-decorate) |
+| test fixtures | `TransactionCase`, `TransactionCaseWithUserDemo`, `HttpCaseWithUserDemo`, `new_test_user` | + `BaseCommon`, `BaseUsersCommon` (`user_internal`, `user_portal`) |
+
+Unchanged: no `base` injection into an empty `depends` (declare `['base']`), `license` default `LGPL-3`,
+`auto_install` list must be a subset of `depends`, `assets` key, no `<asset>` XML tag,
+`security/ir.model.access.csv`, default test tags `standard` + `at_install` (post-install needs
+`@tagged('post_install', '-at_install')`), imported TestCase classes and inherited `test_*` methods are collected,
+`--test-tags /module:Class`.

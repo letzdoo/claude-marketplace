@@ -22,9 +22,37 @@ Odoo 17.0 continues using OWL 2.x with refinements. The main changes are in best
 | Error handling | Basic | Improved patterns |
 | TypeScript-like JSDoc | Optional | Recommended |
 
-## No Breaking Changes
+## Breaking Change: `patch()` signature
 
-OWL components written for v16 will work in v17 without modification. The changes are additive best practices.
+Components themselves (Owl 2 API) carry over, but every Odoo `patch()` call must be rewritten (`@web/core/utils/patch`):
+
+```javascript
+// v16: patch name is mandatory, parent via this._super
+patch(FormController.prototype, "my_module.FormController", {
+    setup() {
+        this._super(...arguments);
+    },
+});
+
+// v17: no name argument, parent via super; returns an unpatch function
+patch(FormController.prototype, {
+    setup() {
+        super.setup(...arguments);
+    },
+});
+```
+
+## Official guideline deltas 16.0 -> 17.0
+
+Only web rules of the official Odoo guidelines (odoo/odoo `skills/`, verified per version) whose 16.0 and 17.0 forms differ:
+
+| Topic | 16.0 | 17.0 |
+|---|---|---|
+| Form view modifiers seen by JS | `modifiers` from `attrs`/`states` (domains) | Python expressions evaluated client-side |
+
+`patch`: see Breaking Change: `patch()` signature.
+
+Unchanged (16.0 = 17.0): Owl 2 without `computed` (use getters), escape helpers `markup`/`htmlEscape` from `@odoo/owl` and `escape` from `@web/core/utils/strings` (no `@web/core/utils/html` yet; it arrives in 18.0), organize `static/src` by feature, assets via the manifest `assets` key, SCSS conventions (`o_<module>_` classes, `$o-...` variables).
 
 ## Enhanced Patterns for v17
 
@@ -467,8 +495,7 @@ export class MyComponent extends Component {
 
 ## Migration Checklist (v16 → v17)
 
-Since there are no breaking changes, focus on improvements:
-
+- [ ] **Required**: rewrite every `patch(obj, "name", {...})` to `patch(obj, {...})` and `this._super` to `super`
 - [ ] Add comprehensive JSDoc type annotations
 - [ ] Add props validation with validate functions
 - [ ] Add static defaultProps where applicable

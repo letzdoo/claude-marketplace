@@ -153,17 +153,19 @@ AI agents should accept and parse these input parameters:
 │ - OWL 2.x enhanced                                                  │
 │                                                                     │
 │ VERSION 18.0:                                                       │
-│ - _check_company_auto = True                                        │
-│ - check_company=True on relational fields                           │
-│ - allowed_company_ids in record rules                               │
+│ - _check_company_auto = True (opt-in, available since 14.0)         │
+│ - check_company=True on relational fields (opt-in)                  │
+│ - company_ids in record rules (all versions)                        │
 │ - SQL() builder recommended                                         │
 │ - Type hints recommended                                            │
 │ - OWL 2.x                                                           │
 │                                                                     │
 │ VERSION 19.0:                                                       │
-│ - Type hints MANDATORY                                              │
-│ - SQL() builder MANDATORY                                           │
-│ - OWL 3.x                                                           │
+│ - _sql_constraints ignored: use models.Constraint                   │
+│ - res.users groups field is group_ids                               │
+│ - Type hints optional (recommended)                                 │
+│ - SQL() builder recommended (string SQL + params still OK)          │
+│ - OWL 2.8.x (no Owl 3)                                              │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
                               │
@@ -217,7 +219,7 @@ AI agents should accept and parse these input parameters:
 │ v15+: "track_visibility" → WARN (deprecated)                        │
 │ v17+: "attrs=" → ERROR (removed)                                    │
 │ v17+: "def create(self, vals):" without _create_multi → ERROR       │
-│ v18+: Missing _check_company_auto → WARN                            │
+│ all: allowed_company_ids in ir.rule domain → ERROR                  │
 │ v19+: Missing type hints → ERROR                                    │
 │ v19+: Raw SQL without SQL() → ERROR                                 │
 └─────────────────────────────────────────────────────────────────────┘
@@ -267,7 +269,7 @@ AI agents should accept and parse these input parameters:
 │                                                                     │
 │ 15→16: Check for tuple x2many → Command class                       │
 │ 16→17: Check for attrs= → direct attributes                         │
-│ 17→18: Check for company_ids → allowed_company_ids                  │
+│ 17→18: No rule rename (rules keep company_ids)                      │
 │ 18→19: Check for missing type hints                                 │
 └─────────────────────────────────────────────────────────────────────┘
                               │

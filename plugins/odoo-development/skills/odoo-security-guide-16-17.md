@@ -11,9 +11,9 @@
 
 | Component | v16 | v17 | Migration Required |
 |-----------|-----|-----|-------------------|
-| View visibility | `attrs` (deprecated) | Direct attributes | **REQUIRED** |
-| Create method | `@api.model_create_multi` optional | Mandatory | **REQUIRED** |
-| Python | 3.8+ | 3.10+ | Check compatibility |
+| View visibility | `attrs` / `states` (the only record-dependent syntax in 16; a direct `invisible="state == 'x'"` is evaluated with only `context` and fails) | Python expressions on record fields (`invisible="state == 'draft'"`); `attrs`/`states` no longer supported | **REQUIRED** |
+| Create method | single-dict `@api.model` create logs a WARNING | still only a WARNING | Recommended (`@api.model_create_multi`) |
+| Python | 3.7+ | 3.10+ | Check compatibility |
 | Record rules | `company_ids` | `company_ids` | No change |
 
 ## Breaking Changes
@@ -78,8 +78,9 @@ invisible="state == 'draft' or type == 'invoice'"
 
 **v17:**
 ```xml
-<field name="admin_field"
-       invisible="not user_has_groups('base.group_system')"/>
+<!-- user_has_groups() is not available in v17 view expressions (they are evaluated
+     client-side); restrict by group with the groups attribute -->
+<field name="admin_field" groups="base.group_system"/>
 ```
 
 ## Migration Script for attrs
@@ -231,19 +232,19 @@ def migrate_attrs_in_xml(xml_content):
 
 ## Create Method Migration
 
-**v16 (optional @api.model_create_multi):**
+**v16 (single-dict create works but logs "not overriding the create method in batch"):**
 ```python
 @api.model
 def create(self, vals):
     return super().create(vals)
 
-# Or
+# Better, already in 16.0
 @api.model_create_multi
 def create(self, vals_list):
     return super().create(vals_list)
 ```
 
-**v17 (mandatory @api.model_create_multi):**
+**v17 (single-dict create still only logs the same WARNING; use the batch form):**
 ```python
 @api.model_create_multi
 def create(self, vals_list):
@@ -251,6 +252,8 @@ def create(self, vals_list):
 ```
 
 ## No Change Required
+
+Unchanged between 16.0 and 17.0 per the official guidelines (no action): `sudo()` bool only, `_allow_sudo_commands`, `related_sudo=True` default, `osv.expression.AND/OR`, RPC guard `get_public_method` + `@api.private`, route `auth` user/public/none and `type` http/json, CSRF defaults, `t-out` / deprecated `t-esc` / unescaped `t-raw`, `fields.NO_ACCESS`, `file_open`, restricted `tools.misc.pickle`, `consteq`, `ir.model.access` + `ir.rule` semantics and eval context (`user`, `time`, `company_ids`, `company_id`), Owl 2 escape helpers (`markup`, `htmlEscape`, `escape` from `@web/core/utils/strings`).
 
 ### Security Groups
 ```xml
@@ -280,15 +283,29 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 notes = fields.Text(groups='my_module.group_manager')
 ```
 
+## Official guideline deltas 16.0 -> 17.0
+
+Only rules of the official Odoo guidelines (odoo/odoo `skills/`, verified per version) whose 16.0 and 17.0 forms differ:
+
+| Topic | 16.0 | 17.0 |
+|---|---|---|
+| SQL builder | no master `SQL()`; `odoo.tools.SQL` is `psycopg2.sql.SQL`; identifiers via `psycopg2.sql.Identifier` | `odoo.tools.SQL("... %s", value)`, `SQL.identifier(name)` |
+| Custom SQL over ORM rows | `Model._search(dom).select('"t"."id"')` -> `(str, params)` | `Model._search(dom).select(SQL(...))` |
+| `_()` with Markup args | no escaping: `Markup(_("... %s")) % value` | escapes the other args when an argument is Markup |
+| `patch()` (JS) | `patch(obj, "name", {...})` + `this._super` | `patch(obj, {...})` + `super` |
+
+View modifiers and Python version: see Overview of Security Changes. Unchanged rules: see No Change Required.
+
 ## Migration Checklist
 
 - [ ] **CRITICAL**: Replace ALL `attrs` with direct attributes in views
 - [ ] Convert domain syntax to Python expressions
-- [ ] Update create methods to use `@api.model_create_multi`
+- [ ] Update create methods to use `@api.model_create_multi` (avoids the batch warning)
+- [ ] Rewrite raw SQL helpers to `odoo.tools.SQL` and JS `patch()` calls to the 17.0 signature
 - [ ] Update Python version to 3.10+
 - [ ] Test all view visibility conditions
 - [ ] Test button visibility with different states
-- [ ] Verify groups-based visibility using `user_has_groups()`
+- [ ] Verify groups-based visibility uses the `groups` attribute (not `user_has_groups()` in expressions)
 
 ## Common Mistakes to Avoid
 

@@ -3,7 +3,7 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  ODOO 17.0 ORM PATTERNS                                                      ║
-║  attrs REMOVED, @api.model_create_multi mandatory                            ║
+║  attrs REMOVED, use @api.model_create_multi (single-dict create warns)       ║
 ║  VERIFY: https://github.com/odoo/odoo/tree/17.0/odoo/models.py               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
@@ -14,7 +14,7 @@
 | Feature | Odoo 17.0 Pattern |
 |---------|-------------------|
 | attrs in views | **REMOVED** - must use conditional attributes |
-| Create method | `@api.model_create_multi` **MANDATORY** |
+| Create method | `@api.model_create_multi` (single-dict `@api.model` create still works but logs a warning) |
 | X2many commands | `Command` class (recommended) |
 | Change tracking | `tracking=True` |
 | OWL | Version 2.x (enhanced) |
@@ -32,19 +32,24 @@
        invisible="state == 'draft'"/>
 ```
 
-## BREAKING: create_multi Mandatory
+## create_multi Expected
 
 ```python
-# v16 (optional):
+# v16 style - still works in v17, but logs a WARNING
+# ("... is not overriding the create method in batch"):
 @api.model
 def create(self, vals):
     return super().create(vals)
 
-# v17 (MANDATORY):
+# v17 correct form:
 @api.model_create_multi
 def create(self, vals_list):
+    for vals in vals_list:
+        ...
     return super().create(vals_list)
 ```
+
+A single-dict `@api.model` create is wrapped by the ORM and logs a warning in 17.0. Do not use it.
 
 ## Model Definition
 
@@ -151,7 +156,7 @@ class MyModel(models.Model):
 ```python
 @api.model_create_multi
 def create(self, vals_list):
-    """MANDATORY: @api.model_create_multi in v17"""
+    """Batch create with @api.model_create_multi (v17 standard)"""
     for vals in vals_list:
         if not vals.get('code'):
             vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
@@ -173,7 +178,7 @@ def write(self, vals):
             for record in self:
                 if not record.line_ids:
                     raise UserError(
-                        _("Record '%s' must have at least one line.") % record.name
+                        _("Record '%s' must have at least one line.", record.name)
                     )
 
     result = super().write(vals)
@@ -188,10 +193,10 @@ def unlink(self):
     """Delete with state check"""
     for record in self:
         if record.state not in ('draft', 'cancelled'):
-            raise UserError(
-                _("Cannot delete '%s' (state: %s). Only draft or cancelled records can be deleted.")
-                % (record.name, record.state)
-            )
+            raise UserError(_(
+                "Cannot delete '%(name)s' (state: %(state)s). Only draft or cancelled records can be deleted.",
+                name=record.name, state=record.state,
+            ))
     return super().unlink()
 
 def copy(self, default=None):
@@ -437,7 +442,7 @@ def action_confirm(self):
     """Confirm records - validate before state change"""
     for record in self.filtered(lambda r: r.state == 'draft'):
         if not record.line_ids:
-            raise UserError(_("Add at least one line to confirm '%s'.") % record.name)
+            raise UserError(_("Add at least one line to confirm '%s'.", record.name))
     self.filtered(lambda r: r.state == 'draft').write({'state': 'confirmed'})
 
 def action_start(self):
@@ -469,6 +474,115 @@ def action_view_lines(self):
     }
 ```
 
+## Additional Rules from Odoo's Official Guidelines (verified for 17.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 17.0 source; master-only APIs are translated to the 17.0 equivalent or marked as not available.
+
+### Batching: one ORM call per collection
+
+No `search`, `search_count`, `_read_group` or `create` inside a loop over records. Aggregate with the 17.0 `_read_group(domain, groupby, aggregates)`, which returns a **list of tuples**:
+
+```python
+# WRONG: one query per partner
+for partner in partners:
+    partner.x_order_count = self.env['sale.order'].search_count([('partner_id', '=', partner.id)])
+
+# RIGHT (17.0): one grouped query
+counts = dict(self.env['sale.order']._read_group(
+    [('partner_id', 'in', partners.ids)], ['partner_id'], ['__count'],
+))
+for partner in partners:
+    partner.x_order_count = counts.get(partner, 0)
+
+totals = dict(self.env['sale.order']._read_group(
+    [('state', '=', 'sale')], ['partner_id'], ['amount_total:sum'],
+))  # {res.partner record: sum}
+```
+
+Group keys of many2one groupbys are records. The public `read_group(domain, fields, groupby)` (list of dicts) remains for the UI. Iterate recordsets (do not `browse(id)` in a loop) so prefetching works, and put conditions in the domain rather than in `filtered()`.
+
+### Recordset helpers
+
+`filtered`, `mapped`, `sorted` and `grouped` exist in 17.0. `records.grouped('state')` (or a callable) returns `{key: recordset}` with a shared prefetch set and no SQL. Use `if records:`, not `if len(records):`. Use `ensure_one()` before reading fields on what must be a single record; `action_*` methods called from buttons should start with it.
+
+### Constraints and indexes (17.0 form)
+
+```python
+_sql_constraints = [
+    ('code_company_uniq', 'UNIQUE(code, company_id)', 'Code must be unique per company.'),
+]
+code = fields.Char(index=True)            # btree
+ref = fields.Char(index='btree_not_null') # most values NULL
+name = fields.Char(index='trigram')       # ilike searches
+
+def init(self):
+    # multi-column index (models.Index does not exist in 17.0)
+    # from odoo.tools.sql import create_index
+    create_index(self._cr, 'my_model_company_date_idx', self._table, ['company_id', 'date'])
+```
+
+Use `index=` only on fields that are searched and selective. `@api.onchange` is UI-only; enforce invariants with `@api.constrains` or `_sql_constraints`. `models.Constraint`, `models.Index` and `models.UniqueIndex` are master-only.
+
+### Translations (17.0 API)
+
+```python
+from odoo import _, _lt
+
+raise UserError(_("Order %s cannot be confirmed.", order.name))            # positional
+raise UserError(_("%(name)s has %(count)s lines", name=n, count=c))       # named
+LABEL = _lt("Archived")                                                  # module/class level
+```
+
+Translate only static literals and pass the values as arguments (never `_("...%s") % x` or f-strings). `_()` escapes the translation when an argument is `Markup`. There is no `self.env._` and no `LazyTranslate` in 17.0. Lists are not formatted per language automatically; use `odoo.tools.misc.format_list(env, items)`. Field values are translated with `translate=True`.
+
+### Domains
+
+Combine domains with `odoo.osv.expression.AND([...])` / `expression.OR([...])`; never hand-build prefix lists or concatenate user input onto a security domain. `odoo.fields.Domain` does not exist in 17.0.
+
+### Context and `default_` keys
+
+The context is a frozendict; change it with `with_context(...)`. `default_get` reads every `default_<field>` key in the context, so a stray `default_state` meant for one model leaks into `create` of child models created in the same context. Prefix custom context keys with the module name.
+
+### Related fields through x2many
+
+A `related='line_ids.product_id'` path takes the **first** record at each x2many hop and silently ignores the others. Use a compute instead. Related fields are computed as superuser by default (`related_sudo=True`).
+
+### Savepoints and commits
+
+```python
+try:
+    with self.env.cr.savepoint():   # savepoint(flush=True) flushes before and clears on rollback
+        record._do_risky_thing()
+except UserError:
+    ...
+```
+
+Catch specific exceptions. Never call `cr.commit()` / `cr.rollback()` on a cursor you did not open yourself.
+
+### Reserved fields
+
+`active` (archive with `action_archive()` / `action_unarchive()`), `state`, `parent_id` + `parent_path` with `_parent_store = True`, `company_id` with `_check_company_auto = True` and `check_company=True` on relational fields (all exist in 17.0). A field and a method cannot share a name. `_inherits` delegates fields, not methods.
+
+### View inheritance anchors
+
+Anchor on names, never on position. `<field name="x" position="after"/>` matches the **first** `<field name="x">` anywhere in the parent arch (name only). Other tags match the first node whose attributes all equal the spec's. An `xpath` takes its first match. Inheriting views reuse the parent xml id prefix (`<model>_view_form` -> `..._view_form_inherit_<module>`); use `mode="primary"` for a new primary view.
+
+### QWeb reports
+
+- `t-lang` is only valid on a node that also has `t-call`; anywhere else it raises `SyntaxError` at compile time. Translate a part by moving it into its own template and calling it with `t-call` + `t-lang`.
+- A custom `report.<report_name>` model with `_get_report_values(self, docids, data=None)` replaces the defaults, so it must return `doc_ids`, `doc_model` and `docs` itself:
+
+```python
+class ReportMyModel(models.AbstractModel):
+    _name = 'report.my_module.report_my_model'
+    _description = 'My Model Report'
+
+    @api.model
+    def _get_report_values(self, docids, data=None):
+        docs = self.env['my.model'].browse(docids)
+        return {'doc_ids': docids, 'doc_model': 'my.model', 'docs': docs, 'data': data}
+```
+
 ## v17 Best Practices
 
 1. **NO attrs** - Always use Python expression attributes
@@ -481,19 +595,20 @@ def action_view_lines(self):
 
 When upgrading from v17 to v18:
 
-1. **_check_company_auto** - New pattern for multi-company
-2. **check_company=True** - On relational fields
-3. **SQL() builder** - For raw SQL queries
+1. **check_access_rights()/check_access_rule()** - Deprecated in v18 -> `check_access()` / `has_access()`
+2. **Translations** - v18 adds `self.env._` and `LazyTranslate` (`_` / `_lt` keep working)
+3. **Single-dict create** - Warning in v17 becomes a DeprecationWarning in v18
 4. **Type hints recommended** - Python 3.10+ features
 
 ```python
-# v18 additions
+# Already available in v17 (not v18 additions):
 class MyModel(models.Model):
     _name = 'my.model'
-    _check_company_auto = True  # v18 pattern
+    _check_company_auto = True  # exists in v17
 
     partner_id = fields.Many2one(
         'res.partner',
-        check_company=True,  # v18 pattern
+        check_company=True,  # exists in v17
     )
+# from odoo.tools import SQL  -> SQL builder exists in v17
 ```

@@ -10,7 +10,7 @@
 
 ## Version 17.0 OWL Requirements
 
-- **OWL Version**: 2.x (same as v16)
+- **OWL Version**: 2.x (same as v16), bundled in `web/static/lib/owl`. There is **no** `computed` in this Owl version: use plain getters on the component or derive values from `useState`/`reactive` state.
 - **Module System**: ES modules with `/** @odoo-module **/`
 - **View Integration**: Works with new Python expression visibility
 
@@ -233,6 +233,34 @@ export class ConfirmDialog extends Component {
     }
 }
 ```
+
+## Additional Rules from Odoo's Official Guidelines (verified for 17.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 17.0 source; master-only APIs are translated to the 17.0 equivalent or marked as not available.
+
+### Escaping and HTML in JS (17.0)
+
+- Dangerous sinks: `el.innerHTML = ...`, `insertAdjacentHTML(...)`, `$(...).html(...)`, and Owl `markup(value)` / `t-out` of a `markup()` value built from non-literal data.
+- Available helpers in 17.0: `htmlEscape` and `markup` from `@odoo/owl`, `escape` from `@web/core/utils/strings`. `@web/core/utils/html` (`setElementContent`, `htmlJoin`, ...) does not exist in 17.0.
+
+```javascript
+import { markup, htmlEscape } from "@odoo/owl";
+
+// Escape every dynamic part before wrapping the result in markup()
+const html = markup(`<b>${htmlEscape(record.name)}</b>`);
+```
+
+- In Owl templates `t-out` / `t-esc` escape; only a `markup()` value is rendered as HTML.
+
+### Owl rules for 17.0
+
+- `patch(target, extension)` from `@web/core/utils/patch` takes two arguments (a patch name string throws) and returns an unpatch function; use `super.method(...)` inside the extension. In custom addons `patch` is the normal way to extend core components.
+- Organize code by feature (`static/src/<feature>/<feature>.js`, `.xml`, `.scss` side by side), not by file type.
+
+### SCSS and assets
+
+- SCSS: 4-space indentation, class names prefixed `o_<module>_...`, no styling by id, reuse `$o-...` variables, no new CSS variables on `:root`.
+- Declare files in the manifest `assets` key (e.g. `'web.assets_backend': ['my_module/static/src/**/*']`). Ship assets in the module; third-party libraries go unminified into `static/lib/`.
 
 ## v17 Checklist
 

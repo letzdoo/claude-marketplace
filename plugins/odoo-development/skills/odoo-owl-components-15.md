@@ -10,83 +10,80 @@
 
 ## Version 15.0 OWL Requirements
 
-- **OWL Version**: 1.x
-- **Module System**: `odoo.define()` with require
+- **OWL Version**: 1.4 (`addons/web/static/lib/owl/owl.js`)
+- **Module System**: `/** @odoo-module **/` ES modules (used by the new `@web/core` client); legacy `odoo.define()` still works for legacy widgets
+- **Owl API**: globals `owl` / `owl.hooks` (no `@odoo/owl` import in 15.0)
 - **Syntax**: Different from OWL 2.x
 
 ## Basic Component Structure (OWL 1.x)
 
 ```javascript
-odoo.define('{module_name}.{ComponentName}', function (require) {
-    "use strict";
+/** @odoo-module **/
 
-    const { Component, useState, useRef } = owl;
-    const { onWillStart, onMounted, onWillUnmount } = owl.hooks;
-    const AbstractAction = require('web.AbstractAction');
-    const core = require('web.core');
-    const rpc = require('web.rpc');
+import { registry } from "@web/core/registry";
+import { useService } from "@web/core/utils/hooks";
 
-    class {ComponentName} extends Component {
-        setup() {
-            // State
-            this.state = useState({
-                data: [],
-                loading: true,
-                error: null,
-            });
+const { Component } = owl;
+const { useState, useRef, onWillStart, onMounted } = owl.hooks;
 
-            // Refs
-            this.inputRef = useRef("input");
+export class {ComponentName} extends Component {
+    setup() {
+        this.orm = useService("orm");
+        this.action = useService("action");
 
-            // Lifecycle
-            onWillStart(async () => {
-                await this.loadData();
-            });
+        // State
+        this.state = useState({
+            data: [],
+            loading: true,
+            error: null,
+        });
 
-            onMounted(() => {
-                if (this.inputRef.el) {
-                    this.inputRef.el.focus();
-                }
-            });
-        }
+        // Refs
+        this.inputRef = useRef("input");
 
-        async loadData() {
-            try {
-                const data = await rpc.query({
-                    model: '{module_name}.{model_name}',
-                    method: 'search_read',
-                    args: [[], ['name', 'state', 'amount']],
-                });
-                this.state.data = data;
-            } catch (error) {
-                this.state.error = error.message;
-            } finally {
-                this.state.loading = false;
+        // Lifecycle
+        onWillStart(async () => {
+            await this.loadData();
+        });
+
+        onMounted(() => {
+            if (this.inputRef.el) {
+                this.inputRef.el.focus();
             }
-        }
+        });
+    }
 
-        onButtonClick() {
-            console.log("Button clicked");
-        }
-
-        async onRecordSelect(recordId) {
-            await this.do_action({
-                type: 'ir.actions.act_window',
-                res_model: '{module_name}.{model_name}',
-                res_id: recordId,
-                views: [[false, 'form']],
-                target: 'current',
-            });
+    async loadData() {
+        try {
+            this.state.data = await this.orm.searchRead(
+                "{module_name}.{model_name}", [], ["name", "state", "amount"]
+            );
+        } catch (error) {
+            this.state.error = error.message;
+        } finally {
+            this.state.loading = false;
         }
     }
 
-    {ComponentName}.template = '{module_name}.{ComponentName}';
+    onButtonClick() {
+        console.log("Button clicked");
+    }
 
-    // Register as action
-    core.action_registry.add('{module_name}.{component_name}', {ComponentName});
+    async onRecordSelect(recordId) {
+        await this.action.doAction({
+            type: "ir.actions.act_window",
+            res_model: "{module_name}.{model_name}",
+            res_id: recordId,
+            views: [[false, "form"]],
+            target: "current",
+        });
+    }
+}
 
-    return {ComponentName};
-});
+{ComponentName}.template = "{module_name}.{ComponentName}";
+
+// Register as client action (new web client registry)
+registry.category("actions").add("{module_name}.{component_name}", {ComponentName});
 ```
 
 ## Template Structure (OWL 1.x)
@@ -252,29 +249,44 @@ odoo.define('{module_name}.{WidgetName}', function (require) {
 'assets': {
     'web.assets_backend': [
         '{module_name}/static/src/js/*.js',
-        '{module_name}/static/src/xml/*.xml',
         '{module_name}/static/src/scss/*.scss',
+    ],
+    # 15.0: Owl/QWeb XML templates are loaded from web.assets_qweb
+    'web.assets_qweb': [
+        '{module_name}/static/src/xml/*.xml',
     ],
 },
 ```
 
+Ship assets in the module; third-party libraries unminified under `static/lib/`. Frontend JS/SCSS goes to `web.assets_frontend`.
+
+## Additional Rules from Odoo's Official Guidelines (verified for 15.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 15.0 source; master-only APIs are translated to the 15.0 equivalent or marked as not available.
+
+- **Escaping / XSS**: Owl 1.4 templates escape with `t-esc`; `t-raw` inserts raw HTML and is an XSS sink for anything not built from trusted constants. 15.0 has no Owl `markup()`, no tagged `markup` template and no `@web/core/utils/html` (`htmlEscape`, `setElementContent`, `htmlJoin` arrive in 16.0+/18.0+). In JS, avoid `innerHTML`, `insertAdjacentHTML` and jQuery `.html()` with dynamic values; escape with underscore's `_.escape(value)` when HTML must be built.
+- **No Owl `computed`**: does not exist in Owl 1.4; use getters or compute in handlers.
+- **`patch`**: `import { patch } from "@web/core/utils/patch";` then `patch(Target.prototype, "my_module.patch_name", { method() { const res = this._super(...arguments); ... return res; } });` - the patch name is mandatory in 15.0. Legacy widgets are extended with `Widget.include({...})`. Patching is the normal extension mechanism in custom addons.
+- **Organize by feature**: `static/src/<feature>/<feature>.js|.xml|.scss` rather than one folder per file type.
+- **SCSS**: 4-space indent, classes prefixed `o_<module>_...`, Odoo SCSS variables (`$o-...`), no id selectors, no CSS custom properties on `:root`.
+
 ## v15 OWL 1.x Checklist
 
-- [ ] Use `odoo.define()` module syntax
-- [ ] Import from `owl` and `owl.hooks`
-- [ ] Use `require('web.rpc')` for RPC calls
-- [ ] Use `core.action_registry.add()` for actions
+- [ ] Use `/** @odoo-module **/` for new code (legacy `odoo.define()` only when extending legacy widgets)
+- [ ] Take Owl APIs from the `owl` / `owl.hooks` globals
+- [ ] Use `useService("orm")` / `useService("action")` in new-client components
+- [ ] Register client actions with `registry.category("actions").add()`
 - [ ] Add `owl="1"` to template root
-- [ ] Include in manifest assets
+- [ ] Include JS/SCSS in `web.assets_backend`, XML in `web.assets_qweb`
 
 ## AI Agent Instructions (v15 OWL)
 
 When generating Odoo 15.0 OWL components:
 
-1. **USE** `odoo.define()` module pattern
+1. **USE** `/** @odoo-module **/` ES modules (legacy `odoo.define()` only for legacy widgets)
 2. **USE** `owl.hooks` for lifecycle
-3. **USE** `require('web.rpc')` for RPC
-4. **USE** `core.action_registry.add()` for registration
+3. **USE** `useService("orm")` for RPC in new-client components (`require('web.rpc')` only in legacy code)
+4. **USE** `registry.category("actions").add()` for client-action registration
 5. **ADD** `owl="1"` to template
-6. **DO NOT** use ES module imports
-7. **DO NOT** use OWL 2.x patterns
+6. **DO NOT** import from `@odoo/owl` (Owl 2.x / 16.0+)
+7. **DO NOT** use OWL 2.x patterns (`markup()`, `static template` with `@odoo/owl` imports)

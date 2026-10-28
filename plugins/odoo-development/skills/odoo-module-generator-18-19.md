@@ -4,7 +4,7 @@
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  MIGRATION GUIDE: Odoo 18.0 → 19.0                                           ║
 ║  This document covers ONLY changes between these specific versions.          ║
-║  Note: v19 is in development - patterns may change.                          ║
+║  Verified against the 18.0 and 19.0 (final) source trees.                    ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -12,16 +12,19 @@
 
 | Component | v18 Status | v19 Status | Action Required |
 |-----------|------------|------------|-----------------|
-| Type hints | Recommended | **Mandatory** | Must add |
-| `SQL()` builder | Recommended | **Mandatory** | Must migrate |
-| Raw SQL strings | Deprecated | **Removed** | Must migrate |
-| OWL | 2.x | **3.x** | Must update |
-| Python 3.10 | Required | 3.12+ required | Upgrade Python |
-| `_check_company_auto` | Recommended | Standard | Already adopted |
+| `_sql_constraints` | Supported: `_sql_constraints = [...]` | **Ignored** (warning) | Convert to `_name_uniq = models.Constraint(...)` |
+| `groups_id` (res.users, ir.ui.view, act_window) | Field name | **`group_ids`** | Rename in Python and XML |
+| Manifest empty `depends` | Stays empty (no automatic `base`; declare `['base']` if nothing else) | `['base']` injected | None (declare deps explicitly) |
+| Route `type` | `http`, `json` | `http`, `jsonrpc`, `json2`; `json` = deprecated alias of `jsonrpc` | Optional |
+| Type hints | Optional | Optional | None |
+| `SQL()` builder | Recommended | Recommended (plain parameterized SQL still works) | None |
+| OWL | 2.x | 2.x (2.8.4) | None |
+| Python | 3.10+ | 3.10+ | None |
+| `_check_company_auto` | Opt-in | Opt-in | None |
 
-## MANDATORY: Type Hints
+## Type Hints (optional in both versions)
 
-### Before (v18 - Recommended)
+### Without hints (valid in v18 and v19)
 ```python
 def calculate_total(self, include_tax=True, discount=None):
     discount = discount or 0
@@ -31,7 +34,7 @@ def calculate_total(self, include_tax=True, discount=None):
     return total - discount
 ```
 
-### After (v19 - Required)
+### With hints (optional style)
 ```python
 from typing import Optional
 
@@ -88,18 +91,18 @@ class MyModel(models.Model):
         return self.search(domain, limit=limit, offset=offset)
 ```
 
-## MANDATORY: SQL Builder
+## SQL Builder (recommended in both versions)
 
-### Before (v18 - Allowed)
+### Never do this (SQL injection risk in any version)
 ```python
-# This will FAIL in v19
+# Values and identifiers formatted into the string
 query = """
     SELECT id, name FROM %s WHERE company_id = %s
 """ % (self._table, self.env.company.id)
 self.env.cr.execute(query)
 ```
 
-### After (v19 - Required)
+### Preferred (v18 and v19)
 ```python
 from odoo.tools import SQL
 
@@ -168,21 +171,14 @@ report_query = SQL(
 )
 ```
 
-## OWL 3.x Migration
+## OWL (2.x in both versions)
 
-### Major OWL Changes
+Odoo 19.0 ships Owl 2.8.4 (`addons/web/static/lib/owl/owl.js`); there is no Owl 3
+migration. v18 components work unchanged in v19.
 
-| Feature | OWL 2.x (v18) | OWL 3.x (v19) |
-|---------|---------------|---------------|
-| Reactivity | `useState` | Enhanced reactivity |
-| Component class | `Component` | Updated patterns |
-| Lifecycle | Hooks-based | Refined hooks |
-| Templates | QWeb | Enhanced QWeb |
-
-### Component Structure Changes
+### Component Structure (v18 and v19)
 
 ```javascript
-// v19: OWL 3.x patterns
 /** @odoo-module **/
 
 import { Component, useState, useRef, onMounted } from "@odoo/owl";
@@ -236,7 +232,6 @@ registry.category("actions").add("my_module.my_component", MyComponent);
 ### Template Updates
 
 ```xml
-<!-- v19: Enhanced QWeb -->
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="my_module.MyComponent">
@@ -247,7 +242,7 @@ registry.category("actions").add("my_module.my_component", MyComponent);
             <t t-else="">
                 <t t-foreach="state.data" t-as="item" t-key="item.id">
                     <div class="o_item" t-on-click="() => this.onItemClick(item)">
-                        <span t-esc="item.name"/>
+                        <span t-out="item.name"/>
                     </div>
                 </t>
             </t>
@@ -256,16 +251,13 @@ registry.category("actions").add("my_module.my_component", MyComponent);
 </templates>
 ```
 
-## Python 3.12+ Requirements
+## Python Requirements
 
-### New Python Features Available
+Both 18.0 and 19.0 require Python 3.10+ (`MIN_PY_VERSION = (3, 10)`). Generated code must
+stay 3.10-compatible: no PEP 695 type parameters, no `except*`.
 
 ```python
-# Type parameter syntax (PEP 695)
-def process_items[T](items: list[T]) -> list[T]:
-    return [item for item in items if item]
-
-# Match statements (enhanced)
+# Match statements (Python 3.10+)
 match self.state:
     case 'draft':
         self.action_confirm()
@@ -273,13 +265,6 @@ match self.state:
         self.action_done()
     case _:
         raise UserError(_("Invalid state"))
-
-# Exception groups (if needed)
-try:
-    self.validate_all()
-except* ValidationError as eg:
-    for e in eg.exceptions:
-        self.notification.add(str(e), type='warning')
 ```
 
 ## Manifest Version Update
@@ -292,21 +277,31 @@ except* ValidationError as eg:
 'version': '19.0.1.0.0',
 ```
 
+## Additional deltas from Odoo's official guidelines (18.0 -> 19.0)
+
+Verified official-guideline items that matter for generated modules, change between 18.0 and 19.0 and are not in the Breaking Changes Summary:
+
+| Topic | 18.0 | 19.0 |
+|-------|------|------|
+| Multi-column index | `init()` + `tools.sql.create_index` | `models.Index(...)` |
+| `@api.model` create | DeprecationWarning | converted silently (generate `@api.model_create_multi` anyway) |
+| ir.rule domain names | `user`, `time`, `company_ids`, `company_id` | `user`, `company_ids`, `company_id` |
+| `BaseCommon` in generated tests | superuser env, mail disabled | optional independent user/company (`setup_independent_user/company`) |
+
+Unchanged: `license` defaults to LGPL-3 (with warning), `auto_install` may be a subset list of `depends`, `assets` manifest key, `security/ir.model.access.csv` (no `ir.access`), default test tags `standard` + `at_install`, post-install via `@tagged('post_install', '-at_install')`, test files `tests/test_*.py` imported in `tests/__init__.py`, imported TestCase classes skipped, inherited `test_*` methods need `allow_inherited_tests_method = True`, `patch(obj, extension)`.
+
 ## Migration Checklist
 
 ### Models (Python) - CRITICAL
-- [ ] Add type hints to ALL method signatures
-- [ ] Add type hints to ALL method return types
-- [ ] Replace ALL raw SQL with `SQL()` builder
-- [ ] Verify `from odoo.tools import SQL` is imported
-- [ ] Update to Python 3.12+ syntax where beneficial
-- [ ] Review all `cr.execute()` calls
+- [ ] Convert every `_sql_constraints` to `models.Constraint()` / `models.UniqueIndex()`
+- [ ] Rename `groups_id` -> `group_ids` (Python, XML data, tests)
+- [ ] Remove `time` from record rule domains
+- [ ] Replace `read_group()` with `_read_group()` / `formatted_read_group()`
+- [ ] Review all `cr.execute()` calls (parameters, never string formatting)
 
-### OWL Components (JavaScript) - CRITICAL
-- [ ] Update to OWL 3.x patterns
-- [ ] Review all component lifecycle hooks
-- [ ] Update reactivity patterns
-- [ ] Test all UI components thoroughly
+### OWL Components (JavaScript)
+- [ ] No framework migration needed (Owl 2.x in both); re-test components
+- [ ] Optionally use the new `@web/core/utils/html` helpers (`htmlJoin`, `htmlSprintf`)
 
 ### Views (XML)
 - [ ] Verify all views work with v19
@@ -321,41 +316,23 @@ except* ValidationError as eg:
 ### Manifest
 - [ ] Update version from `18.0.x.x.x` to `19.0.x.x.x`
 - [ ] Verify all dependencies are v19 compatible
-- [ ] Update asset declarations for OWL 3.x
+- [ ] Verify asset declarations (unchanged format)
 
 ### Testing
-- [ ] Run all tests with Python 3.12+
+- [ ] Run all tests (Python 3.10+)
+- [ ] Add tests that violate each SQL constraint (catches ignored `_sql_constraints`)
 - [ ] Test all OWL components
 - [ ] Verify all SQL queries execute correctly
-- [ ] Performance testing
 
 ## Common Migration Errors
 
-### Error: Missing type hints
-```
-TypeError: Missing type annotation for parameter 'vals'
-```
-**Solution**: Add type hints to all method parameters and return types.
+### Warning: `_sql_constraints` no longer supported
+**Solution**: Convert to `models.Constraint` attributes; the old constraints are not applied in 19.
 
-### Error: Raw SQL not allowed
-```
-SecurityError: Raw SQL strings are not allowed. Use SQL() builder.
-```
-**Solution**: Convert all raw SQL to use `SQL()` builder.
+### Error: Invalid field 'groups_id'
+**Solution**: Use `group_ids`.
 
-### Error: OWL component failure
-```
-Error: Component lifecycle hook not found
-```
-**Solution**: Update component to OWL 3.x patterns.
-
-### Error: Python version incompatibility
-```
-SyntaxError: invalid syntax (requires Python 3.12+)
-```
-**Solution**: Upgrade Python to 3.12 or later.
-
-## Type Hint Migration Script
+## Type Hint Helper Script (optional)
 
 ```python
 #!/usr/bin/env python3
@@ -396,10 +373,10 @@ if __name__ == '__main__':
 ## GitHub Reference
 
 For official migration notes, consult:
-- https://github.com/odoo/odoo/tree/19.0 (when available)
+- https://github.com/odoo/odoo/tree/19.0
 - Odoo 19.0 release notes
 - Community upgrade scripts
 
 ---
 
-**IMPORTANT**: v19 is currently in development. These patterns are based on announced changes and may be refined. Always verify against official documentation when available.
+**Note**: 19.0 is released (`odoo/release.py`: FINAL). Always verify patterns against the 19.0 source.

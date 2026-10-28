@@ -7,11 +7,12 @@
 ║  DO NOT use these patterns for other versions.                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
+> Includes rules from Odoo's official skill library (odoo/odoo skills/, branch 20.0), verified against the 17.0 source.
 
 ## Version 17.0 Requirements
 
 - **Python**: 3.10+ required
-- **Key Changes**: `attrs` REMOVED from views, `@api.model_create_multi` mandatory
+- **Key Changes**: `attrs` REMOVED from views, `@api.model_create_multi` expected (single-dict `@api.model` create logs a warning)
 - **OWL**: 2.x (enhanced)
 - **View syntax**: Direct `invisible`/`readonly`/`required` attributes with Python expressions
 
@@ -67,7 +68,7 @@
 │   └── {model_name}.py
 ├── views/
 │   ├── {model_name}_views.xml
-│   └── menuitems.xml
+│   └── {module_name}_menus.xml
 ├── security/
 │   ├── ir.model.access.csv
 │   └── {module_name}_security.xml
@@ -81,6 +82,18 @@
 │   └── test_{model_name}.py
 └── i18n/
 ```
+
+### Structure and naming (17.0)
+
+- One model class per file, file named after the model (`models/sale_order.py`). Views `views/<model>_views.xml`, `<model>_templates.xml`, `<module>_menus.xml`, data `data/<model>_data.xml`, demo `demo/<model>_demo.xml`. Security: `security/ir.model.access.csv` + `security/<module>_security.xml` (17.0 has no `ir.access.csv`).
+- Controllers: files named by feature (or `<inherited_module>.py`); `main.py` is legacy. Re-decorate overridden routes with `@http.route()` (17.0 auto-decorates and warns otherwise); the route `type` (`'http'`/`'json'`) cannot change in an override.
+- Reports: SQL-view models in `report/<model>_report.py`; printable reports split into `<model>_reports.xml` (actions) and `<model>_templates.xml` (QWeb).
+- XML ids: `<model>_view_form`, `<model>_view_tree`, `<model>_action`, `<model>_menu`, `<module>_group_<name>`, `<model>_rule_<group>`. In records put `id` before `model`; in fields put `name` first.
+- Model `_name`: dotted, module-prefixed, singular (`my_module.request`); wizards `<base_model>.<action>`; SQL reports `<base_model>.report.<action>`.
+- Method prefixes: `_compute_`, `_inverse_`, `_search_`, `_default_`, `_selection_`, `_onchange_`, `_check_` (constraints), `action_*` (starts with `self.ensure_one()` when it acts on one record). Business methods are private (`_`) unless they must be callable via RPC; `@api.private` exists in 17.0 for public names that must not be exposed.
+- Class body order (17.0): private attributes (`_name`, `_description`, `_inherit`, `_order`, `_sql_constraints`, ...) -> default methods -> fields -> compute/inverse/search methods -> selection methods -> constrains/onchange -> CRUD overrides -> action methods -> other business methods.
+- Imports: stdlib, third party, `odoo` (`from odoo import Command, _, api, fields, models`), then `odoo.addons`.
+- Translations: `_("Text %s", value)` (never `%` after `_()`); `_lt` for module-level strings; no `self.env._` in 17.0.
 
 ## __manifest__.py Template (v17)
 
@@ -97,13 +110,13 @@
     'author': '{Author}',
     'website': '{Website}',
     'license': 'LGPL-3',
-    'depends': ['base', 'mail'],
+    'depends': ['mail'],  # direct dependencies only; 'base' comes through mail
     'data': [
         # ORDER IS CRITICAL - define before reference
         'security/{module_name}_security.xml',  # Groups first
         'security/ir.model.access.csv',          # Access rights
         'views/{model_name}_views.xml',          # Views
-        'views/menuitems.xml',                   # Menus last
+        'views/{module_name}_menus.xml',         # Menus last
     ],
     'assets': {
         'web.assets_backend': [
@@ -118,6 +131,15 @@
     'auto_install': False,
 }
 ```
+
+| Key | 17.0 behaviour |
+|-----|----------------|
+| `depends` | Defaults to `[]`; 17.0 does **not** inject `base`. List direct dependencies only; use `['base']` only when nothing else applies. |
+| `license` | Missing -> defaults to `LGPL-3` with a warning. Always set it. |
+| `auto_install` | `True` (all depends) or a list that must be a subset of `depends`. |
+| `assets` | Supported (`'web.assets_backend': [...]`). XML `<asset>` records also exist. |
+| `data` / `demo` | Loaded in list order; define before reference (see Data File Ordering). |
+| `application` | Only for full apps. `external_dependencies`: `{'python': [...], 'bin': [...]}`. |
 
 ## Model Template (v17)
 
@@ -210,7 +232,7 @@ class {ModelName}(models.Model):
     ]
 
     # === CRUD METHODS === #
-    # v17: @api.model_create_multi is MANDATORY
+    # v17: always generate @api.model_create_multi (single-dict create only warns)
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
@@ -231,14 +253,14 @@ class {ModelName}(models.Model):
         for record in self:
             if record.state not in ('draft', 'cancelled'):
                 raise UserError(
-                    _("Cannot delete record in state '%s'.") % record.state
+                    _("Cannot delete record in state '%s'.", record.state)
                 )
         return super().unlink()
 
     def copy(self, default=None):
         default = dict(default or {})
         default.update({
-            'name': _("%s (Copy)") % self.name,
+            'name': _("%s (Copy)", self.name),
             'state': 'draft',
         })
         return super().copy(default)
@@ -393,7 +415,7 @@ class {ModelName}Line(models.Model):
 <field name="field" invisible="state not in ('confirmed', 'done')"/>
 
 <!-- Group check -->
-<field name="admin_field" invisible="not user_has_groups('base.group_system')"/>
+<field name="admin_field" groups="base.group_system"/>
 
 <!-- Combined with readonly and required -->
 <field name="amount"
@@ -491,7 +513,7 @@ access_{model_name}_line_manager,{model_name}.line.manager,model_{module_name}_{
     <record id="rule_{model_name}_company" model="ir.rule">
         <field name="name">{Model Name}: Multi-Company</field>
         <field name="model_id" ref="model_{module_name}_{model_name}"/>
-        <field name="global" eval="True"/>
+        <!-- No groups => global rule ('global' is computed, do not set it) -->
         <field name="domain_force">[
             '|',
             ('company_id', '=', False),
@@ -582,6 +604,39 @@ class Test{ModelName}(TransactionCase):
         self.assertEqual(len(records), 2)
 ```
 
+### Test rules (17.0)
+
+- Default test tags are `{'standard', 'at_install'}`, also for `HttpCase`. Post-install tests (needed for `HttpCase`/tours and anything needing all modules installed) use `@tagged('post_install', '-at_install')`. Set exactly one of `at_install`/`post_install`; with both the test runs twice, with neither it never runs (`tagged()` logs a warning).
+- A test file must be named `test_*.py` and be imported in `tests/__init__.py`. 17.0 also collects TestCase classes imported into a test file (they run again) and inherited `test_*` methods, so shared base classes must not contain `test_*` methods.
+- Base classes: `TransactionCase` (savepoint per test, `cls.env` in `setUpClass`) or `HttpCase`. `odoo.addons.base.tests.common.BaseCommon` disables mail side effects and creates `cls.partner`/`cls.currency`, but still runs as superuser; `BaseUsersCommon` adds `cls.user_internal` and `cls.user_portal`. `TransactionCaseWithUserDemo` / `HttpCaseWithUserDemo` give a demo user. Run access tests with `with_user(...)`.
+- Wrap expected error logs in `mute_logger('odoo.sql_db')` (`from odoo.tools import mute_logger`). `assertQueryCount` belongs only in dedicated performance tests with `@warmup` (+ `@users`); a higher count fails, a lower one only logs.
+- Run one class with `--test-tags /my_module:TestMyModel`.
+
+```python
+from odoo.addons.base.tests.common import BaseCommon
+from odoo.exceptions import UserError
+from odoo.tests import tagged
+from odoo.tools import mute_logger
+
+
+@tagged('post_install', '-at_install')
+class TestMyModel(BaseCommon):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.record = cls.env['my_module.my_model'].create({'name': 'Test', 'partner_id': cls.partner.id})
+
+    def test_confirm(self):
+        self.record.action_confirm()
+        self.assertEqual(self.record.state, 'confirmed')
+
+    @mute_logger('odoo.sql_db')
+    def test_unique_name(self):
+        with self.assertRaises(Exception):
+            self.env['my_module.my_model'].create({'name': 'Test', 'partner_id': self.partner.id})
+```
+
 ## v17 Checklist
 
 When generating a v17 module, ensure:
@@ -600,8 +655,8 @@ When generating an Odoo 17.0 module:
 
 1. **NEVER use** `attrs` attribute in views (removed in v17)
 2. **ALWAYS use** direct `invisible`, `readonly`, `required` with Python expressions
-3. **ALWAYS use** `@api.model_create_multi` for create methods
-4. **USE** `user_has_groups()` for group checks in visibility
+3. **ALWAYS use** `@api.model_create_multi` for create methods (the single-dict form still works in v17 but logs a warning)
+4. **USE** the `groups` attribute for group checks (`user_has_groups()` is not available in view expressions)
 5. **USE** `Command` class for x2many operations
 6. **USE** `company_ids` in multi-company record rules
 7. **VERIFY** data file order in manifest

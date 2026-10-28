@@ -24,8 +24,8 @@
 | 15.0 | Legacy | 3.8+ | October 2024 |
 | 16.0 | Supported | 3.8+ | October 2025 |
 | 17.0 | Supported | 3.10+ | October 2026 |
-| 18.0 | Current | 3.11+ | October 2027 |
-| 19.0 | Development | 3.12+ | TBD |
+| 18.0 | Supported | 3.10+ | October 2027 |
+| 19.0 | Current | 3.10+ | TBD |
 
 ## Version-Specific Knowledge Files
 
@@ -66,19 +66,20 @@
 ### v17 → v18
 | Component | Change | Impact |
 |-----------|--------|--------|
-| `_check_company_auto` | Introduced | Auto company validation |
-| `check_company` | On fields | Field-level validation |
 | Type hints | Recommended | Better IDE support |
 | `SQL()` builder | Recommended | Safer SQL queries |
-| `allowed_company_ids` | In rules | New variable name |
+
+Note: `_check_company_auto` / `check_company=True` are unchanged (opt-in since 14.0), and record rules keep using `company_ids` (there is no rename to `allowed_company_ids`).
 
 ### v18 → v19
 | Component | Change | Impact |
 |-----------|--------|--------|
-| Type hints | Mandatory | Must annotate all |
-| `SQL()` builder | Mandatory | Required for raw SQL |
-| OWL | 3.x | Component changes |
-| Python | 3.12+ | Version requirement |
+| `_sql_constraints` | Ignored | **BREAKING**: use `models.Constraint` / `models.Index` / `models.UniqueIndex` |
+| `res.users.groups_id` | Renamed `group_ids` | Update code, views and data |
+| Type hints | Optional | Recommended, nothing enforces them |
+| `SQL()` builder | Recommended | Plain `cr.execute(query, params)` still works |
+| OWL | 2.8.x | No Owl 3 (only on master/20.0) |
+| Python | 3.10+ | Minimum (`MIN_PY_VERSION = (3, 10)`) |
 
 ## GitHub Branch Reference
 
@@ -89,7 +90,7 @@
 | 16.0 | `16.0` | `github.com/odoo/odoo/tree/16.0` |
 | 17.0 | `17.0` | `github.com/odoo/odoo/tree/17.0` |
 | 18.0 | `18.0` | `github.com/odoo/odoo/tree/18.0` |
-| 19.0 | `master` | `github.com/odoo/odoo/tree/master` |
+| 19.0 | `19.0` | `github.com/odoo/odoo/tree/19.0` |
 
 ## Version Detection Patterns
 
@@ -113,12 +114,11 @@ from odoo import Command  # v16+
 # (no attrs in views)
 
 # v18 indicators
-_check_company_auto = True  # v18+
-check_company=True  # v18+
 name: str = fields.Char()  # Type hints, v18+
 
 # v19 indicators
-from __future__ import annotations  # Full typing
+_name_uniq = models.Constraint('UNIQUE(name)', "Name must be unique")  # replaces _sql_constraints
+group_ids  # res.users groups field (was groups_id)
 ```
 
 ### XML/View Indicators
@@ -158,7 +158,6 @@ When you see these in logs, the code needs updating:
 | `@api.multi is deprecated` | v14 | Remove decorator |
 | `track_visibility is deprecated` | v15 | Use `tracking=True` |
 | `attrs is deprecated` | v16 | Use direct attributes |
-| `company_ids will be renamed` | v17 | Use `allowed_company_ids` |
 
 ## AI Agent Version Workflow
 
@@ -189,11 +188,11 @@ If answer is unclear, look for:
 | `Command` class | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | `attrs` in views | ✅ | ✅ | ⚠️ | ❌ | ❌ | ❌ |
 | Direct invisible | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| `_check_company_auto` | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Type hints on fields | ❌ | ❌ | ❌ | ❌ | ⚠️ | ✅ |
-| `SQL()` builder | ❌ | ❌ | ❌ | ❌ | ⚠️ | ✅ |
-| OWL 2.x | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ |
-| OWL 3.x | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `_check_company_auto` / `check_company` (opt-in) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Type hints on fields (optional) | ❌ | ❌ | ❌ | ❌ | ⚠️ | ⚠️ |
+| `SQL()` builder (recommended, not required) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| OWL 2.x (19.0: Owl 2.8.x) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| OWL 3.x (master/20.0 only) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 Legend: ✅ Supported | ⚠️ Deprecated/Optional | ❌ Not available/Removed
 

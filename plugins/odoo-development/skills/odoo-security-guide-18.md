@@ -10,8 +10,8 @@
 
 ## Version 18.0 Requirements
 
-- **Python**: 3.11+ required
-- **Key Features**: `_check_company_auto`, `check_company`, type hints, `SQL()` builder
+- **Python**: 3.10+ required (`odoo/__init__.py`: `MIN_PY_VERSION = (3, 10)`)
+- **Key Features**: `_check_company_auto`, `check_company`, `SQL()` builder, `check_access()`, `@api.private`, `auth='bearer'` routes
 
 ## Security Groups (v18 Syntax)
 
@@ -41,6 +41,10 @@
 
 ## Access Rights (v18)
 
+- Two access models: `ir.model.access` (`security/ir.model.access.csv`) and `ir.rule`. There is no `ir.access` and no `base.group_everyone` in 18.
+- Default deny: a model without an ACL row is inaccessible except under sudo; module loading logs "The models [...] have no access rules".
+- An ACL row with an empty `group_id` grants that permission to everyone. Flag create/write/unlink granted to an empty group, `base.group_portal` or `base.group_public`.
+
 ### ir.model.access.csv
 
 ```csv
@@ -51,18 +55,20 @@ access_custom_model_manager,custom.model.manager,model_custom_model,custom_modul
 
 ## Record Rules (v18 Syntax)
 
+- Global rules (no groups; `global` is computed) are AND-ed; the rules of all groups the user belongs to are OR-ed together into one block; result = global rules AND (group rules OR-ed). Two non-overlapping global rules lock everybody out.
+- A rule only applies to the operations whose `perm_*` flag is set; a rule with only `perm_write` leaves read/create/unlink governed by the other rules.
+- Rule domains are evaluated with `user`, `time`, `company_ids` and `company_id` only. `allowed_company_ids` is not available (install fails with "Invalid domain").
+
 ### Multi-Company Rule (v18 Pattern)
 
 ```xml
-<!-- v18: Use allowed_company_ids for multi-company -->
 <record id="rule_custom_model_company" model="ir.rule">
     <field name="name">Custom Model: Multi-Company</field>
     <field name="model_id" ref="model_custom_model"/>
-    <field name="global" eval="True"/>
     <field name="domain_force">[
         '|',
         ('company_id', '=', False),
-        ('company_id', 'in', allowed_company_ids)
+        ('company_id', 'in', company_ids)
     ]</field>
 </record>
 ```
@@ -91,22 +97,21 @@ class SecureModel(models.Model):
     _description = 'Secure Model'
     _check_company_auto = True  # v18: Automatic company validation
 
-    # Type hints (v18 recommended)
-    name: str = fields.Char(string='Name', required=True)
-    company_id: int = fields.Many2one(
+    name = fields.Char(string='Name', required=True)
+    company_id = fields.Many2one(
         'res.company',
         string='Company',
         default=lambda self: self.env.company,
         required=True,
         index=True,
     )
-    # check_company validates company matches (v18)
-    partner_id: int = fields.Many2one(
+    # check_company validates company matches
+    partner_id = fields.Many2one(
         'res.partner',
         string='Partner',
         check_company=True,
     )
-    warehouse_id: int = fields.Many2one(
+    warehouse_id = fields.Many2one(
         'stock.warehouse',
         string='Warehouse',
         check_company=True,
@@ -129,9 +134,10 @@ class SecureModel(models.Model):
         if not self.env.user.has_group('custom_module.group_manager'):
             raise AccessError(_("Only managers can perform this action."))
 
-        # Check record-level access
-        self.check_access_rights('write')
-        self.check_access_rule('write')
+        # Check ACL + record rules in one call (v18: check_access_rights()/
+        # check_access_rule() are deprecated and emit DeprecationWarning).
+        # Non-raising variants: has_access('write'), _filtered_access('write')
+        self.check_access('write')
 
         # Perform operation
         self._execute_sensitive_operation()
@@ -169,7 +175,19 @@ class SecureModel(models.Model):
         )
         self.env.cr.execute(query)
         return self.env.cr.dictfetchall()
+
+    def _get_ids_in(self, ids):
+        # Values as parameters, never string formatting (%, +, .format, f-string)
+        self.env.cr.execute(SQL("SELECT name FROM custom_secure WHERE id IN %s", tuple(ids)))
+        return self.env.cr.fetchall()
+
+    def _get_filtered_ids(self, domain):
+        # Raw SQL over ORM-filtered rows (record rules applied by _search)
+        query = self._search(domain)
+        return self.env.execute_query(query.select(SQL.identifier(self._table, 'id')))
 ```
+
+Identifiers: `SQL.identifier(name)` or `SQL.identifier(table, column)`.
 
 ## View Security (v18 Syntax)
 
@@ -185,8 +203,9 @@ class SecureModel(models.Model):
             <!-- Field visible only to managers -->
             <field name="internal_notes" groups="custom_module.group_custom_manager"/>
 
-            <!-- Field with conditional visibility (v18 syntax) -->
-            <field name="secret_field" invisible="not user_has_groups('custom_module.group_custom_manager')"/>
+            <!-- Group-restricted field: use the groups attribute, not a Python
+                 expression (user_has_groups() is not available in v18 view expressions) -->
+            <field name="secret_field" groups="custom_module.group_custom_manager"/>
         </group>
     </sheet>
 </form>
@@ -203,11 +222,11 @@ class SecureModel(models.Model):
         invisible="state != 'pending'"
         class="btn-primary"/>
 
-<!-- Conditional on group -->
+<!-- Conditional on group: groups attribute (UI only, re-check in the method) -->
 <button name="action_admin"
         string="Admin Action"
         type="object"
-        invisible="not user_has_groups('base.group_system')"/>
+        groups="base.group_system"/>
 ```
 
 ### Menu Security
@@ -231,26 +250,30 @@ class SecureModel(models.Model):
     _description = 'Secure Model'
 
     # Public field
-    name: str = fields.Char(required=True)
+    name = fields.Char(required=True)
 
-    # Manager-only field
-    internal_notes: str = fields.Text(
+    # Manager-only field: hidden from fields_get/views, explicit read/write
+    # by other users raises AccessError
+    internal_notes = fields.Text(
         string='Internal Notes',
         groups='custom_module.group_custom_manager',
     )
 
     # Finance-only field
-    cost_price: float = fields.Float(
+    cost_price = fields.Float(
         string='Cost Price',
         groups='account.group_account_user',
         digits='Product Price',
     )
 
     # Multiple groups (any of them can access)
-    sensitive_data: str = fields.Char(
+    sensitive_data = fields.Char(
         string='Sensitive Data',
         groups='custom_module.group_custom_manager,base.group_system',
     )
+
+    # Secrets/tokens: nobody except superuser (sudo) may read them
+    api_token = fields.Char(groups=fields.NO_ACCESS)
 ```
 
 ## Audit Trail (v18 Pattern)
@@ -265,18 +288,18 @@ class AuditLog(models.Model):
     _order = 'create_date desc'
     _rec_name = 'display_name'
 
-    model: str = fields.Char(required=True, index=True)
-    res_id: int = fields.Integer(required=True, index=True)
-    action: str = fields.Selection([
+    model = fields.Char(required=True, index=True)
+    res_id = fields.Integer(required=True, index=True)
+    action = fields.Selection([
         ('create', 'Created'),
         ('write', 'Updated'),
         ('unlink', 'Deleted'),
     ], required=True)
-    user_id: int = fields.Many2one('res.users', required=True, index=True)
-    timestamp: fields.Datetime = fields.Datetime(default=fields.Datetime.now)
-    old_values: str = fields.Text()
-    new_values: str = fields.Text()
-    display_name: str = fields.Char(compute='_compute_display_name')
+    user_id = fields.Many2one('res.users', required=True, index=True)
+    timestamp = fields.Datetime(default=fields.Datetime.now)
+    old_values = fields.Text()
+    new_values = fields.Text()
+    display_name = fields.Char(compute='_compute_display_name')
 
     @api.depends('model', 'res_id', 'action')
     def _compute_display_name(self):
@@ -289,9 +312,9 @@ class AuditedModel(models.Model):
     _description = 'Audited Model'
     _audit_fields = ['name', 'state', 'amount']
 
-    name: str = fields.Char(required=True)
-    state: str = fields.Selection([('draft', 'Draft'), ('done', 'Done')])
-    amount: float = fields.Float()
+    name = fields.Char(required=True)
+    state = fields.Selection([('draft', 'Draft'), ('done', 'Done')])
+    amount = fields.Float()
 
     def _create_audit_log(self, action, old_values=None, new_values=None):
         self.env['custom.audit.log'].sudo().create({
@@ -316,7 +339,7 @@ class AuditedModel(models.Model):
         old_values = {}
         if audit_fields:
             for record in self:
-                old_values[record.id] = {f: getattr(record, f) for f in audit_fields}
+                old_values[record.id] = {f: record[f] for f in audit_fields}
 
         result = super().write(vals)
 
@@ -332,7 +355,7 @@ class AuditedModel(models.Model):
     def unlink(self):
         for record in self:
             record._create_audit_log('unlink', old_values={
-                f: getattr(record, f) for f in self._audit_fields
+                f: record[f] for f in self._audit_fields
             })
         return super().unlink()
 ```
@@ -396,15 +419,14 @@ access_audit_auditor,audit.auditor,model_custom_audit_log,custom_module.group_au
         <field name="users" eval="[(4, ref('base.user_admin'))]"/>
     </record>
 
-    <!-- Multi-Company Rule -->
+    <!-- Multi-Company Rule (no groups = global rule) -->
     <record id="rule_custom_model_company" model="ir.rule">
         <field name="name">Custom Model: Multi-Company</field>
         <field name="model_id" ref="model_custom_model"/>
-        <field name="global" eval="True"/>
         <field name="domain_force">[
             '|',
             ('company_id', '=', False),
-            ('company_id', 'in', allowed_company_ids)
+            ('company_id', 'in', company_ids)
         ]</field>
     </record>
 
@@ -426,15 +448,42 @@ access_audit_auditor,audit.auditor,model_custom_audit_log,custom_module.group_au
 </odoo>
 ```
 
+## Additional Rules from Odoo's Official Guidelines (verified for 18.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 18.0 source; master-only APIs are translated to their 18.0 equivalent or marked as not available.
+
+### Audit sweep (pattern -> what makes it a finding)
+
+| Pattern | Finding when ... | 18.0 form |
+|---------|------------------|-----------|
+| `sudo()` | attacker-controlled model/record/field/domain reaches a sudo read/search/create/write; `record.sudo().write(post)` with raw request params | `sudo(flag=True)` only toggles superuser mode (user unchanged); whitelist keys from `post` |
+| `with_user()` / `with_company()` | switch not intentional (e.g. `with_user(SUPERUSER_ID)` as a sudo workaround) | `with_user(user)` sets su=False; `with_company(company)` rewrites `allowed_company_ids` in the context |
+| x2many commands under sudo | sensitive comodel receives `Command` payloads from user input in a sudo env | set `_allow_sudo_commands = False` on the comodel: commands then run as `sudo(False).with_user(env.uid_origin)` |
+| `related=` fields | sudo-computed chain exposes data the user may not read (e.g. related onto `ir.attachment` content) | related fields are computed as superuser by default (`related_sudo=True` -> `compute_sudo`); use `related_sudo=False` on sensitive chains |
+| raw SQL | string formatting (`%`, `+`, `.format`, f-string) builds the query | `SQL()` with parameters, see Secure SQL Queries |
+| domains | user-supplied list concatenated onto a security domain | `from odoo.osv import expression`; `expression.AND([security_domain, user_domain])` (there is no `odoo.fields.Domain` in 18) |
+| public model methods | a method without `_` prefix does something unsafe with attacker args | RPC guard `odoo.service.model.get_public_method` blocks `_` names, `@api.private` methods and `_UNSAFE_ATTRIBUTES`. It does **not** block classmethods/staticmethods -> prefix them with `_` |
+| routes `auth` | exposure does not match (`public`/`none` on data-changing code) | `user`, `bearer` (API key in `Authorization: Bearer`, no `bearer_scope` parameter in 18), `public`, `none` |
+| routes `type` / CSRF | state change on GET; `csrf=False` on a browser-facing `type='http'` route | only `type='http'` and `type='json'` exist; http routes check CSRF for every non-GET/HEAD/OPTIONS/TRACE request; json routes have no token check (JSON content type); writes use `methods=['POST']`; forms include `<input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>` |
+| server QWeb | `t-raw` anywhere; `Markup(user_value)`; f-string HTML then wrapped in `Markup` | use `t-out` (escapes). In 18 `t-raw` still renders **unescaped** (deprecation warning) and `t-esc` is a working, escaping alias of `t-out`. Build HTML with `Markup("<p>%s</p>") % value` or `Markup("<p>{}</p>").format(value)`; `_()` escapes the translation when an argument is `Markup` |
+| JS XSS | `innerHTML`/`insertAdjacentHTML`/`markup()` on non-literal content | `htmlEscape()` and `setElementContent(el, content)` from `@web/core/utils/html` (also `htmlEscape` from `@odoo/owl`); Owl `markup` as tagged template (``markup`<b>${value}</b>` ``) escapes placeholders. `setInnerHtml` and `htmlJoin` do not exist in 18 |
+| field `groups` | password/token/secret field readable on a permissive model | `groups="base.group_system"` or `groups=fields.NO_ACCESS`, see Field-Level Security |
+| files | builtin `open()` on a path the user can influence | `odoo.tools.file_open(path, mode='r', filter_ext=(), env=None)`: confined to addons paths, the Odoo root and `file_open_temporary_directory()` dirs; the file must already exist |
+| `eval`/`exec` | any use on user data | `json.loads` / `ast.literal_eval`; `odoo.tools.safe_eval.safe_eval` only for trusted (admin-defined) expressions; it rejects names containing `__` |
+| `getattr`/`setattr` on records | field name comes from input | `record[field_name]` |
+| `pickle` | any use | 18 ships no restricted pickle wrapper (`odoo/tools/pickle.py` removed); use json |
+| secret comparison | `token == expected` | `odoo.tools.consteq(a, b)`, or look the token up in the database |
+| mutable defaults | `def m(self, vals={})` | `vals=None` then `vals = vals or {}` |
+
 ## v18 Security Checklist
 
 - [ ] All models have `ir.model.access.csv` entries
 - [ ] Multi-company models use `_check_company_auto = True`
 - [ ] Relational fields use `check_company=True` where appropriate
-- [ ] Record rules use `allowed_company_ids` for multi-company
+- [ ] Record rules use `company_ids` for multi-company (never `allowed_company_ids`)
 - [ ] Views use direct `invisible` attribute (not `attrs`)
 - [ ] SQL queries use `SQL()` builder
-- [ ] Type hints on all relational fields
+- [ ] `check_access()` instead of `check_access_rights()`/`check_access_rule()`
 - [ ] Audit logging for sensitive operations
 - [ ] sudo() usage is minimal and justified
 - [ ] No hardcoded IDs
@@ -445,8 +494,8 @@ When generating Odoo 18.0 security code:
 
 1. **Always use** `_check_company_auto = True` for multi-company models
 2. **Always use** `check_company=True` on relational fields referencing company-scoped models
-3. **Use** `allowed_company_ids` in record rule domains
+3. **Use** `company_ids` in record rule domains (`allowed_company_ids` is not in the rule eval context)
 4. **Use** direct `invisible` attribute in views, not `attrs`
 5. **Use** `SQL()` builder for any raw SQL queries
-6. **Add** type hints to all relational fields
+6. **Use** `check_access()` for explicit access checks
 7. **Never** use `attrs` attribute (removed in v17)

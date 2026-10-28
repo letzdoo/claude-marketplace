@@ -3,7 +3,7 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  ODOO 15.0 KNOWLEDGE BASE                                                    ║
-║  @api.multi removed, OWL 1.x introduced                                      ║
+║  Owl 1.4 + new @web/core client, Command class, assets manifest key          ║
 ║  Released: October 2021                                                      ║
 ║  VERIFY: https://github.com/odoo/odoo/tree/15.0                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -14,16 +14,16 @@
 | Aspect | Details |
 |--------|---------|
 | Release Date | October 2021 |
-| Python | 3.7, 3.8, 3.9 |
+| Python | 3.7+ (MIN_PY_VERSION 3.7; the maintained 15.0 branch declares support up to 3.12) |
 | PostgreSQL | 10, 11, 12, 13 |
-| Frontend | OWL 1.x introduced |
+| Frontend | Owl 1.4 (already shipped in 14.0) + new `@web/core` web client with `@odoo-module` ES modules; legacy widgets still present |
 | Support | Community: Ongoing, Enterprise: Active |
 
 ## Breaking Changes from v14
 
-### @api.multi REMOVED
+### @api.multi does not exist (absent since before 14.0)
 ```python
-# BREAKS IN v15
+# BREAKS (AttributeError)
 @api.multi
 def action_confirm(self):
     pass
@@ -59,14 +59,16 @@ state = fields.Selection(..., tracking=True)
 - OWL 1.x framework
 - ES6+ JavaScript
 
-## OWL 1.x Introduction
+## OWL 1.x Components
 
 ### Component Structure
 ```javascript
 /** @odoo-module **/
 
-const { Component, useState, onMounted } = owl;
-const { useService } = require('@web/core/utils/hooks');
+import { useService } from "@web/core/utils/hooks";
+
+const { Component, useState } = owl;
+const { onMounted } = owl.hooks;  // Owl 1: lifecycle hooks live in owl.hooks
 
 class MyComponent extends Component {
     setup() {
@@ -146,17 +148,12 @@ class MyModel(models.Model):
 
 ### CRUD Methods
 ```python
-@api.model
-def create(self, vals):
-    """Single record create - standard pattern"""
-    if not vals.get('code'):
-        vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
-    return super().create(vals)
-
-# Optional: model_create_multi for batch operations
+# Base create() is @api.model_create_multi in 15.0: override it the same way.
+# (@api.model on a single-dict create() is silently wrapped - no warning - and then
+#  creates record by record.)
 @api.model_create_multi
 def create(self, vals_list):
-    """Batch create - optional but recommended"""
+    """Batch create - the standard override form"""
     for vals in vals_list:
         if not vals.get('code'):
             vals['code'] = self.env['ir.sequence'].next_by_code('my.model')
@@ -201,6 +198,7 @@ def unlink(self):
     'author': 'Your Company',
     'website': 'https://yourwebsite.com',
     'license': 'LGPL-3',
+    # 15.0 does not auto-add 'base' to an empty depends: declare it explicitly
     'depends': ['base', 'mail', 'web'],
     'data': [
         'security/security.xml',
@@ -211,8 +209,11 @@ def unlink(self):
     'assets': {
         'web.assets_backend': [
             'my_module/static/src/js/**/*',
-            'my_module/static/src/xml/**/*',
             'my_module/static/src/scss/**/*',
+        ],
+        # 15.0: QWeb/Owl XML templates go to web.assets_qweb
+        'web.assets_qweb': [
+            'my_module/static/src/xml/**/*',
         ],
     },
     'installable': True,
@@ -223,17 +224,19 @@ def unlink(self):
 ## Asset Management
 
 ### New Asset Bundle System
+Assets are declared with the manifest `assets` key (or `ir.asset` records); there is no `<asset>` XML data tag in 15.0.
 ```python
 'assets': {
     'web.assets_backend': [
         # JavaScript
         'my_module/static/src/js/my_component.js',
 
-        # OWL Templates
-        'my_module/static/src/xml/my_component.xml',
-
         # SCSS
         'my_module/static/src/scss/my_component.scss',
+    ],
+    # OWL / QWeb templates (15.0: separate bundle; XML in assets_backend is not loaded)
+    'web.assets_qweb': [
+        'my_module/static/src/xml/my_component.xml',
     ],
     'web.assets_frontend': [
         'my_module/static/src/js/frontend.js',
@@ -280,9 +283,10 @@ return super().create(vals)
 ## Preparing for v16 Upgrade
 
 ### Upcoming Changes
-- Command class for x2many operations
-- attrs deprecation begins
-- OWL 2.x introduction
+- OWL 2.x (`import ... from "@odoo/owl"`, `markup()`)
+- `index=` gains `'trigram'` / `'btree_not_null'`
+- `@api.private` and a stricter RPC guard
+- (`Command` already exists in 15.0; `attrs` stays valid in 16.0)
 
 ### Recommended Actions
 1. Start using `@api.model_create_multi`
@@ -296,11 +300,54 @@ def create(self, vals_list):
     return super().create(vals_list)
 ```
 
+## Additional Rules from Odoo's Official Guidelines (verified for 15.0)
+
+These rules come from Odoo's official skill library (odoo/odoo, `skills/`, branch 20.0) and were checked against the 15.0 source; master-only APIs are translated to the 15.0 equivalent or marked as not available.
+
+### API availability in 15.0 vs master
+
+| Topic | 15.0 | Use in 15.0 |
+|---|---|---|
+| `Command` / `from odoo import Command` | exists | `Command.create(vals)`, `Command.set(ids)`; tuples still valid |
+| `_allow_sudo_commands` | exists | `False` on security-sensitive comodels |
+| `sudo(user)` | different | deprecated (warning) -> `with_user(user)`; `sudo()` takes a bool |
+| `related_sudo` (default True) | exists | `related_sudo=False` on sensitive chains |
+| `odoo.tools.SQL`, `SQL.identifier` | absent | psycopg2 parameters, `psycopg2.sql.Identifier`; `query = self._search(domain)` (a `Query`, or `[]` for a trivially false domain), then `query.select('"t"."col"')` -> `(query_str, params)` |
+| `odoo.fields.Domain` | absent | `odoo.osv.expression.AND/OR/normalize_domain` |
+| `@api.private` | absent | `_` prefix (guard `check_method_name`: `^(_.*\|init)$`) |
+| route `auth` | different | `user` (default), `public`, `none`; no `bearer` |
+| route `type` | different | `http`, `json` only (no `jsonrpc`/`json2`) |
+| route override without `@http.route` | different | URL silently dropped: always re-decorate (`@http.route()` keeps parent args) |
+| server QWeb `t-out` | exists | `t-out`; `t-esc` = escaping alias; `t-raw` deprecated, renders unescaped |
+| `_()` escapes Markup args | absent | escape yourself; `_("text %s", value)` / `_("%(x)s", x=...)` |
+| `self.env._`, `LazyTranslate` | absent | `from odoo import _, _lt` |
+| `fields.NO_ACCESS` | exists | `groups=fields.NO_ACCESS` |
+| `odoo.tools.file_open` confinement | exists | instead of `open()` |
+| restricted `odoo.tools.misc.pickle` | exists | still prefer JSON |
+| `odoo.tools.consteq` | exists | secret comparison |
+| `ir.access` / `security/ir.access.csv` | absent | `ir.model.access` CSV + `ir.rule` XML |
+| `base.group_everyone` | absent | empty `group_id` ACL row = everyone |
+| `recordset.grouped()` | absent | `odoo.tools.groupby(records, key)` (lists) |
+| `_read_group(domain, groupby, aggregates)` tuples | absent | `read_group(domain, ['amount:sum'], ['partner_id'], lazy=False)` -> dicts |
+| `models.Constraint` / `models.Index` / `UniqueIndex` | absent | `_sql_constraints`; multi-column indexes in `init()` with `odoo.tools.create_index` |
+| `index='trigram'` / `'btree_not_null'` | absent | `index=True` only |
+| `t-lang` without `t-call` | different | silently ignored (no error); use it on `t-call` |
+| `BaseCommon` / `BaseUsersCommon` | absent | `TransactionCase`, `TransactionCaseWithUserDemo`, `HttpCaseWithUserDemo`, `new_test_user` |
+| `SavepointCase` | different | deprecated alias of `TransactionCase` (which is savepoint-based) |
+| default test tags | `standard`, `at_install` | post-install: `@tagged('post_install', '-at_install')` (needed for HttpCase/tours) |
+| imported TestCase classes / inherited `test_*` | different | collected and run again; `allow_inherited_tests_method` does not exist |
+| Owl `markup()`, Owl `computed`, `@web/core/utils/html` | absent | Owl 1.4: `t-esc` / underscore `_.escape` |
+| `patch` | different | `patch(obj, "patch_name", { ... })` with `this._super(...)` |
+
+### Master/20.0-only - do NOT use in 15.0
+
+Everything marked "absent" above, the `<asset>` XML tag, plus: `auth='bearer'` / `bearer_scope`, tour `expectUnloadPage`, `populate.blueprint`, `--unsafe-policy`, `import ... from "@odoo/owl"`, direct `invisible="expr"` view modifiers (use `attrs`).
+
 ## Best Practices for v15
 
 1. **Use tracking=True** - Not track_visibility
 2. **No @api.multi** - Methods iterate by default
-3. **Consider @api.model_create_multi** - For batch creates
+3. **Use @api.model_create_multi** - For every create override (see CRUD Methods)
 4. **Use OWL for new components** - Legacy JS for maintenance
 5. **Use asset bundles** - New asset management system
 6. **Python 3 super()** - No need for class/self arguments

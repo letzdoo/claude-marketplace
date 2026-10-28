@@ -400,17 +400,14 @@ output = {
               │                               │
               ▼                               ▼
     ┌─────────────────────┐         Standard single-
-    │ What version?       │         company model
+    │ All versions 14-19  │         company model
     └─────────────────────┘
               │
-    ┌─────────┴─────────┐
-    ▼                   ▼
-  v14-v17             v18+
-    │                   │
-    ▼                   ▼
-  Manual            _check_company_auto = True
-  company           check_company = True
-  validation        allowed_company_ids in rules
+              ▼
+  _check_company_auto = True   (opt-in)
+  check_company=True on fields (opt-in)
+  Record rules: ('company_id', 'in', company_ids)
+  (allowed_company_ids is a context key, NOT a rule variable)
 ```
 
 ---

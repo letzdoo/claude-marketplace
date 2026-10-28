@@ -190,9 +190,8 @@ def migrate(cr, version):
 - Update view visibility syntax
 
 ### 17 → 18
-- Add `_check_company_auto`
-- Add `check_company` to fields
-- Update record rules to `allowed_company_ids`
+- No company-check changes needed: `_check_company_auto` / `check_company` are opt-in and exist since 14.0
+- Record rules keep using `company_ids` (`allowed_company_ids` is a context key, not a rule variable; no rename)
 - Add type hints (recommended)
 - Use `SQL()` builder (recommended)
 

@@ -11,14 +11,16 @@
 
 | Feature | v17 | v18 | Recommendation |
 |---------|-----|-----|----------------|
-| `_check_company_auto` | N/A | Available | Add to multi-company models |
-| `check_company` on fields | N/A | Available | Add to cross-company fields |
-| `SQL()` builder | N/A | Recommended | Use for raw SQL |
+| `_check_company_auto` | Available | Available | Add to multi-company models (no migration needed) |
+| `check_company` on fields | Available | Available | Add to cross-company fields (no migration needed) |
+| `SQL()` builder (`odoo.tools.SQL`) | Available | Available | Use for raw SQL in both versions |
 | Type hints | Optional | Recommended | Add where possible |
 
-## NEW: Automatic Company Validation
+## Automatic Company Validation (available in v17 and v18)
 
-### Before (v17 - Manual)
+`_check_company_auto` and `check_company=True` already exist in 17.0, so this is a clean-up, not a version change.
+
+### Before (manual constraint)
 ```python
 class MyModel(models.Model):
     _name = 'my.model'
@@ -33,7 +35,7 @@ class MyModel(models.Model):
                 raise ValidationError(_("Partner company must match record company."))
 ```
 
-### After (v18 - Automatic)
+### After (automatic, v17 and v18)
 ```python
 class MyModel(models.Model):
     _name = 'my.model'
@@ -47,9 +49,9 @@ class MyModel(models.Model):
     # No manual constraint needed!
 ```
 
-## NEW: SQL Builder
+## SQL Builder (available in v17 and v18)
 
-### Before (v17 - Raw SQL)
+### Before (string SQL)
 ```python
 def _get_statistics(self):
     query = """
@@ -62,7 +64,7 @@ def _get_statistics(self):
     return self.env.cr.dictfetchall()
 ```
 
-### After (v18 - SQL Builder)
+### After (SQL builder, v17 and v18)
 ```python
 from odoo.tools import SQL
 
@@ -118,19 +120,27 @@ def calculate_total(
 
 ## Security Rule Updates
 
-### Before (v17)
+No change. In both v17 and v18 the record rule eval context is `user`, `time`, `company_ids`, `company_id`. `allowed_company_ids` is NOT available in rule domains (the rule fails validation):
+
 ```xml
+<!-- v17 and v18 -->
 <field name="domain_force">[
     ('company_id', 'in', company_ids)
 ]</field>
 ```
 
-### After (v18)
-```xml
-<field name="domain_force">[
-    ('company_id', 'in', allowed_company_ids)
-]</field>
-```
+## Official guideline deltas 17.0 -> 18.0
+
+Only the official-guideline rules (Odoo `skills/`, verified against both sources) that change between the two versions:
+
+| Topic | 17.0 | 18.0 |
+|-------|------|------|
+| Single-dict `@api.model` create override | wrapped, logs a WARNING | wrapped, emits a DeprecationWarning |
+| Translation API | `_()` (frame-based) and `_lt` | adds `self.env._(...)` and `LazyTranslate`; `_` / `_lt` still work |
+| Access checks | `check_access_rights()` / `check_access_rule()` | deprecated -> `check_access()` / `has_access()` |
+| Restricted `odoo.tools.misc.pickle` | exists | removed (use JSON) |
+
+Unchanged in both (besides `SQL`, `_check_company_auto`/`check_company` and the rule eval context, see above): `_search()` returning a `Query`, `_read_group(domain, groupby, aggregates)` returning tuples, `grouped()`, `_sql_constraints`, field `index=` values, domain combination with `odoo.osv.expression`.
 
 ## Migration Checklist
 
@@ -138,7 +148,7 @@ def calculate_total(
 - [ ] Add `_check_company_auto = True` to model definition
 - [ ] Add `check_company=True` to relevant Many2one fields
 - [ ] Remove manual company validation constraints
-- [ ] Update record rules to use `allowed_company_ids`
+- [ ] Keep record rules on `company_ids` (do NOT switch to `allowed_company_ids`)
 
 ### For SQL Queries
 - [ ] Import `from odoo.tools import SQL`
@@ -159,24 +169,17 @@ def calculate_total(
 
 ## Backward Compatibility
 
-If supporting both v17 and v18:
+If supporting both v17 and v18: `odoo.tools.SQL` exists in both, so no import fallback is needed:
 
 ```python
-# Check for SQL builder availability
-try:
-    from odoo.tools import SQL
-    HAS_SQL = True
-except ImportError:
-    HAS_SQL = False
+from odoo.tools import SQL
 
 def _execute_query(self):
-    if HAS_SQL:
-        query = SQL("SELECT * FROM %s WHERE id = %s",
-                   SQL.identifier(self._table), self.id)
-    else:
-        query = "SELECT * FROM %s WHERE id = %%s" % self._table
-        query = query, (self.id,)
-    # Handle execution...
+    self.env.cr.execute(SQL(
+        "SELECT * FROM %s WHERE id = %s",
+        SQL.identifier(self._table), self.id,
+    ))
+    return self.env.cr.dictfetchall()
 ```
 
 ## Common Migration Issues

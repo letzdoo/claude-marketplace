@@ -102,8 +102,8 @@ Analyze each module component against migration guides.
 - Menu structure changes
 
 ### 3. Security Analysis
-- Record rule variable changes (`company_ids` → `allowed_company_ids`)
-- New security features (`_check_company_auto`, `check_company`)
+- Record rule domains: flag any use of `allowed_company_ids` (context key, not a rule variable; fails validation). Rules use `company_ids` in all versions - there is no rename
+- Opt-in company checks (`_check_company_auto`, `check_company`) - available since 14.0, not new
 - Group definition changes
 
 ### 4. JavaScript/OWL Analysis
@@ -263,14 +263,15 @@ def migrate(cr, version):
 ### 17 → 18
 | Change | Detection | Fix |
 |--------|-----------|-----|
-| `allowed_company_ids` | Search for `company_ids` in rules | Update variable name |
-| `_check_company_auto` | Models with company_id | Add to class |
+| Record rule variables | Search for `allowed_company_ids` in rules | Replace with `company_ids` (no rename in 18.0; `allowed_company_ids` never worked in rules) |
 
 ### 18 → 19
 | Change | Detection | Fix |
 |--------|-----------|-----|
-| Type hints required | Check field definitions | Add type hints |
-| SQL builder required | Search for `cr.execute` | Use SQL() builder |
+| `_sql_constraints` ignored | Search for `_sql_constraints` | Use `models.Constraint` / `models.Index` / `models.UniqueIndex` |
+| `res.users.groups_id` → `group_ids` | Search for `groups_id` | Rename to `group_ids` |
+| Type hints optional | - | No change needed (recommended) |
+| SQL builder recommended | Search for `cr.execute` | Optional: use SQL() builder (string SQL with params still works) |
 
 ## GitHub Verification
 
@@ -285,7 +286,7 @@ Use WebFetch to verify patterns against official Odoo repository.
 | 16.0 | `16.0` | `https://raw.githubusercontent.com/odoo/odoo/16.0/` |
 | 17.0 | `17.0` | `https://raw.githubusercontent.com/odoo/odoo/17.0/` |
 | 18.0 | `18.0` | `https://raw.githubusercontent.com/odoo/odoo/18.0/` |
-| 19.0 | `master` | `https://raw.githubusercontent.com/odoo/odoo/master/` |
+| 19.0 | `19.0` | `https://raw.githubusercontent.com/odoo/odoo/19.0/` |
 
 ### Key Comparison Files
 
